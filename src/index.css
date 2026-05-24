@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Bengali:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans Bengali", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  --color-primary-dark: #0a0f1e;
+  --color-primary-green: #00ff88;
+  --color-accent-red: #ff4444;
+}
+
+/* Custom glow borders and animations */
+.glass-glow-card {
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.3s ease;
+}
+
+.glass-glow-card:hover {
+  border-color: rgba(0, 255, 136, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 255, 136, 0.05);
+}
+
+.glow-green-btn {
+  background: linear-gradient(135deg, #00ff88 0%, #00b359 100%);
+  color: #020617;
+  font-weight: 600;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+  transition: all 0.2s ease;
+}
+
+.glow-green-btn:hover {
+  box-shadow: 0 0 25px rgba(0, 255, 136, 0.75);
+  transform: translateY(-1px);
+}
+
+.glow-red-btn {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 15px rgba(255, 68, 68, 0.45);
+  transition: all 0.2s ease;
+}
+
+/* Red Pulsing Animation */
+@keyframes pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 68, 68, 0.95);
+    transform: scale(1.02);
+  }
+}
+
+.animate-pulse-red {
+  animation: pulse-red 2s infinite;
+}
+
+/* Green Pulsing Animation */
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.7);
+  }
+}
+
+.animate-pulse-green {
+  animation: pulse-green 1.8s infinite;
+}
+
+/* Shimmer Loader */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-bg {
+  background: linear-gradient(90deg, #131e3a 25%, #1d2d54 50%, #131e3a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0f1e;
+}
+::-webkit-scrollbar-thumb {
+  background: #1d2d54;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00ff88;
+}
+
+/* Continuous marquee ticker animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Disable tap highlight color on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+

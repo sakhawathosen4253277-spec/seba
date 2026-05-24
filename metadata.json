@@ -1,0 +1,6 @@
+{
+  "name": "Probashi Sheba",
+  "description": "কম্বোডিয়ায় বাংলাদেশিদের বিশ্বস্ত সঙ্গী — প্রবাসী ভাইদের জন্য ভিসা, রেমিটেন্স, এয়ার টিকেট, চাকরি এবং জরুরি সহায়তা সেবা।",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
