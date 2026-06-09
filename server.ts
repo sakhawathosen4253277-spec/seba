@@ -119,9 +119,37 @@ Provide a natural, caring, human response in Bengali as ${name}:
 
         const textResponse = response.text || fallbackBengaliSupport(message, name);
         return res.json({ response: textResponse });
-      } catch (e) {
+      } catch (e: any) {
         console.error("Gemini API error, falling back to rule engine:", e);
+        const errorString = String(e?.message || e);
         const fallbackText = fallbackBengaliSupport(message, name);
+
+        // Check if the API key is reported as leaked or permission denied
+        if (errorString.includes("leaked") || errorString.includes("leak") || errorString.includes("PERMISSION_DENIED") || errorString.includes("403")) {
+          const leakWarningMessage = `⚠️ এপিআই কী সতর্কতা (API Key Blocked):
+প্রিয় প্রবাসী ভাই, আপনার এআই স্টুডিওর জেমিনি এপিআই কি-টি (API Key) নিরাপত্তা সুরক্ষার কারণে গুগল কর্তৃপক্ষ কর্তৃক ব্লক বা লিক (leaked) হিসেবে চিহ্নিত করা হয়েছে ভাই।
+
+এই সমস্যাটি দ্রুত সমাধান করতে দয়া করে নিচের পদক্ষেপগুলো অনুসরণ করুন ভাই:
+১. আপনার স্ক্রীনের কোণায় বা অ্যাপ্লিকেশন মেন্যুতে অবস্থিত **Settings > Secrets** প্যানেলে যান।
+২. একটি নতুন সচল ও নিরাপদ **GEMINI_API_KEY** টাইপ করে সেভ করে নিন ভাই।
+
+চিন্তা করবেন না ভাই! আপনার সাহায্যার্থে আমাদের অফলাইন ব্যাকআপ সহকারী সিস্টেমটি সক্রিয় রয়েছে। আপনার প্রশ্নটির চমৎকার সমাধান নিচে দেওয়া হলো:
+
+${fallbackText}`;
+          return res.json({ response: leakWarningMessage });
+        }
+
+        // If it's another common API key issue or invalid key error
+        if (errorString.includes("API key") || errorString.includes("API_KEY_INVALID") || errorString.includes("not found") || errorString.includes("key")) {
+          const keyWarningMessage = `⚠️ এপিআই কী ত্রুটি (API Key Issue):
+প্রবাসী ভাই, আপনার দেওয়া জেমিনি এপিআই কি-টি (API Key) সঠিক নয় অথবা মেয়াদ চলে গেছে ভাই। অনুগ্রহ করে স্ক্রীনের **Settings > Secrets** ট্যাব থেকে আপনার সঠিক **GEMINI_API_KEY** কি-টি কোডটি দিয়ে সেভ করুন ভাই।
+
+চিন্তা করবেন না ভাই, আমাদের অফলাইন ব্যাকআপ সহকারী সিস্টেম সচল রয়েছে। নিচে আপনার প্রশ্নের সমাধান দেওয়া হলো:
+
+${fallbackText}`;
+          return res.json({ response: keyWarningMessage });
+        }
+
         return res.json({ response: fallbackText });
       }
     } else {

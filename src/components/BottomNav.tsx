@@ -14,13 +14,13 @@ export default function BottomNav({
   unreadNotifications,
   unreadChatCount,
 }: BottomNavProps) {
-  const tabs = [
+  const tabs: { id: NavTab; label: string; icon: any; badge?: number }[] = [
     { id: "home", label: "হোম", icon: Home },
     { id: "services", label: "আমাদের সেবা", icon: Briefcase },
     { id: "chat", label: "চ্যাট", icon: MessageSquare, badge: unreadChatCount },
     { id: "notifications", label: "নোটিশ", icon: Bell, badge: unreadNotifications },
     { id: "profile", label: "মাই প্রোফাইল", icon: User },
-  ] as const;
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 border-t border-slate-900 shadow-[0_-5px_25px_rgba(0,0,0,0.5)] md:max-w-md md:mx-auto">
