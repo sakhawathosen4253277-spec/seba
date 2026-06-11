@@ -73,74 +73,48 @@ export default function VisaInformation() {
       icon: "⏳",
       description: "আপনার বর্তমান ভিসা শেষ হওয়ার কমপক্ষে ৭ দিন পূর্বেই ইমিগ্রেশনে আবেদন পেশ করতে হবে। সঠিক মেয়াদে না বাড়ালে প্রতিদিন জরিমানা গুণবেন।",
       requirements: [
-        "মূল পাসপোর্ট",
-        "ভিসা এক্সটেনশন ফি ক্লিয়ার করার রসিদ",
-        "বাসার ঠিকানা ও ভাড়ার নথি/পত্র"
+        "মূল পাসপোর্ট (কমপক্ষে ৬ মাস মেয়াদ সম্পন্ন)",
+        "সাদা ব্যাকগ্রাউন্ডের ছবি (২ কপি)",
+        "FPCS (Foreigners Present in Cambodia System) অ্যাপ রেজিস্ট্রেশন প্রমাণপত্র",
+        "বর্তমান ভিসার কপি এবং কোম্পানি লেটার (যদি থাকে)"
       ],
       steps: [
-        "পাসপোর্ট নিয়ে সরাসরি ফনম পেন এয়ারপোর্টের বিপরীতে অবস্থিত ইমিগ্রেশন ডিপার্টমেন্টে যান।",
-        "অথবা রেজিস্টার্ড ও সরকার-অনুমোদিত ট্রাভেল এজেন্সিতে পাসপোর্ট জমা দিন।"
+        "আপনার পাসপোর্ট ও প্রয়োজনীয় কাগজপত্র নিয়ে স্থানীয় ট্রাভেল এজেন্সি বা সরাসরি ইমিগ্রেশন বিভাগে যোগাযোগ করুন।",
+        "এক্সটেনশন ফি প্রদান করুন এবং পাসপোর্টটি জমা দিন।",
+        "সাধারণত ৭ থেকে ১০ কার্যদিবসের মধ্যে আপনার নবায়িত পাসপোর্ট বুঝে নিন।"
       ],
-      cost: "$৫০ (১ মাস) থেকে $৩০০ (১ বছর)",
-      duration: "১ মাস থেকে ১ বছর মেয়াদী"
-    },
-    {
-      id: "overstay",
-      title: "ওভারস্টে গাইড (Overstay)",
-      icon: "⚠️",
-      description: "ভিসার মেয়াদ পার হয়ে কম্বোডিয়ায় থাকা সম্পূর্ণ বেআইনি অপরাধ। প্রতিদিন ১০ ডলার জরিমানা দিয়ে ইমিগ্রেশন থেকে ক্লিয়ারেন্স নিতে হবে।",
-      requirements: [
-        "মূল পাসপোর্ট ও এক্সিট ভিসা আবেদন",
-        "জরিমানার সম্পূর্ণ সমপরিমাণ ক্যাশ ডলার"
-      ],
-      steps: [
-        "৯৯ দিনের নিচে হলে জরিমানা সরাসরি ইমিগ্রেশনে প্রদান করুন।",
-        "৯৯ দিনের বেশি ওভারস্টে হলে পুলিশ বা দূতাবাসের সাহায্য নিয়ে আউটপাস সংগ্রহ করুন।"
-      ],
-      cost: "প্রতিদিন $১০ USD জরিমানা",
-      duration: "তাত্ক্ষণিক প্রস্থান বাধ্যতামূলক"
-    },
-    {
-      id: "protection",
-      title: "ডিপোর্টেশন সুরক্ষা",
-      icon: "🛡️",
-      description: "অবৈধ দালাল বা অসাধু এজেন্ট পাসপোর্ট আটকে রাখলে বা বাতিল ঘোষণা করলে আইনি প্রক্রিয়ায় কীভাবে নিজেকে রক্ষা করবেন তার দিকনির্দেশন।",
-      requirements: [
-        "জাতীয় পরিচয়পত্র বা জন্মসূত্রে বাংলাদেশি হওয়ার প্রমাণ",
-        "দালাল চক্রের ফোন ও তথ্য বিবরণ"
-      ],
-      steps: [
-        "বাংলাদেশ অনারারি কনসুলেট অথবা দূতাবাসে দাপ্তরিকভাবে পাসপোর্ট হারানোর ডায়েরি জমা দিন।",
-        "ফ্রি আইনি পরামর্শের জন্য আমাদের হটলাইনে জানান।"
-      ],
-      cost: "সম্পূর্ণ বিনামূল্যে নির্দেশনা",
-      duration: "তাত্ক্ষণিক জরুরি সহায়তা"
+      cost: "ভিসা টাইপ অনুযায়ী $৫০ থেকে $৩০০ USD",
+      duration: "১ মাস থেকে ১ বছর"
     }
   ];
 
   const faqs = [
     {
-      q: "কম্বোডিয়ায় ভিসার মেয়াদ শেষ হয়ে গেলে কী শাস্তি হয়?",
-      a: "যদি আপনার ভিসার মেয়াদ পার হয়ে যায়, তাকে ওভারস্টে (Overstay) বলা হয়। কম্বোডিয়ান আইনানুযায়ী প্রতিদিনের জন্য ১০ ডলার (USD) জরিমানা প্রদান করতে হবে। দীর্ঘ সময় ধরে ওভারস্টে করলে পুলিশ আপনাকে আটক করতে পারে এবং পরবর্তীতে ব্ল্যাকলিস্ট বা আজীবনের জন্য দেশ থেকে বহিষ্কার (Deport) করতে পারে।"
+      q: "ভিজিট ভিসায় এসে কি কম্বোডিয়ায় কাজ করা সম্ভব?",
+      a: "না ভাই, ভিজিট বা ট্যুরিস্ট ভিসায় এসে কম্বোডিয়ায় স্থায়ীভাবে বৈধ কাজ করা আইনত নিষিদ্ধ। কাজের জন্য অবশ্যই আপনাকে ই-ভিসা (বিজনেস) নিয়ে আসতে হবে এবং পরবর্তীতে লেবার কার্ড বা ওয়ার্ক পারমিট সংগ্রহ করতে হবে।"
     },
     {
-      q: "আমার পাসপোর্ট দালাল আটকে রেখেছে, এখন আমি কী করব?",
-      a: "দালাল যদি কোনো টাকা বা বেআইনি দাবি করে পাসপোর্ট আটকে রাখে, শান্ত থাকুন। দালালের সাথে সব কথোপকথনের স্ক্রিনশট ও প্রমাণ সুরক্ষিত করুন। সরাসরি ফনম পেনে বাংলাদেশ অনারারি কনসুলেটে যোগাযোগ করুন। আমাদের হেল্পলাইনে কথা বললে আমরা নিখরচায় দূতাবাসের ট্রাভেল পারমিট ফরম সংগ্রহে সাহায্য করব।"
+      q: "ওভারস্টে (ভিসার মেয়াদ শেষ) হলে জরিমানা এড়ানোর উপায় কী?",
+      a: "ভিসার মেয়াদ শেষ হওয়ার অন্তত এক সপ্তাহ আগেই এক্সটেনশনের আবেদন করুন ভাই। ওভারস্টে হয়ে গেলে প্রতিদিন ১০ ডলার জরিমানা দিতে হবে, যা কোনোভাবেই মওকুফ করা সম্ভব নয়।"
     },
     {
-      q: "অনলাইন ই-ভিসা নিয়ে কি কম্বোডিয়া সরাসরি ঢোকা সম্ভব?",
-      a: "হ্যাঁ, ট্যুরিস্ট ই-ভিসা (T Visa) অনলাইন থেকে করার পর প্রিন্ট করে কম্বোডিয়া প্রবেশ করা সম্পূর্ণ সম্ভব। তবে সতর্ক থাকুন, বিমানবন্দর ইমিগ্রেশনে রিটার্ন টিকিট, হোটেল বুকিং এর প্রমাণ দেখতে চাইতে পারে এবং নূন্যতম নগদ ১০০০ ডলার সাথে রাখতে হবে।"
+      q: "FPCS রেজিস্ট্রেশন কী এবং এটি কি বাধ্যতামূলক?",
+      a: "হ্যাঁ ভাই, কম্বোডিয়ায় বসবাসকারী সকল বিদেশিদের জন্য FPCS (Foreigners Present in Cambodia System) অ্যাপে নাম নিবন্ধন করা সম্পূর্ণ বাধ্যতামূলক। এটি ছাড়া আপনার ভিসা রিনিউ বা এক্সটেনশন করা যাবে না।"
+    },
+    {
+      q: "কম্বোডিয়ার ইমিগ্রেশন বা পুলিশি সমস্যার সম্মুখীন হলে কী করব?",
+      a: "অবিলম্বে আপনার সকল আসল ডকুমেন্টস প্রদর্শন করুন এবং যেকোনো আইনি বা জটিল সমস্যায় সরাসরি বাংলাদেশ অনারারি কনসুলেট অথবা আমাদের প্রবাসী সেবা জরুরি হেল্পলাইনে (+৮৫৫১২৩৪৫৬৭৮) কল দিন।"
     }
   ];
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-4 animate-fade-in font-sans">
+    <div className="flex flex-col space-y-5 pb-20 px-4 animate-fade-in font-sans bg-[#F7F8FA] min-h-screen">
       {/* Tab Header */}
       <div className="mt-2 text-center">
-        <h2 className="text-xl font-bold text-white flex items-center justify-center space-x-1">
+        <h2 className="text-xl font-medium text-[#1A1A2E] flex items-center justify-center space-x-1">
           <span>ভিসা সংক্রান্ত ও আইনি তথ্য</span>
         </h2>
-        <p className="text-xs text-slate-400 mt-1">ভিসার ক্যাটাগরি, নিয়ম কানুন ও সরকারি ক্লিয়ারেন্স গাইড</p>
+        <p className="text-xs text-[#6B7280] mt-1">ভিসার ক্যাটাগরি, নিয়ম কানুন ও সরকারি ক্লিয়ারেন্স গাইড</p>
       </div>
 
       {/* Grid Category Selection */}
@@ -149,43 +123,51 @@ export default function VisaInformation() {
           <button
             key={guide.id}
             onClick={() => setSelectedGuideId(guide.id)}
-            className={`p-3.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all outline-none ${
+            style={
               selectedGuideId === guide.id
-                ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(0,255,136,0.15)]"
-                : "bg-slate-950 text-slate-300 border-slate-900 hover:border-slate-800"
+                ? { border: "1.5px solid #1B4F72" }
+                : { border: "0.5px solid #E5E7EB" }
+            }
+            className={`p-3.5 rounded-[14px] flex flex-col items-center justify-center text-center transition-all outline-none ${
+              selectedGuideId === guide.id
+                ? "bg-[#EBF5FB] text-[#1B4F72]"
+                : "bg-[#FFFFFF] text-[#374151] hover:bg-[#F9FAFB]"
             }`}
           >
             <span className="text-xl mb-1 select-none">{guide.icon}</span>
-            <span className="text-xs font-bold font-sans">{guide.title}</span>
+            <span className="text-xs font-medium font-sans">{guide.title}</span>
           </button>
         ))}
       </div>
 
       {/* Detailed Guide Panel */}
       {selectedGuideId && (
-        <div className="glass-glow-card p-5 rounded-2xl space-y-4 animate-slide-up">
+        <div 
+          style={{ border: "0.5px solid #E5E7EB" }}
+          className="bg-[#FFFFFF] p-5 rounded-[16px] space-y-4 animate-slide-up"
+        >
           {visaGuides.map((guide) => {
             if (guide.id !== selectedGuideId) return null;
             return (
               <div key={guide.id} className="space-y-4">
-                <div className="flex justify-between items-center pb-2.5 border-b border-slate-900">
-                  <h3 className="text-sm font-extrabold text-emerald-400">{guide.title} নির্দেশিকা</h3>
-                  <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded font-mono font-bold">
+                <div style={{ borderColor: "#E5E7EB" }} className="flex justify-between items-center pb-2.5 border-b">
+                  <h3 className="text-sm font-medium text-[#1B4F72]">{guide.title} নির্দেশিকা</h3>
+                  <span className="text-[10px] bg-[#F3F4F6] text-[#374151] px-2 py-0.5 rounded-[8px] font-mono font-medium">
                     খরচ: {guide.cost}
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed font-sans mt-1">
+                <p className="text-xs text-[#4B5563] leading-relaxed font-sans mt-1">
                   {guide.description}
                 </p>
 
                 {/* Requirements */}
                 <div>
-                  <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center space-x-1">
+                  <h4 className="text-[11px] font-medium text-[#1B4F72] mb-1.5 flex items-center space-x-1">
                     <BookOpen className="w-3.5 h-3.5" />
                     <span>প্রয়োজনীয় কাগজপত্র (Requirements):</span>
                   </h4>
-                  <ul className="space-y-1 text-xs text-slate-300 pl-4 list-disc font-sans leading-relaxed">
+                  <ul className="space-y-1 text-xs text-[#374151] pl-4 list-disc font-sans leading-relaxed">
                     {guide.requirements.map((req, idx) => (
                       <li key={idx}>{req}</li>
                     ))}
@@ -194,20 +176,23 @@ export default function VisaInformation() {
 
                 {/* Steps */}
                 <div>
-                  <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center space-x-1">
+                  <h4 className="text-[11px] font-medium text-[#1B4F72] mb-1.5 flex items-center space-x-1">
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>আবেদন করার ধাপসমূহ (Process Steps):</span>
                   </h4>
-                  <ol className="space-y-1.5 text-xs text-slate-300 list-decimal pl-4 font-sans leading-relaxed">
+                  <ol className="space-y-1.5 text-xs text-[#374151] list-decimal pl-4 font-sans leading-relaxed">
                     {guide.steps.map((step, idx) => (
                       <li key={idx}>{step}</li>
                     ))}
                   </ol>
                 </div>
 
-                <div className="p-3 bg-slate-950 rounded-xl border border-slate-900 flex justify-between items-center text-[11px]">
-                  <span className="text-slate-400">ভিসা স্থায়িত্বকাল:</span>
-                  <span className="font-bold text-white">{guide.duration}</span>
+                <div 
+                  style={{ border: "0.5px solid #E5E7EB" }}
+                  className="p-3 bg-[#F7F8FA] rounded-xl flex justify-between items-center text-[11px]"
+                >
+                  <span className="text-[#6B7280]">ভিসা স্থায়িত্বকাল:</span>
+                  <span className="font-medium text-[#1A1A2E]">{guide.duration}</span>
                 </div>
               </div>
             );
@@ -216,41 +201,48 @@ export default function VisaInformation() {
       )}
 
       {/* Overstay Fine Calculator Card */}
-      <div className="bg-slate-950 p-5 rounded-2xl border border-red-500/10 space-y-4">
-        <div className="flex items-center space-x-2 pb-2.5 border-b border-slate-900">
-          <Calculator className="w-5 h-5 text-red-500" />
+      <div 
+        style={{ border: "0.5px solid #FCA5A5" }}
+        className="bg-[#FFFFFF] p-5 rounded-[16px] space-y-4"
+      >
+        <div style={{ borderColor: "#E5E7EB" }} className="flex items-center space-x-2 pb-2.5 border-b">
+          <Calculator className="w-5 h-5 text-[#E74C3C]" />
           <div>
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">ওভারস্টে জরিমানা ক্যালকুলেটর</h3>
-            <p className="text-[9px] text-slate-400">ভিসার মেয়াদ ছাড়া কত দিন অতিরিক্ত আছেন হিসাব করুন</p>
+            <h3 className="text-xs font-medium text-[#1A1A2E]">ওভারস্টে জরিমানা ক্যালকুলেটর</h3>
+            <p className="text-[9px] text-[#6B7280]">ভিসার মেয়াদ ছাড়া কত দিন অতিরিক্ত আছেন হিসাব করুন</p>
           </div>
         </div>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-[11px] text-slate-400 font-bold mb-1.5">অতিরিক্ত দিনের সংখ্যা লিখুন (Extra Days):</label>
+            <label className="block text-[11px] text-[#6B7280] font-medium mb-1.5">অতিরিক্ত দিনের সংখ্যা লিখুন (Extra Days):</label>
             <input
               type="number"
               value={overstayDays}
               onChange={(e) => setOverstayDays(e.target.value)}
               placeholder="যেমন: ১৫"
-              className="w-full bg-slate-900 rounded-xl py-3 px-4 text-sm text-white font-mono border border-slate-800 focus:border-red-500/50 focus:outline-none"
+              style={{ border: "0.5px solid #E5E7EB" }}
+              className="w-full bg-[#F9FAFB] rounded-xl py-3 px-4 text-sm text-[#1A1A2E] font-mono focus:border-[#1B4F72] focus:outline-none"
             />
           </div>
 
           {daysNumeric > 0 && (
-            <div className={`p-4 rounded-xl border leading-relaxed text-xs space-y-2 ${
-              isOverstayDanger 
-                ? "bg-red-950/20 border-red-500 text-red-300" 
-                : "bg-slate-900 border-slate-800 text-slate-100"
-            }`}>
-              <div className="flex justify-between items-center font-bold">
+            <div 
+              style={
+                isOverstayDanger 
+                  ? { border: "0.5px solid #FCA5A5", backgroundColor: "#FEF2F2" } 
+                  : { border: "0.5px solid #E5E7EB", backgroundColor: "#F7F8FA" }
+              }
+              className={`p-4 rounded-xl leading-relaxed text-xs space-y-2 text-[#1A1A2E]`}
+            >
+              <div className="flex justify-between items-center font-medium">
                 <span>আপনার আনুমানিক জরিমানা (Total Fine):</span>
-                <span className="text-base text-red-400 font-mono">${calculatedFine} USD</span>
+                <span className="text-base text-[#E74C3C] font-mono">${calculatedFine} USD</span>
               </div>
-              <p className="text-[10px]">কম্বোডিয়ার আইন অনুযায়ী নিয়ম লঙ্ঘন করার ফি প্রতিদিন ১০ ডলার হিসাবে হিসাব করা হচ্ছে ভাই।</p>
+              <p className="text-[10px] text-[#6B7280]">কম্বোডিয়ার আইন অনুযায়ী নিয়ম লঙ্ঘন করার ফি প্রতিদিন ১০ ডলার হিসাবে হিসাব করা হচ্ছে ভাই।</p>
               
               {isOverstayDanger && (
-                <div className="pt-2 border-t border-red-550/30 font-bold text-red-400 text-[10px]">
+                <div className="pt-2 border-t border-[#FCA5A5] font-medium text-[#B91C1C] text-[10px]">
                   ⚠️ সতর্ক বার্তা: আপনার ওভারস্টে ৯০ দিনের অধিক ছাড়িয়ে গেছে! আপনাকে পুলিশ যেকোনো সময় আটক বা সরাসরি বাংলাদেশ বিমান মারফতে ফেরত পাঠাতে (Deportation) পারে। অনুগ্রহ করে এখনই আমাদের দূতাবাসের জরুরি হটলাইনে যোগাযোগ করুন!
                 </div>
               )}
@@ -260,20 +252,23 @@ export default function VisaInformation() {
       </div>
 
       {/* Emergency helpline shortcut */}
-      <div className="p-4.5 rounded-xl bg-gradient-to-br from-red-950/25 to-slate-950 border border-red-500/20 text-center space-y-3">
-        <p className="text-xs text-red-200">আপনি কি পুলিশি হয়রানি বা আইনি সমস্যায় আছেন ভাই?</p>
+      <div 
+        style={{ border: "0.5px solid #FCA5A5" }}
+        className="p-4.5 rounded-[14px] bg-[#FEF2F2] text-center space-y-3"
+      >
+        <p className="text-xs text-[#7F1D1D] font-medium">আপনি কি পুলিশি হয়রানি বা আইনি সমস্যায় আছেন ভাই?</p>
         <a
           href="tel:+85512345678"
-          className="inline-flex items-center space-x-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs py-2.5 px-5 rounded-full shadow-[0_0_12px_rgba(239,68,68,0.4)] transition-all outline-none"
+          className="inline-flex items-center space-x-2 bg-[#E74C3C] hover:bg-opacity-90 text-[#FFFFFF] font-medium text-xs py-2.5 px-5 rounded-[12px] transition-all outline-none"
         >
-          <PhoneCall className="w-4 h-4 animation-pulse" />
+          <PhoneCall className="w-4 h-4" />
           <span>জরুরি কনস্যুলার হেল্পলাইন কল</span>
         </a>
       </div>
 
       {/* FAQs Section */}
       <div className="space-y-2.5">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-sans">
+        <h4 className="text-xs font-medium uppercase tracking-wider text-[#6B7280] font-sans">
           সচরাচর জিজ্ঞাসিত প্রশ্ন (FAQ)
         </h4>
 
@@ -281,16 +276,27 @@ export default function VisaInformation() {
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
             return (
-              <div key={idx} className="bg-slate-950 border border-slate-900 rounded-xl overflow-hidden">
+              <div 
+                key={idx} 
+                style={{ border: "0.5px solid #E5E7EB" }}
+                className="bg-[#FFFFFF] rounded-[12px] overflow-hidden"
+              >
                 <button
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
-                  className="w-full px-4 py-3.5 text-left flex justify-between items-center text-xs font-bold text-white hover:bg-slate-900 focus:outline-none"
+                  className="w-full px-4 py-3.5 text-left flex justify-between items-center text-xs font-medium text-[#1A1A2E] hover:bg-[#F9FAFB] focus:outline-none"
                 >
                   <span className="font-sans leading-relaxed">{faq.q}</span>
-                  {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
+                  {isOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-[#1B4F72] shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
+                  )}
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4 text-xs text-slate-350 leading-relaxed font-sans border-t border-slate-900 pt-3">
+                  <div 
+                    style={{ borderColor: "#E5E7EB" }}
+                    className="px-4 pb-4 text-xs text-[#4B5563] leading-relaxed font-sans border-t pt-3"
+                  >
                     {faq.a}
                   </div>
                 )}

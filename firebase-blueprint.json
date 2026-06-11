@@ -1,0 +1,249 @@
+{
+  "entities": {
+    "News": {
+      "title": "News",
+      "description": "Latest updates and announcements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "tag": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "tag", "description", "isActive"]
+    },
+    "Ticker": {
+      "title": "Ticker",
+      "description": "Live scrolling news ticker messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "message": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["message", "isActive"]
+    },
+    "ExchangeRates": {
+      "title": "ExchangeRates",
+      "description": "Live currency exchange rates from USD to BDT",
+      "type": "object",
+      "properties": {
+        "bkash": { "type": "number" },
+        "nagad": { "type": "number" },
+        "bank": { "type": "number" },
+        "usdRate": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bkash", "nagad", "bank", "usdRate"]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "Job postings listed in the job board",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "company": { "type": "string" },
+        "location": { "type": "string" },
+        "salary": { "type": "string" },
+        "description": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "company", "location", "salary", "description", "isVerified", "isActive"]
+    },
+    "ScamReport": {
+      "title": "ScamReport",
+      "description": "Submitted scam and fraud reports",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "description": { "type": "string" },
+        "scammerInfo": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporterName", "description", "scammerInfo", "status"]
+    },
+    "TicketRequest": {
+      "title": "TicketRequest",
+      "description": "submitted air ticket booking requests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "passengerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "routeFrom": { "type": "string" },
+        "routeTo": { "type": "string" },
+        "date": { "type": "string" },
+        "passengerCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["passengerName", "phone", "routeFrom", "routeTo", "date", "passengerCount", "status"]
+    },
+    "EmergencyContact": {
+      "title": "EmergencyContact",
+      "description": "Crisis contact numbers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "phone", "category"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Registered members profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "isBlocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "isPremium", "isBlocked"]
+    },
+    "PaymentMethod": {
+      "title": "PaymentMethod",
+      "description": "Payment and deposit details for a gateway",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "country": { "type": "string" },
+        "color": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" },
+        "accountName": { "type": "string" },
+        "qrImageUrl": { "type": "string" }
+      },
+      "required": ["name", "country", "color", "isActive", "accountName"]
+    },
+    "DepositRequest": {
+      "title": "DepositRequest",
+      "description": "Deposit transaction submission tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "paymentMethodId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["BDT", "USD"] },
+        "transactionId": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "note": { "type": "string" }
+      },
+      "required": ["userId", "paymentMethodId", "amount", "currency", "transactionId", "status", "createdAt"]
+    },
+    "TransferRequest": {
+      "title": "TransferRequest",
+      "description": "Money transfer request details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderPhone": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["USD"] },
+        "serviceFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "recipientName": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "recipientMethod": { "type": "string", "enum": ["bkash", "nagad", "rocket", "bank"] },
+        "recipientBank": { "type": "string" },
+        "recipientAccount": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "processing", "sent", "completed", "failed"] },
+        "proofImageUrl": { "type": "string" },
+        "processedAt": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "isFirstTransfer": { "type": "boolean" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "senderName", "senderPhone", "amount", "currency", "serviceFee", "totalAmount", "recipientName", "recipientPhone", "recipientMethod", "status", "isFirstTransfer", "createdAt"]
+    },
+    "PublicTransaction": {
+      "title": "PublicTransaction",
+      "description": "Anonymized transaction logging for trust building feed",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "method": { "type": "string" },
+        "minutesTaken": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["amount", "currency", "method", "minutesTaken", "createdAt"]
+    }
+  },
+  "firestore": {
+    "news": {
+      "schema": "News",
+      "description": "Latest news and updates collection"
+    },
+    "ticker": {
+      "schema": "Ticker",
+      "description": "Scrolling alert ticker collection"
+    },
+    "exchangeRates": {
+      "schema": "ExchangeRates",
+      "description": "Currency exchange rate document (id: current)"
+    },
+    "jobs": {
+      "schema": "Job",
+      "description": "Jobs directory"
+    },
+    "scamReports": {
+      "schema": "ScamReport",
+      "description": "User reported scams"
+    },
+    "ticketRequests": {
+      "schema": "TicketRequest",
+      "description": "Flight booking requests"
+    },
+    "emergencyContacts": {
+      "schema": "EmergencyContact",
+      "description": "Crisis support directory"
+    },
+    "users": {
+      "schema": "User",
+      "description": "User records"
+    },
+    "paymentMethods": {
+      "schema": "PaymentMethod",
+      "description": "Payment routes listed for deposit"
+    },
+    "depositRequests": {
+      "schema": "DepositRequest",
+      "description": "User submitted payment vouchers for approval"
+    },
+    "transferRequests": {
+      "schema": "TransferRequest",
+      "description": "Money transfer requests"
+    },
+    "publicTransactions": {
+      "schema": "PublicTransaction",
+      "description": "Recent successful public transfers feed for trust building"
+    }
+  }
+}

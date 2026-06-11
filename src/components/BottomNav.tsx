@@ -1,63 +1,78 @@
-import { Home, Briefcase, MessageSquare, Bell, User } from "lucide-react";
+import { Home, FileText, MessageSquare, Briefcase, User } from "lucide-react";
 import { NavTab } from "../types";
 
 interface BottomNavProps {
   currentTab: NavTab;
-  setTab: (tab: NavTab) => void;
+  currentSubView?: string;
+  setTab: (tab: NavTab, subView?: string) => void;
   unreadNotifications: number;
   unreadChatCount: number;
 }
 
 export default function BottomNav({
   currentTab,
+  currentSubView = "none",
   setTab,
   unreadNotifications,
   unreadChatCount,
 }: BottomNavProps) {
-  const tabs: { id: NavTab; label: string; icon: any; badge?: number }[] = [
-    { id: "home", label: "হোম", icon: Home },
-    { id: "services", label: "আমাদের সেবা", icon: Briefcase },
-    { id: "chat", label: "চ্যাট", icon: MessageSquare, badge: unreadChatCount },
-    { id: "notifications", label: "নোটিশ", icon: Bell, badge: unreadNotifications },
-    { id: "profile", label: "মাই প্রোফাইল", icon: User },
+  const tabs = [
+    { id: "home" as NavTab, subView: "none", label: "হোম", icon: Home },
+    { id: "services" as NavTab, subView: "visa", label: "ভিসা", icon: FileText },
+    { id: "chat" as NavTab, subView: "none", label: "AI", icon: MessageSquare, badge: unreadChatCount },
+    { id: "services" as NavTab, subView: "jobs", label: "চাকরি", icon: Briefcase },
+    { id: "profile" as NavTab, subView: "none", label: "প্রোফাইল", icon: User },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 border-t border-slate-900 shadow-[0_-5px_25px_rgba(0,0,0,0.5)] md:max-w-md md:mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E5E7EB] shadow-[0_-2px_10px_rgba(0,0,0,0.04)] md:max-w-md md:mx-auto">
       <div className="flex justify-around items-center h-16 px-1">
-        {tabs.map((tab) => {
+        {tabs.map((tab, idx) => {
           const Icon = tab.icon;
-          const isActive = currentTab === tab.id;
+          
+          // Compute active state based on custom sub-matching logic
+          let isActive = false;
+          if (tab.id === "home") {
+            isActive = currentTab === "home";
+          } else if (tab.id === "services" && tab.subView === "visa") {
+            isActive = currentTab === "services" && currentSubView === "visa";
+          } else if (tab.id === "services" && tab.subView === "jobs") {
+            isActive = currentTab === "services" && currentSubView === "jobs";
+          } else if (tab.id === "chat") {
+            isActive = currentTab === "chat";
+          } else if (tab.id === "profile") {
+            isActive = currentTab === "profile";
+          }
 
           return (
             <button
-              key={tab.id}
-              onClick={() => setTab(tab.id)}
+              key={`${tab.id}-${tab.subView}-${idx}`}
+              onClick={() => setTab(tab.id, tab.subView)}
               className={`relative flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all outline-none ${
                 isActive
-                  ? "text-emerald-400 scale-105"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "text-[#1B4F72] scale-102"
+                  : "text-[#6B7280] hover:text-[#1B4F72]"
               }`}
-              id={`nav-btn-${tab.id}`}
+              id={`nav-btn-${tab.label}`}
             >
               {/* Icon Container */}
               <div className="relative p-1">
-                <Icon className={`w-5.5 h-5.5 transition-transform ${isActive ? "stroke-[2.5]" : "stroke-[2]"}`} />
+                <Icon className={`w-5.2 h-5.2 transition-transform ${isActive ? "stroke-[2.2]" : "stroke-[1.8]"}`} />
                 {tab.badge && tab.badge > 0 ? (
-                  <span className="absolute -top-1 -right-2 bg-red-500 font-bold text-[10px] text-white px-1 rounded-full min-w-[16px] h-4 flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-1 -right-2 bg-[#E74C3C] font-bold text-[10px] text-white px-1 rounded-full min-w-[16px] h-4 flex items-center justify-center animate-pulse">
                     {tab.badge}
                   </span>
                 ) : null}
               </div>
 
               {/* Label */}
-              <span className={`text-[10px] font-sans font-medium mt-0.5 tracking-tight ${isActive ? "text-emerald-400" : "text-slate-400"}`}>
+              <span className={`text-[11px] font-sans font-medium mt-0.5 tracking-tight ${isActive ? "text-[#1B4F72]" : "text-[#6B7280]"}`}>
                 {tab.label}
               </span>
 
               {/* Active Indicator bar */}
               {isActive && (
-                <div className="absolute bottom-1 w-5 h-0.75 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(0,255,136,0.8)]" />
+                <div className="absolute bottom-1 w-5 h-0.5 bg-[#1B4F72] rounded-full" />
               )}
             </button>
           );

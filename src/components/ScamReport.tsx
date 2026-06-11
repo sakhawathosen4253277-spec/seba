@@ -2,7 +2,12 @@ import React, { useState } from "react";
 import { ShieldAlert, AlertCircle, EyeOff, UserX, Trash, Upload, CheckSquare, Search } from "lucide-react";
 import { ScamReport as ScamReportType } from "../types";
 
-export default function ScamReport() {
+interface ScamReportProps {
+  reports?: ScamReportType[];
+  onUpdateReports?: (newReports: ScamReportType[]) => void;
+}
+
+export default function ScamReport({ reports: propsReports, onUpdateReports }: ScamReportProps) {
   const [scammerName, setScammerName] = useState("");
   const [scammerMeta, setScammerMeta] = useState("");
   const [scamType, setScamType] = useState<ScamReportType["type"]>("visa");
@@ -13,7 +18,7 @@ export default function ScamReport() {
   // Counter
   const [scamCount, setScamCount] = useState<number>(425);
 
-  const [reports, setReports] = useState<ScamReportType[]>([
+  const [localReports, setLocalReports] = useState<ScamReportType[]>([
     {
       id: "report-1",
       scammerName: "মহসিন রেজা (Mohsin Reza)",
@@ -35,6 +40,9 @@ export default function ScamReport() {
       isApproved: true
     }
   ]);
+
+  const reports = propsReports !== undefined ? propsReports : localReports;
+  const setReports = onUpdateReports !== undefined ? onUpdateReports : setLocalReports;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

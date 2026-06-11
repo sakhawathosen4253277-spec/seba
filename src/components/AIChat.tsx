@@ -53,27 +53,27 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] bg-[#070b16] font-sans">
+    <div className="flex flex-col h-[calc(100vh-140px)] bg-[#F0F4F8] font-sans">
       {/* Agent Info Header */}
-      <div className="flex items-center space-x-3 p-3 bg-slate-900/90 border-b border-emerald-500/20 shadow-md">
+      <div className="flex items-center space-x-3 p-3 bg-[#1B4F72] border-b border-white/10">
         <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-emerald-600 border border-emerald-400 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+          <div className="w-10 h-10 rounded-full bg-[#2E86C1] flex items-center justify-center text-white font-medium text-sm select-none">
             {agentName.substring(0, 2)}
           </div>
-          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full"></span>
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#1D9E75] border-2 border-[#1B4F72] rounded-full"></span>
         </div>
         
         <div>
           <div className="flex items-center space-x-1.5">
-            <h4 className="text-sm font-bold text-white tracking-tight">{agentName}</h4>
-            <span className="text-[9px] bg-emerald-500/10 border border-emerald-400/30 text-emerald-400 font-bold px-1 rounded">সহযোগী</span>
+            <h4 className="text-sm font-medium text-white tracking-tight">{agentName}</h4>
+            <span className="text-[9px] bg-[rgba(255,255,255,0.15)] text-white px-1.5 py-0.5 rounded">সহযোগী</span>
           </div>
-          <p className="text-[10px] text-emerald-400/80 font-sans mt-0.5">পাশে আছি সবসময় ভাই • ফনম পেন, কম্বোডিয়া</p>
+          <p className="text-[10px] text-[rgba(255,255,255,0.7)] font-sans mt-0.5">পাশে আছি সবসময় ভাই • ফনম পেন, কম্বোডিয়া</p>
         </div>
       </div>
 
       {/* Message Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#F0F4F8]">
         {messages.map((msg) => {
           const isUser = msg.sender === "user";
           return (
@@ -83,16 +83,20 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
             >
               <div className="flex items-end space-x-1">
                 {!isUser && (
-                  <div className="w-6 h-6 rounded-full bg-slate-800 border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-400 select-none mr-1">
+                  <div className="w-6 h-6 rounded-full bg-[#EBF5FB] flex items-center justify-center text-[9px] font-medium text-[#1B4F72] select-none mr-1">
                     {agentName.substring(0, 1)}
                   </div>
                 )}
                 
                 <div
-                  className={`px-4.5 py-3 rounded-2xl text-[13.5px] leading-relaxed shadow-md font-sans ${
+                  style={{ 
+                    borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                    border: isUser ? "none" : "0.5px solid #E5E7EB"
+                  }}
+                  className={`px-4.5 py-3 text-[13.5px] leading-relaxed font-sans ${
                     isUser
-                      ? "bg-emerald-600 text-white rounded-br-none"
-                      : "bg-slate-900 border border-slate-800 text-slate-100 rounded-bl-none"
+                      ? "bg-[#1B4F72] text-white"
+                      : "bg-[#FFFFFF] text-[#1A1A2E]"
                   }`}
                 >
                   {/* Text content */}
@@ -100,9 +104,13 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
 
                   {/* Attachment markup */}
                   {msg.attachmentUrl && (
-                    <div className="mt-2 p-2 bg-black/30 rounded border border-white/10 flex items-center space-x-2 text-xs">
-                      <Paperclip className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
-                      <span className="truncate max-w-[150px] text-zinc-300 font-mono text-[10px]">
+                    <div className={`mt-2 p-2 rounded flex items-center space-x-2 text-xs border ${
+                      isUser 
+                        ? "bg-white/10 border-white/20" 
+                        : "bg-slate-50 border-slate-200"
+                    }`}>
+                      <Paperclip className={`w-3.5 h-3.5 shrink-0 ${isUser ? "text-white" : "text-[#1B4F72]"}`} />
+                      <span className={`truncate max-w-[150px] font-mono text-[10px] ${isUser ? "text-white" : "text-[#1A1A2E]"}`}>
                         {msg.attachmentName || "সংযুক্ত ফাইল"}
                       </span>
                     </div>
@@ -111,12 +119,12 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
               </div>
 
               {/* Msg Metadata */}
-              <div className="flex items-center space-x-1 mt-1 text-[9px] text-slate-500 font-sans px-1">
+              <div className="flex items-center space-x-1 mt-1 text-[9px] text-[#9CA3AF] font-sans px-1">
                 <span>{msg.timestamp}</span>
                 {isUser && (
-                  <span className="text-emerald-400 flex items-center space-x-0.5 ml-1">
+                  <span className="text-[#1B4F72] flex items-center space-x-0.5 ml-1">
                     <CheckCheck className="w-3.5 h-3.5" />
-                    <span className="text-[8px] font-bold">দেখেছেনু</span>
+                    <span className="text-[8px] font-medium">দেখেছে</span>
                   </span>
                 )}
               </div>
@@ -127,13 +135,16 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
         {/* Typing indicator */}
         {isTyping && (
           <div className="flex items-end space-x-1 max-w-[80%] mr-auto">
-            <div className="w-6 h-6 rounded-full bg-slate-800 border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-400 select-none mr-1">
+            <div className="w-6 h-6 rounded-full bg-[#EBF5FB] flex items-center justify-center text-[9px] font-medium text-[#1B4F72] select-none mr-1">
               {agentName.substring(0, 1)}
             </div>
-            <div className="bg-slate-950 p-3 rounded-2xl rounded-bl-none border border-slate-900 shadow flex items-center space-x-1.5 h-10">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]"></span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]"></span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
+            <div 
+              style={{ border: "0.5px solid #E5E7EB" }}
+              className="bg-[#FFFFFF] p-3 rounded-2xl rounded-bl-none shadow flex items-center space-x-1.5 h-10"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#1B4F72] animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-2 h-2 rounded-full bg-[#1B4F72] animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-2 h-2 rounded-full bg-[#1B4F72] animate-bounce"></span>
             </div>
           </div>
         )}
@@ -142,12 +153,16 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
       </div>
 
       {/* Quick Replies list if previous support list makes sense */}
-      <div className="p-2 border-t border-slate-900 bg-slate-950/50 flex space-x-2 overflow-x-auto scrollbar-none py-2.5">
+      <div 
+        style={{ borderTop: "0.5px solid #E5E7EB" }}
+        className="p-2 bg-[#FFFFFF] flex space-x-2 overflow-x-auto scrollbar-none py-2.5"
+      >
         {quickReplies.map((qr, idx) => (
           <button
             key={idx}
             onClick={() => handleQuickReply(qr.text)}
-            className="shrink-0 bg-slate-900 hover:bg-slate-850 active:bg-slate-950 border border-emerald-500/10 hover:border-emerald-500/30 text-emerald-400 font-sans text-xs px-3 py-1.5 rounded-full transition-all outline-none"
+            style={{ border: "0.5px solid #E5E7EB" }}
+            className="shrink-0 bg-[#F7F8FA] hover:bg-slate-50 text-[#1B4F72] font-sans text-xs px-3.5 py-1.5 rounded-[20px] transition-all outline-none"
           >
             {qr.label}
           </button>
@@ -155,7 +170,11 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
       </div>
 
       {/* Input Form with attachment indicator */}
-      <form onSubmit={handleSend} className="p-3 bg-slate-900 border-t border-slate-800 flex items-center space-x-2">
+      <form 
+        onSubmit={handleSend} 
+        style={{ borderTop: "0.5px solid #E5E7EB" }}
+        className="p-3 bg-[#FFFFFF] flex items-center space-x-2"
+      >
         {/* Hidden File Input */}
         <input
           type="file"
@@ -169,8 +188,8 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
         <button
           type="button"
           onClick={triggerFileSelect}
-          className={`p-2.5 rounded-full hover:bg-slate-850 active:scale-95 transition-all outline-none ${
-            selectedFile ? "bg-emerald-500/20 text-emerald-400" : "text-slate-400 hover:text-slate-200"
+          className={`p-2.5 rounded-full hover:bg-[#F7F8FA] active:scale-95 transition-all outline-none ${
+            selectedFile ? "text-[#1B4F72]" : "text-[#6B7280] hover:text-[#1B4F72]"
           }`}
           title="নথি বা ছবি শেয়ার করুন"
         >
@@ -184,10 +203,11 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="আপনার সমস্যাটি বাংলায় লিখুন ভাই..."
-            className="w-full bg-slate-950 text-white rounded-xl py-3 pl-4 pr-12 border border-slate-800 focus:border-emerald-500/50 focus:outline-none text-sm placeholder:text-slate-500 font-sans"
+            style={{ border: "0.5px solid #E5E7EB" }}
+            className="w-full bg-[#F7F8FA] text-[#1A1A2E] rounded-[24px] py-3 pl-4 pr-12 focus:border-[#1B4F72] focus:outline-none text-sm placeholder:text-[#9CA3AF] font-sans"
           />
           {selectedFile && (
-            <div className="absolute right-3 bg-emerald-500 text-slate-950 px-2 py-0.5 rounded text-[9px] font-bold truncate max-w-[80px]">
+            <div className="absolute right-3 bg-[#EBF5FB] text-[#1B4F72] px-2 py-0.5 rounded text-[9px] font-medium truncate max-w-[80px]">
               {selectedFile.name}
             </div>
           )}
@@ -196,7 +216,7 @@ export default function AIChat({ messages, onSendMessage, isTyping, agentName }:
         {/* Send Button */}
         <button
           type="submit"
-          className="p-3 rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:scale-95 shadow-md flex items-center justify-center transition-all outline-none cursor-pointer"
+          className="p-3 rounded-[12px] bg-[#1B4F72] text-white hover:bg-opacity-90 active:scale-95 flex items-center justify-center transition-all outline-none cursor-pointer"
         >
           <Send className="w-4.5 h-4.5" />
         </button>

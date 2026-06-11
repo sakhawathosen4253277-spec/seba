@@ -4,7 +4,9 @@ import {
   NavTab, 
   Transaction, 
   Message, 
-  LiveNotification 
+  LiveNotification,
+  Job,
+  ScamReport as ScamReportType
 } from "./types";
 
 // Component imports
@@ -20,6 +22,16 @@ import ScamReport from "./components/ScamReport";
 import EmergencyHelp from "./components/EmergencyHelp";
 import PremiumMembership from "./components/PremiumMembership";
 import AuthScreen from "./components/AuthScreen";
+import DepositPage from "./components/DepositPage";
+import SendMoneyPage from "./components/SendMoneyPage";
+import TransferStatus from "./components/TransferStatus";
+import AdminDashboard, { SupportTicket } from "./components/AdminDashboard";
+import AdminPanel from "./components/AdminPanel";
+import ProfilePage from "./components/ProfilePage";
+import { useAuth } from "./lib/AuthContext";
+import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
+import { db } from "./lib/firebase";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
 import { 
   ShieldAlert, 
@@ -43,22 +55,145 @@ import {
 const SUPPORT_NAMES = ["হাসান", "রহিম", "ইমরান", "সোহেল"];
 
 export default function App() {
+  const { currentUser, userDoc, loading } = useAuth();
   const [lang, setLang] = useState<Language>("BN");
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Logged in by default for high UX
-  const [userEmail, setUserEmail] = useState<string>("sakhawathosen4253277@gmail.com");
   const [currentTab, setTab] = useState<NavTab>("home");
+  const [prefilledTxId, setPrefilledTxId] = useState<string>("");
   
   // subView manages screens inside "services" or shortcuts
   const [subView, setSubView] = useState<string>("none"); // "visa" | "money" | "ticket" | "jobs" | "scam" | "emergency" | "premium"
-  const [walletBalance, setWalletBalance] = useState<number>(250.00); // Start with $250.00 USD
-  const [currentTier, setCurrentTier] = useState<string>("basic"); // "basic" | "pro" | "vip"
+
+  const walletBalance = userDoc?.balance || 0;
+  const currentTier = userDoc?.isPremium ? "vip" : (userDoc?.tier || "basic");
+  const userEmail = currentUser?.email || "";
+
+  const handleUpdateBalance = async (newBalance: number) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          balance: newBalance
+        }, { merge: true });
+      } catch (err) {
+        console.error("Error updating user balance:", err);
+      }
+    }
+  };
   
+  // Unified Jobs State for Real-Time Sync
+  const [jobs, setJobs] = useState<Job[]>([
+    {
+      id: "job-1",
+      title: "গার্মেন্টস সেলাই অপারেটর",
+      company: "Phnom Penh Apparels Ltd.",
+      location: "Veng Sreng Road, Phnom Penh",
+      salaryRange: "$৩৫০ - $৪২০ / প্রতি মাস",
+      category: "factory",
+      isVerified: true,
+      description: "বাংলাদেশি ভাইদের জন্য দুর্দান্ত সুযোগ। ফুড ও বাসস্থান সম্পূর্ণ ফ্রি। ওভারটাইম করার সুযোগ থাকবে। কাজের সময় প্রতিদিন ৮ ঘণ্টা।"
+    },
+    {
+      id: "job-2",
+      title: "হোটেল সহকারী বাবুর্চি (Chef)",
+      company: "Dhaka Spice Restaurant",
+      location: "BKK1, Phnom Penh",
+      salaryRange: "$৩০০ - $৩৮০ / প্রতি মাস",
+      category: "restaurant",
+      isVerified: true,
+      description: "বাংলাদেশি স্পাইসি খাবার তৈরিতে পারদর্শী হতে হবে। বাংলা ভাষায় কথা বলার সহকারী আছে। টিপস এর সুবিধা আছে।"
+    },
+    {
+      id: "job-3",
+      title: "কনস্ট্রাকশন সাইট ফোরম্যান",
+      company: "Sihanoukville Port Construction",
+      location: "Sihanoukville",
+      salaryRange: "$৫০০ - $৬৫০ / প্রতি মাস",
+      category: "construction",
+      isVerified: false,
+      description: "কংক্রিট মিক্সিং ও শ্রমিক পরিচালনার কাজে ৩ বছরের কাজের অভিজ্ঞতা জরুরি। দয়া করে কোনো দালাল বা এজেন্টকে টাকা দেবেন না।"
+    },
+    {
+      id: "job-4",
+      title: "গৃহস্থালি ও পরিষ্কারকর্মী",
+      company: "Sen Sok Residentials",
+      location: "Sen Sok, Phnom Penh",
+      salaryRange: "$২৫০ - $৩০০ / প্রতি মাস",
+      category: "household",
+      isVerified: true,
+      description: "ভাড়া বাসার রুম ও কিচেন পরিষ্কার করার হালকা কাজ। সপ্তাহে একদিন ছুটি থকবে।"
+    }
+  ]);
+
+  // Unified Scam Reports State
+  const [scamReports, setScamReports] = useState<ScamReportType[]>([
+    {
+      id: "report-1",
+      scammerName: "মহসিন রেজা (Mohsin Reza)",
+      scammerMeta: "FB: Mohsin.Cambodia / Mob: +855 97 882 1211",
+      type: "visa",
+      description: "৩ মাসের মাল্টিপল বিজনেস ভিসা এবং ওয়ার্ক পারমিট করিয়ে দেওয়ার কথা বলে ৮৫০ ডলার অগ্রিম নিয়েছে। এখন ফোন বন্ধ করে বাড়ি পরিবর্তন করেছে। ফনম পেনে অবস্থান করে বলে ধারণা করা হচ্ছে।",
+      date: "আজকে দুপুরে",
+      isAnonymous: true,
+      isApproved: true
+    },
+    {
+      id: "report-2",
+      scammerName: "জেসমিন আক্তার টিকেটস (Jasmine Tour & Travels)",
+      scammerMeta: "Facebook Page / Imo: +880 1832 9901",
+      type: "ticket",
+      description: "কম্বোডিয়া টু ঢাকা বিমানের ভুয়া টিকিট এডিট করে দিয়ে ৩০০ ডলার হাতিয়ে নেয়। বিমানবন্দরে পৌঁছানোর পর টিকিট ডেক্স কোডটি ভুয়া এবং বাতিল বলে চিহ্নিত করে।",
+      date: "৩ দিন আগে",
+      isAnonymous: false,
+      isApproved: true
+    }
+  ]);
+
+  // Support Tickets State
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([
+    {
+      id: "ticket-1",
+      name: "কামরুল ইসলাম",
+      phoneOrImo: "+৮৫৫ ৯৭ ২১৩ ১১৪২",
+      subject: "পাসপোর্ট আটকে রাখা হয়েছে",
+      description: "আমার নিয়োগকারী কোম্পানি বিনা কারণে আমার পাসপোর্ট আটকে রেখেছে এবং ফেরত দিচ্ছে না ভাই। আমি কীভাবে সমাজকল্যাণ উইং থেকে আইনি সহায়তা পেতে পারি বা দূতাবাসে অভিযোগ জানাতে পারি?",
+      status: "pending",
+      date: "আজ সকাল ১০:১৫",
+      replies: ["আমরা আপনার তথ্যটি পেয়েছি ভাই। খুব জলদি সমাজকর্মী সোহেল মিয়া কোম্পানির মালিকের সাথে সরাসরি যোগাযোগ করছেন।"]
+    },
+    {
+      id: "ticket-2",
+      name: "মিজানুর রহমান",
+      phoneOrImo: "+৮৫৫ ১২ ২৫৫ ৩২১",
+      subject: "ভিসা ওভারস্টে জরিমানা",
+      description: "আমার ফ্যামিলি ইমার্জেন্সির কারণে visa নবায়ন করতে পারিনি এবং বর্তমানে ২৫ দিনের ওভারস্টে জরিমানা দেখাচ্ছে ভাই। ইমিগ্রেশন পার্টনার দিয়ে এই জরিমানা মওকুফ করার কোনো সুযোগ আছে কি ভাই?",
+      status: "pending",
+      date: "গতকাল দুপুর ০৩:৪৫",
+      replies: []
+    },
+    {
+      id: "ticket-3",
+      name: "আরিফুল ভাই",
+      phoneOrImo: "+৮৮০ ১৮১২ ৩৪৪ ২১১",
+      subject: "টাকা পাঠানোর এজেন্ট সমস্যা",
+      description: "আমি এই প্লাটফর্মে ২০০ ডলার bKash রেমিটেন্স রিকোয়েস্ট পাঠিয়েছিলাম ভাই। সেটি সফল হয়েছে কিন্তু পরবর্তী ধাপে আরেকটি ছোট ট্রানজেকশনে কোনো ফি লাগবে কি না জানতে চাচ্ছিলাম ভাই।",
+      status: "resolved",
+      date: "২ দিন আগে",
+      replies: ["প্রবাসী ভাই, প্রথম ট্রানজেকশনের পরে যেকোনো ট্রানজেকশনে মাত্র ০.৫% ফি প্রযোজ্য হবে। ধন্যবাদ ভাই।"]
+    }
+  ]);
+
   // Random Support Agent Name for human touch
   const [agentName, setAgentName] = useState<string>("হাসান");
+
+  // Global controlled Exchange Rate state
+  const [exchangeRate, setExchangeRate] = useState<number>(110.80);
+  const [exchangeRateUnderTen, setExchangeRateUnderTen] = useState<number>(120.00);
+  const [exchangeRateLimit, setExchangeRateLimit] = useState<number>(10.00);
   
   useEffect(() => {
     const randomName = SUPPORT_NAMES[Math.floor(Math.random() * SUPPORT_NAMES.length)];
     setAgentName(randomName);
+    seedDatabaseIfNeeded();
+    seedPaymentMethodsIfNeeded();
   }, []);
 
   // Transactions State
@@ -228,14 +363,26 @@ export default function App() {
   };
 
   // Upgrade transaction handle
-  const handleUpgradeTier = (tier: string, cost: number) => {
-    if (walletBalance < cost) {
+  const handleUpgradeTier = async (tier: string, cost: number) => {
+    const currentBal = userDoc?.balance || 0;
+    if (currentBal < cost) {
       alert(`দুঃখিত ভাই, মেম্বারশিপ ফি $${cost} পরিশোধের জন্য আপনার ওয়ালেটে পর্যাপ্ত টাকা নেই। দয়া করে ব্যালেন্স রিচার্জ করুন ভাই।`);
       return;
     }
-    setWalletBalance((prev) => prev - cost);
-    setCurrentTier(tier);
-    alert(`অভিনন্দন ভাই! আপনি সফলভাবে এবং নিরাপদ প্রক্রিয়ায় প্রবাসী সেবা '${tier.toUpperCase()}' মেম্বারশিপে আপগ্রেড হয়েছেন। আপনার প্রোফাইল ব্যাজটি এখন লাইভ হয়েছে।`);
+    const newBal = currentBal - cost;
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          balance: newBal,
+          tier: tier,
+          isPremium: true
+        }, { merge: true });
+        alert(`অভিনন্দন ভাই! আপনি সফলভাবে এবং নিরাপদ প্রক্রিয়ায় প্রবাসী সেবা '${tier.toUpperCase()}' মেম্বারশিপে আপগ্রেড হয়েছেন। আপনার প্রোফাইল ব্যাজটি এখন লাইভ হয়েছে।`);
+      } catch (err) {
+        console.error("Upgrade error:", err);
+        alert("আপগ্রেড করা সম্ভব হয়নি ভাই। পুনরায় চেষ্টা করুন!");
+      }
+    }
   };
 
   const handleSetTabAndResetSubView = (tab: NavTab) => {
@@ -253,8 +400,22 @@ export default function App() {
     }
   };
 
+  // Intercept Admin Route
+  if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
+    return <AdminPanel />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-10 h-10 border-4 border-[#1B4F72] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-[#6B7280] mt-3 font-sans">প্রবাসী সেবা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#070b16] text-[#ffffff] font-sans antialiased selection:bg-emerald-500 selection:text-slate-950 flex flex-col max-w-md mx-auto relative border-x border-[#121c38] shadow-2xl overflow-x-hidden pb-16">
+    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A2E] font-sans antialiased selection:bg-[#1B4F72] selection:text-white flex flex-col max-w-md mx-auto relative border-x border-[#E5E7EB] shadow-sm overflow-x-hidden pb-16">
       
       {/* Sticky Header with glowing bell notice check */}
       <Header 
@@ -265,17 +426,14 @@ export default function App() {
           setUnreadNotifications(0);
         }}
         lang={lang}
+        exchangeRate={exchangeRate}
       />
 
       {/* Main Routed Area body container */}
       <main className="flex-1 overflow-y-auto pt-4 pb-20">
         
-        {!isLoggedIn ? (
+        {!currentUser ? (
           <AuthScreen 
-            onLoginSuccess={(email) => {
-              setUserEmail(email);
-              setIsLoggedIn(true);
-            }}
             lang={lang}
             onSetLang={setLang}
           />
@@ -286,6 +444,16 @@ export default function App() {
               <HomeDashboard 
                 onServiceSelect={handleServiceSelect} 
                 walletBalance={walletBalance}
+                exchangeRate={exchangeRate}
+                userName={userDoc?.name}
+              />
+            )}
+
+            {/* TAB: DEPOSIT */}
+            {currentTab === "deposit" && (
+              <DepositPage 
+                onBack={() => setTab("home")} 
+                userEmail={userEmail}
               />
             )}
 
@@ -307,34 +475,34 @@ export default function App() {
                 {subView === "none" ? (
                   <div className="px-4 space-y-4 animate-fade-in py-2">
                     <div className="text-center">
-                      <h2 className="text-lg font-bold text-white font-sans">প্রবাসী সেবা ক্যাটাগরিসমূহ</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">সবগুলো সেবার তালিকা এখানে পাবেন ভাই</p>
+                      <h2 className="text-lg font-medium text-[#1A1A2E] font-sans">প্রবাসী সেবা ক্যাটাগরিসমূহ</h2>
+                      <p className="text-xs text-[#6B7280] mt-0.5">সবগুলো সেবার তালিকা এখানে পাবেন ভাই</p>
                     </div>
 
                     <div className="space-y-2.5">
                       {[
-                        { id: "visa", label: "ভিসা এবং আইনি তথ্য", icon: FileText, color: "text-blue-400 bg-blue-500/10" },
-                        { id: "money", label: "টাকা পাঠান (রেমিটেন্স)", icon: DollarSign, color: "text-emerald-400 bg-emerald-500/10" },
-                        { id: "ticket", label: "এয়ার টিকেট ও ট্রাভেল গাইড", icon: Plane, color: "text-indigo-405 text-indigo-400 bg-indigo-500/10" },
-                        { id: "jobs", label: "যাচাইকৃত চাকরি ও কর্মসংস্থান", icon: Briefcase, color: "text-emerald-300 bg-emerald-500/10" },
-                        { id: "scam", label: "দালাল ও স্ক্যাম রিপোর্ট করুন", icon: ShieldAlert, color: "text-red-400 bg-red-500/10" },
-                        { id: "emergency", label: "জরুরি সংকেত (SOS Call)", icon: AlertOctagon, color: "text-red-500 bg-red-500/20 animate-pulse" },
-                        { id: "premium", label: "প্রিমিয়াম ভিআইপি মেম্বারশিপ", icon: Award, color: "text-amber-400 bg-amber-500/10" }
+                        { id: "visa", label: "ভিসা এবং আইনি তথ্য", icon: FileText, color: "text-[#1B4F72] bg-[#EBF5FB]" },
+                        { id: "money", label: "টাকা পাঠান (রেমিটেন্স)", icon: DollarSign, color: "text-[#1D9E75] bg-[#E9F7EF]" },
+                        { id: "ticket", label: "এয়ার টিকেট ও ট্রাভেল গাইড", icon: Plane, color: "text-[#534AB7] bg-[#EEF2FF]" },
+                        { id: "jobs", label: "যাচাইকৃত চাকরি ও কর্মসংস্থান", icon: Briefcase, color: "text-[#1B4F72] bg-[#F0F3F4]" },
+                        { id: "scam", label: "দালাল ও স্ক্যাম রিপোর্ট করুন", icon: ShieldAlert, color: "text-[#C0392B] bg-[#FDEDEC]" },
+                        { id: "emergency", label: "জরুরি সংকেত (SOS Call)", icon: AlertOctagon, color: "text-[#E74C3C] bg-[#FDEDEC] animate-pulse" },
+                        { id: "premium", label: "প্রিমিয়াম ভিআইপি মেম্বারশিপ", icon: Award, color: "text-[#D68910] bg-[#FDF2E9]" }
                       ].map((svc) => {
                         const Icon = svc.icon;
                         return (
                           <button
                             key={svc.id}
                             onClick={() => setSubView(svc.id)}
-                            className="w-full bg-slate-950 p-4 rounded-xl border border-slate-900 hover:border-emerald-500/30 flex justify-between items-center text-left transition-all outline-none"
+                            className="w-full bg-white p-4 rounded-xl border border-[#E5E7EB] hover:border-[#1B4F72]/30 flex justify-between items-center text-left transition-all outline-none"
                           >
                             <div className="flex items-center space-x-3">
-                              <span className={`p-2 rounded-lg border border-white/5 ${svc.color}`}>
+                              <span className={`p-2 rounded-lg ${svc.color}`}>
                                 <Icon className="w-5 h-5" />
                               </span>
-                              <span className="text-xs font-bold text-white font-sans">{svc.label}</span>
+                              <span className="text-xs font-medium text-[#1A1A2E] font-sans">{svc.label}</span>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-slate-500" />
+                            <ChevronRight className="w-4 h-4 text-[#6B7280]" />
                           </button>
                         );
                       })}
@@ -343,14 +511,14 @@ export default function App() {
                 ) : (
                   <div className="relative">
                     {/* Floating Back navigation to list */}
-                    <div className="px-4 py-2 border-b border-slate-900 bg-slate-950/40 flex justify-between items-center text-xs">
+                    <div className="px-4 py-2 border-b border-[#E5E7EB] bg-white flex justify-between items-center text-xs">
                       <button
                         onClick={() => setSubView("none")}
-                        className="text-emerald-400 hover:text-emerald-300 font-bold font-sans"
+                        className="text-[#1B4F72] hover:opacity-80 font-medium font-sans"
                       >
                         ← সকল সেবা তালিকায় ফিরুন
                       </button>
-                      <span className="text-slate-500 italic text-[10px]">অফিসিয়াল সেবা উইং</span>
+                      <span className="text-[#6B7280] italic text-[10px]">অফিসিয়াল সেবা উইং</span>
                     </div>
 
                     <div className="pt-3">
@@ -358,14 +526,17 @@ export default function App() {
                       {subView === "money" && (
                         <MoneyTransfer 
                           walletBalance={walletBalance} 
-                          onUpdateBalance={setWalletBalance}
+                          onUpdateBalance={handleUpdateBalance}
                           transactions={transactions}
                           onAddTransaction={(newTx) => setTransactions([newTx, ...transactions])}
+                          exchangeRate={exchangeRate}
+                          exchangeRateUnderTen={exchangeRateUnderTen}
+                          exchangeRateLimit={exchangeRateLimit}
                         />
                       )}
                       {subView === "ticket" && <AirTicket />}
-                      {subView === "jobs" && <JobBoard />}
-                      {subView === "scam" && <ScamReport />}
+                      {subView === "jobs" && <JobBoard jobs={jobs} onUpdateJobs={setJobs} />}
+                      {subView === "scam" && <ScamReport reports={scamReports} onUpdateReports={setScamReports} />}
                       {subView === "emergency" && (
                         <EmergencyHelp 
                           onSwitchTab={handleSetTabAndResetSubView} 
@@ -389,141 +560,80 @@ export default function App() {
             {currentTab === "notifications" && (
               <div className="flex flex-col space-y-4 px-4 pb-10">
                 <div className="text-center py-2 mt-2">
-                  <h2 className="text-lg font-bold text-white font-sans">দূতাবাস ও প্রবাসী সেবা নোটিশ</h2>
-                  <p className="text-xs text-slate-400 mt-1">সবচেয়ে গুরুত্বপূর্ণ আইনি সতর্কবার্তা ও লাইভ নোটিশ</p>
+                  <h2 className="text-lg font-medium text-[#1A1A2E] font-sans">দূতাবাস ও প্রবাসী সেবা নোটিশ</h2>
+                  <p className="text-xs text-[#6B7280] mt-1">সবচেয়ে গুরুত্বপূর্ণ আইনি সতর্কবার্তা ও লাইভ নোটিশ</p>
                 </div>
 
                 <div className="space-y-3.5">
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-5 rounded-2xl border bg-slate-950/80 ${
-                        notif.type === "alert" ? "border-red-500/20 bg-red-950/5" :
-                        notif.type === "warning" ? "border-amber-500/20 bg-amber-950/5" :
-                        notif.type === "success" ? "border-emerald-500/20" :
-                        "border-slate-800"
-                      }`}
+                      className={`p-5 rounded-2xl border bg-white border-[#E5E7EB] shadow-sm`}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
-                          notif.type === "alert" ? "bg-red-500/15 text-red-400" :
-                          notif.type === "warning" ? "bg-amber-500/15 text-amber-400" :
-                          notif.type === "success" ? "bg-emerald-500/15 text-emerald-400" :
-                          "bg-slate-800 text-slate-300"
+                        <span className={`text-[9px] font-medium px-2 py-0.5 rounded-lg ${
+                          notif.type === "alert" ? "bg-[#FDEDEC] text-[#E74C3C]" :
+                          notif.type === "warning" ? "bg-[#FDF2E9] text-[#D68910]" :
+                          notif.type === "success" ? "bg-[#E9F7EF] text-[#1D9E75]" :
+                          "bg-gray-100 text-[#6B7280]"
                         }`}>
                           {notif.type === "alert" && "জরুরি সতর্কবার্তা"}
                           {notif.type === "warning" && "সতর্কতা পরামর্শ"}
                           {notif.type === "success" && "বিজ্ঞপ্তি আপডেট"}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-sans">{notif.date}</span>
+                        <span className="text-[10px] text-[#6B7280] font-sans">{notif.date}</span>
                       </div>
 
-                      <h3 className="text-xs font-bold font-sans text-white mb-2 leading-snug">{notif.bengaliTitle}</h3>
-                      <p className="text-xs text-slate-350 leading-relaxed font-sans">{notif.description}</p>
+                      <h3 className="text-xs font-medium font-sans text-[#1A1A2E] mb-2 leading-snug">{notif.bengaliTitle}</h3>
+                      <p className="text-xs text-[#4B5563] leading-relaxed font-sans">{notif.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* TAB: MONEY TRANSFER */}
+            {currentTab === "transfer" && (
+              <SendMoneyPage
+                onBack={() => handleServiceSelect("home", "none")}
+                userEmail={userEmail}
+                walletBalance={walletBalance}
+              />
+            )}
+
+            {/* TAB: TRANSFER STATUS TRACKING */}
+            {currentTab === "transferStatus" && (
+              <TransferStatus
+                onBack={() => handleServiceSelect("home", "none")}
+                prefilledTxId={prefilledTxId}
+              />
+            )}
+
             {/* TAB: PROFILE & ACCREDS */}
             {currentTab === "profile" && (
-              <div className="flex flex-col space-y-5 px-4 pb-10">
-                
-                {/* Profile Detail header */}
-                <div className="bg-slate-950/80 border border-slate-900 p-5 rounded-2xl relative space-y-4 text-center">
-                  <div className="relative inline-block">
-                    <div className="w-20 h-20 bg-gradient-to-tr from-slate-900 to-slate-850 rounded-full border-2 border-emerald-400 flex items-center justify-center text-emerald-400 mx-auto shadow-md">
-                      <User className="w-10 h-10" />
-                    </div>
-                    {currentTier !== "basic" && (
-                      <span className="absolute bottom-0 right-0 bg-emerald-400 text-slate-950 p-1.5 rounded-full border-4 border-slate-950">
-                        <Award className="w-3.5 h-3.5 text-slate-950 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
+              <ProfilePage
+                onBackToHome={() => handleServiceSelect("home")}
+                onSelectTab={(tab, subView) => handleServiceSelect(tab, subView)}
+              />
+            )}
 
-                  <div>
-                    <h3 className="text-base font-extrabold text-white font-sans">প্রবাসী ভাই অ্যাকাউন্ট</h3>
-                    <p className="text-[11px] text-slate-400 font-sans flex items-center justify-center space-x-1 mt-1">
-                      <Mail className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{userEmail}</span>
-                    </p>
-                  </div>
-
-                  {/* Wallet Widget */}
-                  <div className="p-4 bg-[#0a0f1e] border border-slate-900/60 rounded-xl flex justify-between items-center text-xs">
-                    <div className="flex items-center space-x-2">
-                      <CreditCard className="w-4 h-4 text-emerald-400" />
-                      <span className="font-sans text-slate-400">ব্যালেন্স (Wallet):</span>
-                    </div>
-                    <span className="font-extrabold text-white text-sm font-sans">${walletBalance.toFixed(2)} USD</span>
-                  </div>
-
-                  {/* Profile Badges and plan details */}
-                  <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
-                    <span className="text-[10px] text-slate-500">প্যাকেজ মেম্বারশিপ:</span>
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.75 rounded border border-emerald-500/20 uppercase tracking-widest font-mono">
-                      {currentTier} Plan
-                    </span>
-                  </div>
-                </div>
-
-                {/* Sub features / Account helper lists */}
-                <div className="bg-slate-950 rounded-2xl border border-slate-900 overflow-hidden font-sans text-xs">
-                  
-                  <button
-                    onClick={() => handleServiceSelect("services", "money")}
-                    className="w-full px-4 py-4.5 border-b border-slate-900 hover:bg-slate-900 text-left text-slate-200.5 flex justify-between items-center"
-                  >
-                    <span>ভাউচার ও ওয়ালেট টপআপ বিবরণ</span>
-                    <ChevronRight className="w-4 h-4 text-slate-500" />
-                  </button>
-
-                  <button
-                    onClick={() => handleServiceSelect("services", "premium")}
-                    className="w-full px-4 py-4.5 border-b border-slate-900 hover:bg-slate-900 text-left text-slate-205 flex justify-between items-center"
-                  >
-                    <span className="flex items-center space-x-1">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>প্রিমিয়াম ভিআইপি বেনিফিট গাইড</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-slate-500" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      alert("অনারারি সমাজকর্মী সোহেল মিয়া: +৮৫৫ ১২ ২২২ ১২৪\nকনস্যুলার প্রজেক্ট সহকারী: +৮৫৫ ৯৭ ৩৩২ ৯৯১");
-                    }}
-                    className="w-full px-4 py-4.5 border-b border-slate-900 hover:bg-slate-900 text-left text-slate-205 flex justify-between items-center"
-                  >
-                    <span>ফনম পেনের হেল্পলাইন ভলান্টিয়ার নম্বর</span>
-                    <ChevronRight className="w-4 h-4 text-slate-500" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const ans = window.confirm("আপনি কি আসলেই অ্যাকাউন্ট লগআউট করতে চান ভাই?");
-                      if (ans) setIsLoggedIn(false);
-                    }}
-                    className="w-full px-4 py-4.5 hover:bg-slate-900 text-left text-red-400 font-bold flex justify-between items-center"
-                  >
-                    <span className="flex items-center space-x-1.5">
-                      <LogOut className="w-4 h-4" />
-                      <span>লগআউট করুন</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-red-500" />
-                  </button>
-
-                </div>
-
-                {/* Platform legal footer details */}
-                <div className="text-center space-y-1.5 select-none text-[10px] text-slate-500 mt-2 font-mono">
-                  <p>Probashi Sheba v2.4.0 (Alpha)</p>
-                  <p>© 2026 Probashi Sheba • All Rights Reserved</p>
-                </div>
-
-              </div>
+            {/* TAB: ADMIN CONTROL PANEL PORTAL */}
+            {currentTab === "admin" && (
+              <AdminDashboard 
+                onBack={() => setTab("profile")}
+                reports={scamReports}
+                onUpdateReports={setScamReports}
+                jobs={jobs}
+                onUpdateJobs={setJobs}
+                tickets={supportTickets}
+                onUpdateTickets={setSupportTickets}
+                exchangeRate={exchangeRate}
+                onUpdateExchangeRate={setExchangeRate}
+                exchangeRateUnderTen={exchangeRateUnderTen}
+                onUpdateExchangeRateUnderTen={setExchangeRateUnderTen}
+                exchangeRateLimit={exchangeRateLimit}
+                onUpdateExchangeRateLimit={setExchangeRateLimit}
+              />
             )}
           </>
         )}
@@ -531,10 +641,11 @@ export default function App() {
       </main>
 
       {/* Persistent Bottom Nav for quick access */}
-      {isLoggedIn && (
+      {!!currentUser && (
         <BottomNav 
           currentTab={currentTab} 
-          setTab={handleSetTabAndResetSubView}
+          currentSubView={subView}
+          setTab={handleServiceSelect}
           unreadNotifications={unreadNotifications}
           unreadChatCount={0}
         />

@@ -2,38 +2,78 @@ import React, { useState, useEffect } from "react";
 import { DollarSign, ArrowDown, HelpCircle, CheckCircle2, Clock, XCircle, ArrowUpRight } from "lucide-react";
 import { Transaction } from "../types";
 
+export const BANGLADESHI_BANKS = [
+  { id: "islami", name: "ইসলামী ব্যাংক বাংলাদেশ পিএলসি (Islami Bank BD)" },
+  { id: "dutch_bangla", name: "ডাচ-বাংলা ব্যাংক পিএলসি (Dutch-Bangla Bank)" },
+  { id: "brac", name: "ব্র্যাক ব্যাংক পিএলসি (BRAC Bank)" },
+  { id: "sonali", name: "সোনালী ব্যাংক পিএলসি (Sonali Bank)" },
+  { id: "city", name: "সিটি ব্যাংক পিএলসি (City Bank)" },
+  { id: "eastern", name: "ইস্টার্ন ব্যাংক পিএলসি (Eastern Bank)" },
+  { id: "janata", name: "জনতা ব্যাংক পিএলসি (Janata Bank)" },
+  { id: "agrani", name: "অগ্রণী ব্যাংক পিএলসি (Agrani Bank)" },
+  { id: "prime", name: "প্রাইম ব্যাংক পিএলসি (Prime Bank)" },
+  { id: "mutual_trust", name: "মিউচুয়াল ট্রাস্ট ব্যাংক পিএলসি (MTB)" },
+  { id: "united_commercial", name: "ইউনাইটেড কমার্শিয়াল ব্যাংক পিএলসি (UCB)" },
+  { id: "southeast", name: "সাউথইস্ট ব্যাংক পিএলসি (Southeast Bank)" },
+  { id: "rupali", name: "রূপালী ব্যাংক পিএলসি (Rupali Bank)" },
+  { id: "bank_asia", name: "ব্যাংক এশিয়া পিএলসি (Bank Asia)" },
+  { id: "pubali", name: "পূবালী ব্যাংক পিএলসি (Pubali Bank)" },
+  { id: "standard", name: "স্ট্যান্ডার্ড ব্যাংক পিএলসি (Standard Bank)" },
+  { id: "trust", name: "ট্রাস্ট ব্যাংক লিমিটেড (Trust Bank)" },
+  { id: "dhaka", name: "ঢাকা ব্যাংক পিএলসি (Dhaka Bank)" },
+  { id: "mercantile", name: "মার্কেন্টাইল ব্যাংক পিএলসি (Mercantile Bank)" },
+  { id: "jamuna", name: "যমুনা ব্যাংক পিএলসি (Jamuna Bank)" },
+  { id: "ab", name: "এবি ব্যাংক পিএলসি (AB Bank)" },
+  { id: "exim", name: "এক্সিম ব্যাংক পিএলসি (EXIM Bank)" },
+  { id: "nbl", name: "ন্যাশনাল ব্যাংক লিমিটেড (National Bank)" },
+  { id: "one", name: "ওয়ান ব্যাংক পিএলসি (One Bank)" },
+  { id: "uttara", name: "উত্তরা ব্যাংক পিএলসি (Uttara Bank)" }
+];
+
 interface MoneyTransferProps {
   walletBalance: number;
   onUpdateBalance: (newBalance: number) => void;
   transactions: Transaction[];
   onAddTransaction: (tx: Transaction) => void;
+  exchangeRate?: number;
+  exchangeRateUnderTen?: number;
+  exchangeRateLimit?: number;
 }
 
 export default function MoneyTransfer({
   walletBalance,
   onUpdateBalance,
   transactions,
-  onAddTransaction
+  onAddTransaction,
+  exchangeRate,
+  exchangeRateUnderTen,
+  exchangeRateLimit = 10.00
 }: MoneyTransferProps) {
   const [usdAmount, setUsdAmount] = useState<string>("");
   const [recipientMethod, setRecipientMethod] = useState<"bKash" | "Nagad" | "Rocket" | "Bank">("bKash");
   const [recipientNumber, setRecipientNumber] = useState<string>("");
+  const [selectedBank, setSelectedBank] = useState<string>("ইসলামী ব্যাংক বাংলাদেশ পিএলসি (Islami Bank BD)");
   const [recipientName, setRecipientName] = useState<string>("");
   const [promoCode, setPromoCode] = useState<string>("");
-  const [rate, setRate] = useState<number>(110.80);
+  const [localRate, setLocalRate] = useState<number>(110.80);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMsg, setSuccessMsg] = useState("");
 
   // Rate ticker animation fluctuation
   useEffect(() => {
+    if (exchangeRate !== undefined) return;
     const t = setInterval(() => {
-      setRate(parseFloat((110.60 + Math.random() * 0.4).toFixed(2)));
+      setLocalRate(parseFloat((110.60 + Math.random() * 0.4).toFixed(2)));
     }, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [exchangeRate]);
+
+  const numericUsd = parseFloat(usdAmount) || 0;
+  const isPromoUnderTen = numericUsd >= 1 && numericUsd < exchangeRateLimit && recipientMethod !== "Bank";
+  const rateUnderTenValue = exchangeRateUnderTen !== undefined ? exchangeRateUnderTen : 120.00;
+  const rate = isPromoUnderTen ? rateUnderTenValue : (exchangeRate !== undefined ? exchangeRate : localRate);
 
   const feeRate = 0.01; // 1% transfer charge
-  const numericUsd = parseFloat(usdAmount) || 0;
   const calculatedFee = numericUsd * feeRate;
   const recipientGets = numericUsd * rate;
   const totalUsdNeeded = numericUsd + calculatedFee;
@@ -72,7 +112,7 @@ export default function MoneyTransfer({
       senderName: "আপনি",
       recipientName,
       recipientMethod,
-      recipientNumber,
+      recipientNumber: recipientMethod === "Bank" ? `${selectedBank} - A/C: ${recipientNumber}` : recipientNumber,
       amountUsd: numericUsd,
       amountBdt: Math.round(recipientGets),
       feeUsd: parseFloat(calculatedFee.toFixed(2)),
@@ -108,6 +148,19 @@ export default function MoneyTransfer({
         <p className="text-xs text-slate-400 mt-1">সবচেয়ে বিশ্বস্ত উপায়ে নিরাপদে আপনার স্বদেশে টাকা পাঠান</p>
       </div>
 
+      {/* 1 Dollar Highlight Scrolling Banner */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl py-2 px-3 overflow-hidden flex items-center space-x-2">
+        <span className="bg-amber-500 text-slate-950 font-extrabold text-[10px] px-1.5 py-0.5 rounded shrink-0 animate-pulse font-sans">
+          অফার
+        </span>
+        <div className="relative flex-grow overflow-hidden select-none">
+          <div className="flex whitespace-nowrap text-xs font-bold text-amber-300 font-sans animate-marquee gap-8">
+            <span>আপনার কষ্টের টাকার শতভাগ নিরাপত্তা ও গভীর বিশ্বাসই আমাদের প্রধান অঙ্গীকার! কোনো দ্বিধা ছাড়াই আমাদের সততা ও দ্রুত সেবা যাচাই করতে মাত্র ১ ডলার পাঠিয়ে আজই চেক করে দেখুন</span>
+            <span>আপনার কষ্টের টাকার শতভাগ নিরাপত্তা ও গভীর বিশ্বাসই আমাদের প্রধান অঙ্গীকার! কোনো দ্বিধা ছাড়াই আমাদের সততা ও দ্রুত সেবা যাচাই করতে মাত্র ১ ডলার পাঠিয়ে আজই চেক করে দেখুন</span>
+          </div>
+        </div>
+      </div>
+
       {/* Wallet Balance Info card & Rate Alert */}
       <div className="grid grid-cols-2 gap-3.5">
         <div className="bg-slate-950 p-4.5 rounded-xl border border-slate-900 flex flex-col justify-between">
@@ -121,6 +174,17 @@ export default function MoneyTransfer({
             1 USD = {rate.toFixed(2)} BDT
           </h4>
         </div>
+      </div>
+
+      {/* Special rate promo banner for < exchangeRateLimit USD on mobile banking */}
+      <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 text-xs flex items-center justify-between text-left">
+        <div>
+          <span className="font-semibold text-indigo-300">মোবাইল ব্যাংকিং অফার (১ - {(exchangeRateLimit - 0.01).toFixed(2)}$):</span>
+          <p className="text-[10px] text-slate-400 mt-0.5">{exchangeRateLimit.toFixed(2)} ডলারের চেয়ে কম পাঠালে পাবেন স্পেশাল ও চমৎকার এক্সপ্রেস রেট!</p>
+        </div>
+        <span className="bg-indigo-500/20 border border-indigo-500 text-indigo-300 font-extrabold px-2 py-0.5 rounded text-[11px] font-mono animate-bounce shrink-0 ml-2">
+          ১ USD = {rateUnderTenValue.toFixed(2)} BDT
+        </span>
       </div>
 
       {/* Success Notification Alert */}
@@ -187,6 +251,24 @@ export default function MoneyTransfer({
             <span className="font-extrabold text-emerald-400 text-sm">
               ৳ {Math.round(recipientGets).toLocaleString("bn-BD")} BDT
             </span>
+          </div>
+        )}
+
+        {/* Reactively display Bangladesh bank selector if Bank is chosen */}
+        {recipientMethod === "Bank" && (
+          <div className="animate-slide-up space-y-1.5 text-left">
+            <label className="block text-[11px] font-bold text-slate-400">বাংলাদেশের ব্যাংক নির্বাচন করুন (Select Bank):</label>
+            <select
+              value={selectedBank}
+              onChange={(e) => setSelectedBank(e.target.value)}
+              className="w-full bg-slate-950 text-slate-200 rounded-xl py-3 px-4 text-sm border border-slate-900 focus:border-emerald-500/50 focus:outline-none font-sans"
+            >
+              {BANGLADESHI_BANKS.map((bank) => (
+                <option key={bank.id} value={bank.name} className="bg-slate-950 text-white">
+                  {bank.name}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
