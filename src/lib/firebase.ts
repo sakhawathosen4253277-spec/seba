@@ -1,18 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBnMuWQ4X4A823E4im1Ss5s0GCP6OF8Kxo",
-  authDomain: "probashi-sheba-eb965.firebaseapp.com",
-  projectId: "probashi-sheba-eb965",
-  storageBucket: "probashi-sheba-eb965.firebasestorage.app",
-  messagingSenderId: "1059388028173",
-  appId: "1:1059388028173:web:fa65e36ed593a670bd2c44"
-};
+import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export enum OperationType {
