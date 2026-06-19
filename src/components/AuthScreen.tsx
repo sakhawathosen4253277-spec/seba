@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Mail, Lock, LogIn, Globe, ArrowRight } from "lucide-react";
+import { User, Mail, Lock, LogIn, Globe, ArrowRight, Phone } from "lucide-react";
 import { Language } from "../types";
 import { auth, db } from "../lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
@@ -14,6 +14,8 @@ const translations = {
     loginTitle: "আপনার অ্যাকাউন্টে লগইন করুন",
     fullNameLabel: "আপনার পূর্ণ নাম (Full Name):",
     fullNamePlaceholder: "যেমন: মোঃ সাকিব হাসান",
+    phoneLabel: "মোবাইল নাম্বার (Mobile/WhatsApp Number):",
+    phonePlaceholder: "যেমন: +৮৫৫ ১২৩৪৫৬৭৮",
     emailLabel: "ইমেইল ঠিকানা (Email Address):",
     emailPlaceholder: "যেমন: miah.probashi@gmail.com",
     passwordLabel: "পাসওয়ার্ড (Password):",
@@ -26,23 +28,26 @@ const translations = {
     disclaimer: "প্রবাসী সেবা কোনো ব্যাংক বা ইমিগ্রেশন ডিরেক্টরেট নয়। এটি কম্বোডিয়ায় অনিবন্ধিত অসহায় বাংলাদেশিদের সহযোগিতার স্বার্থে ফ্রিল্যান্স সমাজকর্মী দ্বারা গঠিত প্ল্যাটফর্ম ভাই।",
     fillAll: "দয়া করে সব ঘর পূরণ করুন ভাই।",
     fillName: "দয়া করে আপনার নাম লিখুন ভাই।",
+    fillPhone: "দয়া করে আপনার সচল মোবাইল নাম্বারটি দিন ভাই।",
     agreeRequired: "দয়া করে প্রবাসী সেবার নীতিমালার সাথে একমত হন ভাই।",
     successReg: "আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে ভাই!",
     emailInUse: "এই ইমেইলটি ইতিমধ্যে আরেকটি অ্যাকাউন্টে নিবন্ধিত আছে ভাই।",
-    invalidEmail: "দয়া করে একটি সঠিক ইমেইল এড্রেস লিখুন ভাই।",
+    invalidEmail: "দয়া করে একটি সঠিক ইমেল অ্যাড্রেস লিখুন ভাই।",
     weakPassword: "পাসওয়ার্ডটি অন্তত ৬ অক্ষরের হতে হবে ভাই।",
-    wrongCredential: "ভুল ইমেল বা পাসওয়ার্ড দেওয়া হয়েছে ভাই। অনুগ্রহ করে চেক করুন।",
-    configNotFound: "দুঃখিত ভাই, আপনার ফায়ারবেস (Firebase) প্রোজেক্টে 'Email/Password' সাইন-ইন মেথড চালু করা নেই। অনুগ্রহ করে Firebase Console এ গিয়ে Authentication -> Sign-in method-এ 'Email/Password' এনাবেল করে দিন ভাই।",
+    wrongCredential: "ভুল ইমেইল বা পাসওয়ার্ড দিয়েছেন ভাই। আবার পরীক্ষা করুন।",
+    configNotFound: "দুঃখিত ভাই, আপনার ফায়ারবেস কনফিগারেশনে 'Email/Password' সক্রিয় করা নাই।",
     errorGeneric: "দুঃখিত ভাই, কোনো একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।"
   },
   EN: {
     brandTitle: "Probashi Sheba",
     brandSubtitle: "Trusted companion for Bangladeshis in Cambodia",
-    langSelect: "Select / ভাষা পরিবর্তন",
+    langSelect: "Select Language / ভাষা পরিবর্তন করুন",
     registerTitle: "Open a New Account",
     loginTitle: "Login to Your Account",
     fullNameLabel: "Your Full Name:",
     fullNamePlaceholder: "e.g., Md. Sakib Hasan",
+    phoneLabel: "Phone Number (WhatsApp preferred):",
+    phonePlaceholder: "e.g., +855 12345678",
     emailLabel: "Email Address:",
     emailPlaceholder: "e.g., miah.probashi@gmail.com",
     passwordLabel: "Password:",
@@ -55,6 +60,7 @@ const translations = {
     disclaimer: "Probashi Sheba is not a bank or immigration directorate. It is a volunteer support platform formed by freelance social workers for Bangladeshis in Cambodia.",
     fillAll: "Please fill in all fields.",
     fillName: "Please enter your name.",
+    fillPhone: "Please enter your phone number.",
     agreeRequired: "Please agree to the terms & conditions.",
     successReg: "Your account was successfully created!",
     emailInUse: "This email is already registered to another account.",
@@ -72,6 +78,8 @@ const translations = {
     loginTitle: "ចូលទៅក្នុងគណនីរបស់អ្នក",
     fullNameLabel: "ឈ្មោះពេញរបស់អ្នក:",
     fullNamePlaceholder: "ឧទាហរណ៍៖ Md. Sakib Hasan",
+    phoneLabel: "លេខទូរស័ព្ទ (WhatsApp):",
+    phonePlaceholder: "ឧទាហរណ៍៖ +855 12345678",
     emailLabel: "អាសយដ្ឋានអ៊ីមែល:",
     emailPlaceholder: "ឧទាហរណ៍៖ miah.probashi@gmail.com",
     passwordLabel: "ពាក្យសម្ងាត់:",
@@ -81,9 +89,10 @@ const translations = {
     loadingText: "កំពុងដំណើរការ...",
     hasAccount: "មានគណនីរួចហើយ? ចូល",
     needAccount: "ចង់បង្កើតគណនីថ្មី? ចុះឈ្មោះ",
-    disclaimer: "សេវាប្រវេសជន មិនមែនជាធនាគារ ឬអគ្គនាយកដ្ឋានអន្តោប្រវេសន៍ឡើយ។ វាជាវេទិកាស្ម័គ្រចិត្តបង្កើតឡើងដោយសកម្មជនសង្គម ដើម្បីជួយសម្រួលដល់ប្រជាជនបង់ក្លาដែសនៅកម្ពុជា។",
+    disclaimer: "សេវាប្រវេសជន មិនមែនជាធនាគារ ឬអគ្គនាយកដ្ឋានអន្តោប្រវេសន៍ឡើយ។ វាជាវេទិកាស្ម័គ្រចិត្តបង្កើតឡើងដោយសកម្មជនសង្គម ដើម្បីជួយសម្រួលដល់ប្រជាជនបង់ក្លាដែសនៅកម្ពុជា។",
     fillAll: "សូមបំពេញគ្រប់ចន្លោះ។",
     fillName: "សូមបញ្ចូលឈ្មោះរបស់អ្នក។",
+    fillPhone: "សូមបញ្ចូលលេខទូរស័ព្ទរបស់អ្នក។",
     agreeRequired: "សូមយល់ព្រមតាមលក្ខខណ្ឌ។",
     successReg: "គណនីរបស់អ្នកត្រូវបានបង្កើតដោយជោគជ័យ!",
     emailInUse: "អ៊ីមែលនេះត្រូវបានចុះឈ្មោះរួចហើយ។",
@@ -106,6 +115,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -121,6 +131,10 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
     }
     if (isRegister && !fullName) {
       alert(t.fillName);
+      return;
+    }
+    if (isRegister && !phone) {
+      alert(t.fillPhone);
       return;
     }
     if (isRegister && !agreeTerms) {
@@ -147,6 +161,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           userId: generatedUserId,
           name: fullName.trim(),
           email: email.trim().toLowerCase(),
+          phone: phone.trim(),
           balance: 0,
           isPremium: false,
           isBlocked: false,
@@ -260,6 +275,24 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder={t.fullNamePlaceholder}
+                  className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  style={{ borderWidth: '0.5px' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {isRegister && (
+            <div>
+              <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.phoneLabel}</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
+                <input
+                  type="text"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={t.phonePlaceholder}
                   className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
                   style={{ borderWidth: '0.5px' }}
                 />
