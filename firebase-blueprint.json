@@ -130,7 +130,9 @@
         "isActive": { "type": "boolean" },
         "order": { "type": "number" },
         "accountName": { "type": "string" },
-        "qrImageUrl": { "type": "string" }
+        "qrImageUrl": { "type": "string" },
+        "network": { "type": "string" },
+        "walletAddress": { "type": "string" }
       },
       "required": ["name", "country", "color", "isActive", "accountName"]
     },

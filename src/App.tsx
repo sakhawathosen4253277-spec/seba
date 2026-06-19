@@ -194,6 +194,28 @@ export default function App() {
     setAgentName(randomName);
     seedDatabaseIfNeeded();
     seedPaymentMethodsIfNeeded();
+
+    // Live update for global exchange rates
+    const unsub = onSnapshot(doc(db, "exchangeRates", "current"), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.usdRate !== undefined) {
+          setExchangeRate(Number(data.usdRate));
+        } else if (data.bkash !== undefined) {
+          setExchangeRate(Number(data.bkash));
+        }
+        if (data.exchangeRateUnderTen !== undefined) {
+          setExchangeRateUnderTen(Number(data.exchangeRateUnderTen));
+        }
+        if (data.exchangeRateLimit !== undefined) {
+          setExchangeRateLimit(Number(data.exchangeRateLimit));
+        }
+      }
+    }, (err) => {
+      console.warn("Exchange rate real-time listener skipped or failed:", err);
+    });
+
+    return () => unsub();
   }, []);
 
   // Transactions State
@@ -401,13 +423,18 @@ export default function App() {
   };
 
   // Intercept Admin Route
-  if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
+  if (
+    window.location.pathname === "/admin" || 
+    window.location.pathname === "/admin/" || 
+    window.location.pathname === "/shamim" || 
+    window.location.pathname === "/shamim/"
+  ) {
     return <AdminPanel />;
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#F0F4F8] flex flex-col items-center justify-center p-6 text-center">
         <div className="w-10 h-10 border-4 border-[#1B4F72] border-t-transparent rounded-full animate-spin"></div>
         <p className="text-xs text-[#6B7280] mt-3 font-sans">প্রবাসী সেবা লোড হচ্ছে...</p>
       </div>
@@ -415,7 +442,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#1A1A2E] font-sans antialiased selection:bg-[#1B4F72] selection:text-white flex flex-col max-w-md mx-auto relative border-x border-[#E5E7EB] shadow-sm overflow-x-hidden pb-16">
+    <div className="h-screen bg-[#F0F4F8] text-[#1A1A2E] font-sans antialiased selection:bg-[#1B4F72] selection:text-white flex flex-col max-w-md mx-auto relative border-x border-[#E5E7EB] shadow-sm overflow-hidden">
       
       {/* Sticky Header with glowing bell notice check */}
       <Header 
@@ -430,7 +457,7 @@ export default function App() {
       />
 
       {/* Main Routed Area body container */}
-      <main className="flex-1 overflow-y-auto pt-4 pb-20">
+      <main className="flex-1 overflow-y-auto pt-4 pb-28">
         
         {!currentUser ? (
           <AuthScreen 

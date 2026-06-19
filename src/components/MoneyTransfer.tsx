@@ -86,6 +86,7 @@ export default function MoneyTransfer({
       newErrors.usdAmount = "টাকার পরিমাণ সঠিকভাবে লিখুন ভাই।";
     } else if (totalUsdNeeded > walletBalance) {
       newErrors.usdAmount = `আপনার ওয়ালেট ব্যালেন্স যথেষ্ট নয়! খরচসহ মোট লাগবে: $${totalUsdNeeded.toFixed(2)}`;
+      alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalUsdNeeded.toFixed(2)} USD আপনার ওয়ালেটে আছে: $${walletBalance.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
     }
 
     if (!recipientNumber) {

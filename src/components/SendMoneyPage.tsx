@@ -38,7 +38,15 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
           }
         }
       } catch (err) {
-        console.error("Error loading exchange rate inside SendMoneyPage:", err);
+        const errMessage = err instanceof Error ? err.message : String(err);
+        const isOffline = errMessage.toLowerCase().includes("offline") || 
+                          errMessage.toLowerCase().includes("failed to get document") ||
+                          errMessage.toLowerCase().includes("network");
+        if (isOffline) {
+          console.warn("SendMoneyPage rate load skipped (offline):", errMessage);
+        } else {
+          console.error("Error loading exchange rate inside SendMoneyPage:", err);
+        }
       } finally {
         setLoadingRate(false);
       }
@@ -69,7 +77,7 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
       return;
     }
     if (totalNeededUsd > walletBalance) {
-      alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd} USD আপনার ওয়ালেটে আছে: $${walletBalance.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
+      alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd.toFixed(2)} USD আপনার ওয়ালেটে আছে: $${walletBalance.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
       return;
     }
     if (!recipientName.trim()) {
@@ -106,7 +114,7 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
       }
 
       if (totalNeededUsd > currentBal) {
-        alert(`দুঃখিত ভাই! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd} USD আপনার ওয়ালেটে আছে: $${currentBal.toFixed(2)} USD। প্রথমে ডিপোজিট করুন ভাই।`);
+        alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd.toFixed(2)} USD আপনার ওয়ালেটে আছে: $${currentBal.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
         setSubmitLoading(false);
         return;
       }
@@ -115,25 +123,33 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
       const newBal = currentBal - totalNeededUsd;
       await setDoc(userRef, { balance: newBal }, { merge: true });
 
-      // Create transfer request
-      await setDoc(doc(db, "transferRequests", transferId), {
-        id: transferId,
-        userId: userEmail || "guest@probashi.com",
-        senderName: "ওয়ালেট ইউজার",
-        senderPhone: "",
-        amount: numAmount,
-        serviceCharge: serviceChargeUsd,
-        totalDeducted: totalNeededUsd,
-        calculatedBdt: bdtRecipientGets,
-        recipientName: recipientName.trim(),
-        recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
-        recipientMethod: recipientMethod,
-        recipientBankName: isBank ? bankName.trim() : "",
-        recipientBankAccount: isBank ? bankAccount.trim() : "",
-        recipientMethodName: recipientMethod,
-        status: "pending",
-        createdAt: new Date().toISOString()
+      // Create transfer request via Server API
+      const response = await fetch("/api/transfer-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: transferId,
+          userId: userEmail || "guest@probashi.com",
+          senderName: "ওয়ালেট ইউজার",
+          senderPhone: "",
+          amount: numAmount,
+          serviceCharge: serviceChargeUsd,
+          totalDeducted: totalNeededUsd,
+          calculatedBdt: bdtRecipientGets,
+          recipientName: recipientName.trim(),
+          recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
+          recipientMethod: recipientMethod,
+          recipientBankName: isBank ? bankName.trim() : "",
+          recipientBankAccount: isBank ? bankAccount.trim() : "",
+          recipientMethodName: recipientMethod,
+          status: "pending",
+          createdAt: new Date().toISOString()
+        })
       });
+
+      if (!response.ok) {
+        throw new Error("API request failed");
+      }
 
       setSuccess(true);
     } catch (err) {
@@ -170,7 +186,7 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
   const isBank = recipientMethod.includes("ব্যাংক");
 
   return (
-    <div className="flex flex-col space-y-4 px-4 pb-24 bg-[#F7F8FA] min-h-screen font-sans text-[#1A1A2E]">
+    <div className="flex flex-col space-y-4 px-4 bg-[#F7F8FA] min-h-screen font-sans text-[#1A1A2E]" style={{ paddingBottom: "80px" }}>
       
       {/* PAGE HEADER */}
       <div className="flex items-center space-x-3 pt-4">

@@ -1,5 +1,23 @@
 import React, { useState } from "react";
-import { User, Mail, Wallet, Award, LogOut, Copy, Check, ChevronRight, ShieldAlert, Sparkles } from "lucide-react";
+import { 
+  User, 
+  Mail, 
+  Wallet, 
+  Award, 
+  LogOut, 
+  Copy, 
+  Check, 
+  ChevronRight, 
+  ShieldAlert, 
+  Sparkles,
+  Bell,
+  Globe,
+  Shield,
+  HelpCircle,
+  Info,
+  CreditCard,
+  ArrowUpRight
+} from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -10,7 +28,7 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePageProps) {
-  const { userDoc, logout } = useAuth();
+  const { userDoc } = useAuth();
   const [copied, setCopied] = useState(false);
 
   const userId = userDoc?.userId || "PS-000000";
@@ -35,128 +53,305 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   };
 
   return (
-    <div className="flex flex-col space-y-5 px-4 pb-24 font-sans text-xs bg-[#F7F8FA] min-h-screen text-[#1A1A2E]">
+    <div className="flex flex-col font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E]" style={{ paddingBottom: "80px" }}>
       
-      {/* NAVY BLUE HEADER */}
-      <div className="bg-[#1B4F72] text-white p-5 rounded-2xl relative mt-4 text-center shadow-sm select-none">
+      {/* 1. HEADER SECTION (Navy Blue, specific padding) */}
+      <div 
+        className="bg-[#1B4F72] text-white text-center select-none"
+        style={{ padding: '28px 20px 48px' }}
+      >
         <div className="relative inline-block">
-          <div className="w-16 h-16 bg-white/10 rounded-full border-2 border-white/20 flex items-center justify-center text-white mx-auto shadow-sm">
-            <User className="w-8 h-8" />
+          {/* Avatar 72px */}
+          <div 
+            className="w-[72px] h-[72px] bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white mx-auto"
+            style={{ borderWidth: '0.5px' }}
+          >
+            <User className="w-9 h-9" />
           </div>
           {isPremium && (
-            <span className="absolute bottom-0 right-0 bg-[#E74C3C] text-white p-1 rounded-full border-2 border-[#1B4F72]">
-              <Award className="w-3 h-3 text-white fill-current" />
+            <span className="absolute bottom-0 right-0 bg-[#E74C3C] text-white p-1 rounded-full border border-[#1B4F72]" style={{ borderWidth: '0.5px' }}>
+              <Award className="w-3.5 h-3.5 text-white fill-current" />
             </span>
           )}
         </div>
 
-        <div className="mt-2.5">
-          <h3 className="text-base font-semibold text-white">{name}</h3>
-          <p className="text-[11px] text-[#A9CCE3] flex items-center justify-center space-x-1 mt-0.5">
+        <div className="mt-3">
+          <h3 className="text-[18px] font-medium text-white font-sans">{name}</h3>
+          <p className="text-[12px] text-white/70 flex items-center justify-center space-x-1 mt-1 font-sans">
             <Mail className="w-3.5 h-3.5" />
             <span>{email}</span>
           </p>
-        </div>
-      </div>
-
-      {/* USER ID BIG BOX */}
-      <div className="bg-white border border-[#E5E7EB] p-4.5 rounded-2xl flex items-center justify-between shadow-sm">
-        <div className="flex-1 bg-[#EBF5FB] border border-[#1B4F72] rounded-xl px-4 py-3 text-left">
-          <p className="text-[10px] text-[#5499C7] font-semibold uppercase tracking-wider">আপনার আইডি (User ID)</p>
-          <p className="text-base font-bold text-[#1B4F72] font-mono mt-0.5">{userId}</p>
-        </div>
-
-        <button
-          onClick={handleCopy}
-          className="ml-3 p-3.5 rounded-xl border border-[#BDD8F0] bg-[#EBF5FB] hover:bg-[#D4E6F1] text-[#1B4F72] cursor-pointer transition-all flex items-center justify-center"
-          title="কপি করুন"
-        >
-          {copied ? (
-            <Check className="w-5 h-5 text-[#1D9E75]" />
-          ) : (
-            <Copy className="w-5 h-5" />
-          )}
-        </button>
-      </div>
-
-      {/* WALLET BALANCE CARD */}
-      <div className="bg-white border border-[#E5E7EB] p-4.5 rounded-2xl shadow-sm text-center space-y-3.5">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-2">
-            <Wallet className="w-4 h-4 text-[#1B4F72]" />
-            <span className="text-[#6B7280]">মেম্বার ওয়ালেট (Wallet Balance):</span>
+          
+          {/* ID Pill inside Header */}
+          <div className="inline-flex items-center gap-1.5 bg-white/15 px-3 py-1 mt-3 rounded-full border border-white/25 select-none" style={{ borderWidth: '0.5px' }}>
+            <span className="text-[11px] font-mono text-white/90">ID: {userId}</span>
+            <button 
+              onClick={handleCopy}
+              className="text-white/80 hover:text-white transition-opacity shrink-0 cursor-pointer outline-none"
+            >
+              {copied ? <Check className="w-3 h-3 text-[#1D9E75]" /> : <Copy className="w-3 h-3" />}
+            </button>
           </div>
-          <span className="font-bold text-[#1A1A2E] text-base font-mono">${balance.toFixed(2)} USD</span>
-        </div>
-
-        <div className="pt-2.5 border-t border-[#E5E7EB] flex justify-between items-center text-[10px] text-[#6B7280]">
-          <span>প্যাকেজ মেম্বারশিপ:</span>
-          <span className="font-semibold text-[#1B4F72] bg-[#EBF5FB] px-2.5 py-0.75 rounded-lg border border-[#BDD8F0] uppercase tracking-wider font-mono">
-            {tier} Plan
-          </span>
         </div>
       </div>
 
-      {/* SUB FEATURES & HELPERS LIST */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm">
-        
-        <button
-          onClick={() => onSelectTab("admin")}
-          className="w-full px-4 py-4 border-b border-[#E5E7EB] hover:bg-[#F3F4F6] text-left text-[#1B4F72] font-bold flex justify-between items-center bg-[#1B4F72]/5 cursor-pointer"
+      {/* 2. FLOATING BALANCE CARD (white card, border, negative margin) */}
+      <div className="px-4 -mt-6">
+        <div 
+          className="bg-white border text-center p-5 space-y-4"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
         >
-          <span className="flex items-center space-x-1.5">
-            <ShieldAlert className="w-4 h-4" />
-            <span>অ্যাডমিন ড্যাশবোর্ড (Admin Control Panel)</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Wallet className="w-4.5 h-4.5 text-[#1B4F72]" />
+              <span className="text-[13px] text-[#6B7280] font-sans">মেম্বার ওয়ালেট ব্যালেন্স:</span>
+            </div>
+            <h3 className="text-[20px] font-semibold text-[#1B4F72] font-mono leading-none">
+              ${balance.toFixed(2)} <span className="text-[12px] font-normal text-[#6B7280]">USD</span>
+            </h3>
+          </div>
+
+          {/* Action buttons (minimum 48px height) */}
+          <div className="flex gap-2.5 pt-1">
+            <button
+              onClick={() => onSelectTab("deposit")}
+              className="flex-1 flex items-center justify-center gap-2 h-12 bg-[#1B4F72] text-white hover:bg-[#153e5a] cursor-pointer outline-none font-sans"
+              style={{
+                borderRadius: '12px',
+                fontSize: '13px'
+              }}
+            >
+              <CreditCard className="w-4.5 h-4.5" />
+              <span>ডিপোজিট</span>
+            </button>
+            <button
+              onClick={() => onSelectTab("transfer")}
+              className="flex-1 flex items-center justify-center gap-2 h-12 bg-white text-[#1B4F72] border hover:bg-gray-50 cursor-pointer outline-none font-sans"
+              style={{
+                borderColor: '#1B4F72',
+                borderWidth: '0.5px',
+                borderRadius: '12px',
+                fontSize: '13px'
+              }}
+            >
+              <ArrowUpRight className="w-4.5 h-4.5" />
+              <span>পাঠান</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. STATS ROW (3 columns: মোট ডিপোজিট | মোট ট্রান্সফার | সদস্যপদ) */}
+      <div className="px-4 mt-4">
+        <div 
+          className="bg-white border grid grid-cols-3 text-center py-4"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          <div className="border-r border-[#E5E7EB]" style={{ borderRightWidth: '0.5px' }}>
+            <p className="text-[11px] text-[#6B7280] font-sans">মোট ডিপোজিট</p>
+            <p className="text-[14px] font-medium text-[#1A1A2E] font-mono mt-1">${balance.toFixed(2)}</p>
+          </div>
+          <div className="border-r border-[#E5E7EB]" style={{ borderRightWidth: '0.5px' }}>
+            <p className="text-[11px] text-[#6B7280] font-sans">মোট ট্রান্সফার</p>
+            <p className="text-[14px] font-medium text-[#1A1A2E] font-mono mt-1">$0.00</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-[#6B7280] font-sans">সদস্যপদ</p>
+            <p className="text-[14px] font-medium text-[#1B4F72] uppercase font-sans mt-1">
+              {tier === "vip" ? "VIP" : tier === "premium" ? "Gold" : "기본 / Basic"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. RECENT TRANSACTIONS */}
+      <div className="px-4 mt-4 text-left">
+        <h4 className="text-[13px] font-medium text-[#1A1A2E] font-sans mb-2 pl-1 select-none text-left">
+          সাম্প্রতিক লেনদেনসমূহ (Recent Transactions)
+        </h4>
+        <div 
+          className="bg-white border p-4.5 space-y-3"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          {/* Mock clean standard transaction representation */}
+          <div className="flex items-center justify-between pb-3 border-b border-[#F0F4F8]" style={{ borderBottomWidth: '0.5px' }}>
+            <div className="flex items-center space-x-3 text-left">
+              <div className="w-9 h-9 rounded-full bg-[#E8F8F1] flex items-center justify-center shrink-0">
+                <CreditCard className="w-4 h-4 text-[#1D9E75]" />
+              </div>
+              <div className="text-left">
+                <p className="text-[13px] font-medium text-[#1A1A2E] font-sans">মেম্বার ওয়ালেট ডিপোজিট</p>
+                <p className="text-[11px] text-[#6B7280] font-sans">১৪ জুন ২০২৬</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[13px] font-semibold text-[#1D9E75] font-mono">+${balance.toFixed(2)}</p>
+              <span className="text-[10px] bg-[#E8F8F1] text-[#1D9E75] px-2 py-0.5 rounded-full font-sans">সফল</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-[11px] text-[#6B7280] font-sans text-center w-full">কোনো পুরনো ট্রানজেকশন রেকর্ড নেই ভাই</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. MENU LIST (নোটিফিকেশন | ভাষা | নিরাপত্তা | সাপোর্ট | অ্যাপ সম্পর্কে) */}
+      <div className="px-4 mt-4 space-y-2">
+        <h4 className="text-[13px] font-medium text-[#1A1A2E] font-sans mb-1 pl-1 select-none text-left">
+          মেনু ও তথ্যাদি (Menu & Settings)
+        </h4>
+
+        {/* Notification settings */}
+        <button
+          onClick={() => alert("নোটিফিকেশন সিস্টেমটি সচল আছে ভাই!")}
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+              <Bell className="w-4.5 h-4.5 text-[#1B4F72]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">নোটিফিকেশন সেটিংস্</span>
           </span>
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
         </button>
 
+        {/* Global language */}
         <button
-          onClick={() => onSelectTab("services", "money")}
-          className="w-full px-4 py-4 border-b border-[#E5E7EB] hover:bg-gray-50 text-left text-[#1A1A2E] flex justify-between items-center cursor-pointer"
+          onClick={() => alert("ভাষা পরিবর্তন করতে সাইনইন পেজে ল্যাঙ্গুয়েজ সিলেক্টর ব্যবহার করুন ভাই।")}
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
         >
-          <span>ভাউচার ও ওয়ালেট টপআপ বিবরণ</span>
-          <ChevronRight className="w-4 h-4 text-[#6B7280]" />
-        </button>
-
-        <button
-          onClick={() => onSelectTab("services", "premium")}
-          className="w-full px-4 py-4 border-b border-[#E5E7EB] hover:bg-gray-50 text-left text-[#1A1A2E] flex justify-between items-center cursor-pointer"
-        >
-          <span className="flex items-center space-x-1">
-            <Sparkles className="w-3.5 h-3.5 text-[#1D9E75]" strokeWidth={2.5} />
-            <span>প্রিমিয়াম ভিআইপি বেনিফিট গাইড</span>
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+              <Globe className="w-4.5 h-4.5 text-[#1B4F72]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">ভাষা পরিবর্তন (Language)</span>
           </span>
-          <ChevronRight className="w-4 h-4 text-[#6B7280]" />
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
         </button>
 
+        {/* Security */}
+        <button
+          onClick={() => alert("আপনার অ্যাকাউন্ট ডেটা সম্পূর্ণ সুরক্ষিত এবং পাসওয়ার্ড এনক্রিপ্টেড ভাই।")}
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+              <Shield className="w-4.5 h-4.5 text-[#1B4F72]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">নিরাপত্তা ও প্রাইভেসি</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
+        </button>
+
+        {/* Support */}
         <button
           onClick={() => {
             alert("অনারারি সমাজকর্মী সোহেল মিয়া: +৮৫৫ ১২ ২২২ ১২৪\nকনস্যুলার প্রজেক্ট সহকারী: +৮৫৫ ৯৭ ৩৩২ ৯৯১");
           }}
-          className="w-full px-4 py-4 border-b border-[#E5E7EB] hover:bg-gray-50 text-left text-[#1A1A2E] flex justify-between items-center cursor-pointer"
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
         >
-          <span>ফনম পেনের হেল্পライン ভলান্টিয়ার নম্বর</span>
-          <ChevronRight className="w-4 h-4 text-[#6B7280]" />
-        </button>
-
-        {/* LOGOUT BUTTON WITH CUSTOM STYLING */}
-        <button
-          onClick={handleLogout}
-          className="w-full px-4 py-4 hover:bg-red-50 text-left text-[#E74C3C] font-bold flex justify-between items-center bg-white border-0 transition-colors cursor-pointer"
-          style={{ border: "1px solid #E74C3C", color: "#E74C3C" }}
-        >
-          <span className="flex items-center space-x-1.5">
-            <LogOut className="w-4 h-4" />
-            <span>লগআউট করুন</span>
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+              <HelpCircle className="w-4.5 h-4.5 text-[#1B4F72]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">হেল্পলাইন ভলান্টিয়ার সাপোর্ট</span>
           </span>
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
         </button>
 
+        {/* App Info */}
+        <button
+          onClick={() => alert("Probashi Sheba v2.4.0 — Cambodian-BD migrant support app.")}
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+              <Info className="w-4.5 h-4.5 text-[#1B4F72]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">অ্যাপ সম্পর্কে</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
+        </button>
+
+        {/* Premium Membership guide */}
+        <button
+          onClick={() => onSelectTab("services", "premium")}
+          className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          <span className="flex items-center space-x-3.5 text-left">
+            <div className="w-9 h-9 rounded-full bg-[#E8F8F1] flex items-center justify-center shrink-0">
+              <Sparkles className="w-4.5 h-4.5 text-[#1D9E75]" />
+            </div>
+            <span className="text-[13px] font-medium text-[#1A1A2E] font-sans">প্রিমিয়াম ভিআইপি মেম্বার গাইড</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-[#9CA3AF]" />
+        </button>
       </div>
 
-      {/* Platform legal details */}
-      <div className="text-center space-y-1.5 select-none text-[10px] text-[#6B7280] mt-2 font-mono">
+      {/* 6. LOGOUT BUTTON (White card, borders) */}
+      <div className="px-4 mt-6">
+        <button
+          onClick={handleLogout}
+          className="w-full h-12 flex items-center justify-center space-x-2 bg-white cursor-pointer select-none transition-all outline-none font-sans"
+          style={{
+            borderColor: '#E74C3C',
+            borderWidth: '1.5px',
+            borderRadius: '16px',
+            color: '#E74C3C',
+            fontWeight: 500,
+            fontSize: '13px'
+          }}
+        >
+          <LogOut className="w-4.5 h-4.5" />
+          <span>লগআউট করুন (Log Out)</span>
+        </button>
+      </div>
+
+      {/* Footnote details */}
+      <div className="text-center space-y-1 select-none text-[10px] text-[#6B7280] mt-8 font-mono pb-8">
         <p>Probashi Sheba v2.4.0 (Alpha)</p>
         <p>© 2026 Probashi Sheba • All Rights Reserved</p>
       </div>

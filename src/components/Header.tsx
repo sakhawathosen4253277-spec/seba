@@ -10,106 +10,116 @@ interface HeaderProps {
   exchangeRate?: number;
 }
 
-export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80 }: HeaderProps) {
-  const tickerMessages = [
-    "⚠️ ওভারস্টে জরিমানা $10/দিন — ৯০ দিনের বেশি থাকলে ডিপোর্ট হতে পারেন",
-    "📋 ভিসা extension করুন মেয়াদ শেষের ৭ দিন আগে — দেরি করবেন না",
-    "🚫 দালালকে পাসপোর্ট দেবেন না — এটা বেআইনি ও বিপজ্জনক",
-    "💸 আজকের এক্সচেঞ্জ রেট: 1 USD = 110.80 BDT — সবসময় ব্যাংক থেকে নিন",
-    "⚠️ Work Permit ছাড়া কাজ করলে জরিমানা ও ডিপোর্ট হতে পারে",
-    "🏥 জরুরি হাসপাতাল: Calmette Hospital, Phnom Penh — সবচেয়ে সাশ্রয়ী",
-    "🎫 ভুয়া টিকেট স্ক্যাম চলছে — টাকা দেওয়ার আগে আমাদের agent-কে জানান",
-    "📞 Bangladesh Honorary Consulate Phnom Penh — বিপদে সাথে সাথে যোগাযোগ করুন",
-    "💼 Verified employer ছাড়া কোনো contract সই করবেন না",
-    "🚨 Facebook-এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
-  ];
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [fade, setFade] = useState(true);
+export default function Header({ unreadCount, onBellClick }: HeaderProps) {
+  const [tickerItems, setTickerItems] = useState<string[]>([
+    "💸 প্রবাসী সেবায় টাকা পাঠান — ৫ মিনিট থেকে ২ ঘণ্টায় দেশে পৌঁছায়",
+    "✅ আজ পর্যন্ত ১০০% সফল ট্রান্সফার — আমাদের বিশ্বাস করুন ভাই",
+    "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
+    "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
+    "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
+    "💰 আজকের রেট: 1 USD = 110.80 BDT — সবচেয়ে ভালো রেট আমাদের কাছে",
+    "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
+    "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
+  ]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFade(false);
-      const timeout = setTimeout(() => {
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % tickerMessages.length);
-        setFade(true);
-      }, 300); // 300ms for fade out
-      return () => clearTimeout(timeout);
-    }, 5000);
+    function shuffleArray(array: string[]) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
 
+    async function loadGeneratedNews() {
+      try {
+        const response = await fetch("/api/generate-news");
+        const staticItems = [
+          "💸 প্রবাসী সেবায় টাকা পাঠান — ৫ মিনিট থেকে ২ ঘণ্টায় দেশে পৌঁছায়",
+          "✅ আজ পর্যন্ত ১০০% সফল ট্রান্সফার — আমাদের বিশ্বাস করুন ভাই",
+          "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
+          "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
+          "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
+          "💰 আজকের রেট: 1 USD = 110.80 BDT — সবচেয়ে ভালো রেট আমাদের কাছে",
+          "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
+          "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
+        ];
+
+        if (response.ok) {
+          const aiNews = await response.json();
+          if (Array.isArray(aiNews) && aiNews.length > 0) {
+            const combined = [...staticItems, ...aiNews];
+            setTickerItems(shuffleArray(combined));
+            return;
+          }
+        }
+        setTickerItems(shuffleArray(staticItems));
+      } catch (err) {
+        console.warn("Failed to fetch generated news, using defaults:", err);
+      }
+    }
+
+    loadGeneratedNews();
+    // Poll news updates every 30 minutes
+    const interval = setInterval(loadGeneratedNews, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [tickerMessages.length]);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-[#1B4F72] to-[#0D2F45] border-b-2 border-[#1D9E75] shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-[#E5E7EB]" style={{ borderBottomWidth: "0.5px" }}>
       {/* Brand & Notifications Bar */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-2.5">
         {/* Left Side: Logo & Labels */}
         <div className="flex items-center space-x-2.5">
-          {/* SVG Badge */}
-          <div className="w-[38px] h-[38px] rounded-[10px] bg-[#1D9E75] flex items-center justify-center select-none shrink-0 shadow-sm text-white">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 10L12 3L21 10V20C21 21.1046 20.1046 22 19 22H5C3.89543 22 3 21.1046 3 20V10Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 18C12 18 9.5 16.2 9.5 14.5C9.5 13.6 10.1 13 10.8 13C11.3 13 11.7 13.3 12 13.7C12.3 13.3 12.7 13 13.2 13C13.9 13 14.5 13.6 14.5 14.5C14.5 16.2 12 18 12 18Z" fill="white"/>
-            </svg>
+          {/* Logo box */}
+          <div className="w-9 h-9 rounded-[10px] bg-[#1B4F72] flex items-center justify-center select-none shrink-0 text-white text-[11px] font-sans font-medium">
+            সেবা
           </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-[17px] font-bold text-white tracking-tight leading-none">
-              প্রবাসী সেবা
+          <div className="flex flex-col justify-center text-left">
+            <h1 className="text-[15px] font-medium text-[#1A1A2E] leading-tight">
+              • প্রবাসী সেবা •
             </h1>
-            <p className="text-[10px] text-[#7FB3D3] mt-1 font-sans font-medium leading-none">
-              Cambodia
+            <p className="text-[10px] text-[#6B7280] font-sans font-normal leading-none mt-0.5">
+              কম্বোডিয়া • বাংলাদেশ
             </p>
           </div>
         </div>
 
-        {/* Right Side: Exchange Rate Pill & Notification Bell */}
-        <div className="flex items-center space-x-2">
-          {/* Live exchange rate pill */}
-          <div className="flex items-center space-x-1 bg-[#0A2435] border border-[#1D9E75]/40 rounded-full px-2 py-0.5 text-[10px] font-sans text-white shadow-inner whitespace-nowrap shrink-0">
-            <span className="relative flex h-1.5 w-1.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1D9E75] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#1D9E75]"></span>
-            </span>
-            <span className="font-medium whitespace-nowrap">১ USD = {exchangeRate.toFixed(2)} BDT</span>
-          </div>
-
+        {/* Right Side: Notification Bell */}
+        <div className="flex items-center">
           {/* Bell Button */}
           <button
             onClick={onBellClick}
-            className="relative p-1.5 text-white hover:opacity-85 active:scale-95 transition-all outline-none"
+            className="w-9 h-9 rounded-full border border-[#E5E7EB] flex items-center justify-center relative active:scale-95 transition-all outline-none"
+            style={{ borderWidth: "0.5px" }}
             id="btn-bell-notifications"
           >
-            <Bell className="w-5 h-5 text-white" />
+            <Bell className="w-4.5 h-4.5 text-[#1A1A2E]" />
             {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#E74C3C] text-[9px] font-bold text-white ring-2 ring-[#0D2F45]">
-                {unreadCount}
-              </span>
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#E74C3C]" />
             )}
           </button>
         </div>
       </div>
 
       {/* Live News Ticker */}
-      <div className="flex items-center bg-[#1B4F72] px-2 py-1 overflow-hidden h-7 border-t border-white/20">
+      <div className="flex items-center bg-[#1B4F72] px-3 h-8 overflow-hidden select-none">
         {/* Live Badge */}
-        <div className="flex items-center space-x-1 px-1.5 py-0.5 bg-[#E74C3C] rounded text-[9px] font-medium text-white tracking-widest z-10 select-none shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-          <span>লাইভ</span>
+        <div className="bg-[#E74C3C] text-white text-[10px] px-1.5 py-0.5 rounded-[4px] font-sans shrink-0 font-medium leading-none">
+          লাইভ
         </div>
 
-        {/* Scrolling news replacement with beautiful fade animation */}
-        <div className="relative flex-1 overflow-hidden pointer-events-auto select-none pl-3">
+        {/* Beautiful scrolling marquee animation */}
+        <div className="relative flex-1 overflow-hidden pl-2.5 text-left flex items-center">
           <div 
-            className={`transition-opacity duration-300 text-xs text-white font-sans font-medium truncate ${
-              fade ? "opacity-100" : "opacity-0"
-            }`}
+            className="whitespace-nowrap animate-marquee text-[11px] text-white/90 font-sans inline-block"
+            style={{ animationDuration: "240s" }}
           >
-            {tickerMessages[currentIndex]}
+            {tickerItems.join("   •   ")}
           </div>
         </div>
       </div>
     </header>
   );
 }
-

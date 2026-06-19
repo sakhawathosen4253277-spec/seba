@@ -109,7 +109,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Fallback to "BN" if the selected lang is somehow not defined
+  // Fallback to "BN" if selected lang layout is somehow not defined
   const currentLang = lang in translations ? lang : "BN";
   const t = translations[currentLang];
 
@@ -168,7 +168,19 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
         }
       }
     } catch (error: any) {
-      console.error("Auth error:", error);
+      const userErrorCodes = [
+        "auth/user-not-found",
+        "auth/wrong-password",
+        "auth/invalid-credential",
+        "auth/email-already-in-use",
+        "auth/weak-password",
+        "auth/invalid-email"
+      ];
+      if (error && userErrorCodes.includes(error.code)) {
+        console.warn("User auth notice (expected):", error.message || error);
+      } else {
+        console.error("Auth error:", error);
+      }
       let errMsg = t.errorGeneric;
       if (error.code === "auth/email-already-in-use") {
         errMsg = t.emailInUse;
@@ -188,7 +200,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   };
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-5 pt-6 font-sans bg-[#F7F8FA] min-h-screen">
+    <div className="flex flex-col space-y-5 pb-20 px-5 pt-6 font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E]">
       
       {/* Brand Profile Center banner */}
       <div className="text-center space-y-2 mt-4 select-none">
@@ -203,12 +215,12 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       </div>
 
       {/* Language Selector options */}
-      <div className="bg-white p-[14px] rounded-[14px] border-[0.5px] border-[#E5E7EB] space-y-2.5">
-        <p className="text-[11px] text-[#6B7280] font-sans font-normal text-center">
+      <div className="bg-white p-[14px] rounded-[16px] border-[0.5px] border-[#E5E7EB] space-y-2.5" style={{ borderWidth: '0.5px' }}>
+        <p className="text-xs text-[#6B7280] font-sans font-normal text-center">
           {t.langSelect}
         </p>
 
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="grid grid-cols-3 gap-2 text-center text-[13px]">
           {[
             { id: "BN", label: "বাংলা" },
             { id: "EN", label: "English" },
@@ -217,11 +229,12 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             <button
               key={l.id}
               onClick={() => onSetLang(l.id as Language)}
-              className={`py-2 rounded-[10px] font-medium transition-all cursor-pointer ${
+              className={`h-11 rounded-[10px] font-medium transition-all cursor-pointer ${
                 lang === l.id
                   ? "bg-[#1B4F72] text-white border-none"
-                  : "bg-[#F7F8FA] text-[#6B7280] border-[0.5px] border-[#E5E7EB] hover:bg-[#F3F4F6]"
+                  : "bg-[#F0F4F8] text-[#6B7280] border-[0.5px] border-[#E5E7EB] hover:bg-[#F3F4F6]"
               }`}
+              style={{ borderWidth: lang === l.id ? '0' : '0.5px' }}
             >
               {l.label}
             </button>
@@ -230,7 +243,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       </div>
 
       {/* Main Login Card structure */}
-      <div className="bg-white p-[24px] rounded-[16px] border-[0.5px] border-[#E5E7EB] space-y-4">
+      <div className="bg-white p-[24px] rounded-[16px] border-[0.5px] border-[#E5E7EB] space-y-4" style={{ borderWidth: '0.5px' }}>
         <h3 className="text-[15px] font-medium text-[#1A1A2E] text-center">
           {isRegister ? t.registerTitle : t.loginTitle}
         </h3>
@@ -240,14 +253,15 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             <div>
               <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.fullNameLabel}</label>
               <div className="relative">
-                <User className="absolute left-3 top-3 w-4 h-4 text-[#9CA3AF]" />
+                <User className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder={t.fullNamePlaceholder}
-                  className="w-full bg-[#F9FAFB] text-[#1A1A2E] text-xs pl-9 pr-4 py-3 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  style={{ borderWidth: '0.5px' }}
                 />
               </div>
             </div>
@@ -256,14 +270,15 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           <div>
             <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.emailLabel}</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 w-4 h-4 text-[#9CA3AF]" />
+              <Mail className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t.emailPlaceholder}
-                className="w-full bg-[#F9FAFB] text-[#1A1A2E] text-xs pl-9 pr-4 py-3 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                style={{ borderWidth: '0.5px' }}
               />
             </div>
           </div>
@@ -271,39 +286,40 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           <div>
             <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.passwordLabel}</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 w-4 h-4 text-[#9CA3AF]" />
+              <Lock className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-[#F9FAFB] text-[#1A1A2E] text-xs pl-9 pr-4 py-3 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                style={{ borderWidth: '0.5px' }}
               />
             </div>
           </div>
 
           {isRegister && (
-            <div className="flex items-center space-x-2 py-1 text-[#6B7280] text-[12px] font-sans">
+            <div className="flex items-center space-x-2 py-1 text-[#6B7280] text-[13px] font-sans">
               <button
                 type="button"
                 onClick={() => setAgreeTerms(!agreeTerms)}
                 className="focus:outline-none shrink-0 cursor-pointer"
               >
                 {agreeTerms ? (
-                  <span className="w-4 h-4 bg-[#1B4F72] text-white rounded flex items-center justify-center font-bold text-[10px]">✓</span>
+                  <span className="w-4.5 h-4.5 bg-[#1B4F72] text-white rounded flex items-center justify-center font-bold text-[11px]">✓</span>
                 ) : (
-                  <span className="w-4 h-4 rounded bg-[#F9FAFB] border-[0.5px] border-[#E5E7EB] block" />
+                  <span className="w-4.5 h-4.5 rounded bg-[#F9FAFB] border-[0.5px] border-[#E5E7EB] block" style={{ borderWidth: '0.5px' }} />
                 )}
               </button>
-              <span>{t.termsAgree}</span>
+              <span className="select-none">{t.termsAgree}</span>
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#1B4F72] text-white font-medium text-xs rounded-[12px] flex items-center justify-center space-x-2 transition-colors cursor-pointer hover:bg-opacity-95 disabled:bg-opacity-50"
+            className="w-full h-12 bg-[#1B4F72] text-white font-medium text-[13px] rounded-[12px] flex items-center justify-center space-x-2 transition-colors cursor-pointer hover:bg-opacity-95 disabled:bg-opacity-50"
           >
             {loading ? (
               <span>{t.loadingText}</span>
@@ -316,7 +332,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           </button>
         </form>
 
-        <div className="text-center pt-3 border-t border-[#E5E7EB]">
+        <div className="text-center pt-3 border-t border-[#E5E7EB]" style={{ borderTopWidth: '0.5px' }}>
           <button
             type="button"
             onClick={() => {
@@ -330,7 +346,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       </div>
 
       {/* Safety Policy */}
-      <div className="text-center text-[10px] text-[#9CA3AF] font-sans max-w-[300px] mx-auto leading-relaxed select-none">
+      <div className="text-center text-[11px] text-[#6B7280] font-sans max-w-[325px] mx-auto leading-relaxed select-none pt-2">
         {t.disclaimer}
       </div>
     </div>

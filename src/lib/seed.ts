@@ -103,15 +103,37 @@ export async function seedDatabaseIfNeeded() {
 
     console.log("Seeding data finished successfully!");
   } catch (err) {
-    console.error("Error error during seeding:", err);
+    if (err instanceof Error && err.message.includes("offline")) {
+      console.warn("Seeding skipped: Firebase client is offline.");
+    } else {
+      console.error("Error error during seeding:", err);
+    }
   }
 }
 
 export async function seedPaymentMethodsIfNeeded() {
   try {
     const snap = await getDocs(collection(db, "paymentMethods"));
+    const binanceData = {
+      id: 'binance',
+      name: 'Binance (USDT)',
+      country: 'GLOBAL',
+      color: '#F3BA2F',
+      isActive: true,
+      order: 9,
+      accountName: 'Probashi Sheba',
+      qrImageUrl: '',
+      network: 'TRC20 / BEP20',
+      walletAddress: ''
+    };
+
     if (!snap.empty) {
       console.log("Payment methods already exist.");
+      const binanceDoc = await getDoc(doc(db, "paymentMethods", "binance"));
+      if (!binanceDoc.exists()) {
+        console.log("Seeding missing binance payment method...");
+        await setDoc(doc(db, "paymentMethods", "binance"), binanceData);
+      }
       return;
     }
     console.log("Seeding payment methods...");
@@ -124,7 +146,8 @@ export async function seedPaymentMethodsIfNeeded() {
       { id: 'aba', name: 'ABA Bank', country: 'KH', color: '#E31837', isActive: true, order: 5, accountName: 'PROBASHI SHEBA KH ABA', qrImageUrl: '' },
       { id: 'wing', name: 'Wing Money', country: 'KH', color: '#0066CC', isActive: true, order: 6, accountName: 'PROBASHI SHEBA KH WING', qrImageUrl: '' },
       { id: 'truemoney', name: 'True Money', country: 'KH', color: '#FF6600', isActive: true, order: 7, accountName: 'PROBASHI SHEBA KH TRUE', qrImageUrl: '' },
-      { id: 'acleda', name: 'Acleda Bank', country: 'KH', color: '#004B87', isActive: true, order: 8, accountName: 'PROBASHI SHEBA KH ACLEDA', qrImageUrl: '' }
+      { id: 'acleda', name: 'Acleda Bank', country: 'KH', color: '#004B87', isActive: true, order: 8, accountName: 'PROBASHI SHEBA KH ACLEDA', qrImageUrl: '' },
+      binanceData
     ];
 
     for (const m of methods) {
@@ -132,6 +155,10 @@ export async function seedPaymentMethodsIfNeeded() {
     }
     console.log("Seeding payment methods finished successfully!");
   } catch (err) {
-    console.error("Error seeding payment methods:", err);
+    if (err instanceof Error && err.message.includes("offline")) {
+      console.warn("Payment methods seeding skipped: Firebase client is offline.");
+    } else {
+      console.error("Error seeding payment methods:", err);
+    }
   }
 }

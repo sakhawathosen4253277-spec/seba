@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import { 
   ShieldAlert, 
   Briefcase, 
@@ -328,6 +330,22 @@ export default function AdminDashboard({
                     alert("দয়া করে একটি সঠিক রেট নম্বর দিন ভাই।");
                     return;
                   }
+                  const payload = {
+                    usdRate: parsed,
+                    bkash: parsed,
+                    nagad: parsed,
+                    bank: parsed,
+                    updatedAt: new Date().toISOString()
+                  };
+                  setDoc(doc(db, "exchangeRates", "current"), payload, { merge: true })
+                    .catch((err) => {
+                      console.warn("Client-side save failed, sending to api server:", err);
+                      fetch("/api/admin/exchangeRate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                      }).catch((e) => console.error("Server fallback also failed:", e));
+                    });
                   onUpdateExchangeRate(parsed);
                   alert(`সাফল্যের সাথে সাধারণ এক্সচেঞ্জ রেট পরিবর্তন করে ১ USD = ${parsed.toFixed(2)} BDT করা হয়েছে ও লাইভে কার্যকর!`);
                 }}
@@ -389,6 +407,19 @@ export default function AdminDashboard({
                     alert("দয়া করে একটি সঠিক রেট নম্বর দিন ভাই।");
                     return;
                   }
+                  const payload = {
+                    exchangeRateUnderTen: parsed,
+                    updatedAt: new Date().toISOString()
+                  };
+                  setDoc(doc(db, "exchangeRates", "current"), payload, { merge: true })
+                    .catch((err) => {
+                      console.warn("Client-side save failed, sending to api server:", err);
+                      fetch("/api/admin/exchangeRate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                      }).catch((e) => console.error("Server fallback also failed:", e));
+                    });
                   onUpdateExchangeRateUnderTen(parsed);
                   alert(`সাফল্যের সাথে কম ব্যালেন্সের বিশেষ রেট পরিবর্তন করে ১ USD = ${parsed.toFixed(2)} BDT করা হয়েছে ও লাইভে কার্যকর!`);
                 }}
@@ -448,6 +479,19 @@ export default function AdminDashboard({
                     alert("দয়া করে ১ এর চেয়ে বড় একটি ডলার লিমিট ভাই সংখ্যা দিন।");
                     return;
                   }
+                  const payload = {
+                    exchangeRateLimit: parsed,
+                    updatedAt: new Date().toISOString()
+                  };
+                  setDoc(doc(db, "exchangeRates", "current"), payload, { merge: true })
+                    .catch((err) => {
+                      console.warn("Client-side save failed, sending to api server:", err);
+                      fetch("/api/admin/exchangeRate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                      }).catch((e) => console.error("Server fallback also failed:", e));
+                    });
                   onUpdateExchangeRateLimit(parsed);
                   alert(`সাফল্যের সাথে বিশেষ রেটের সর্বোচ্চ সীমা পরিবর্তন করে ${parsed.toFixed(2)} USD করা হয়েছে ভাই যা এখন কার্যকর!`);
                 }}

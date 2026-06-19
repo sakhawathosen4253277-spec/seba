@@ -114,7 +114,7 @@ export default function EmergencyHelp({ onSwitchTab, onSendMessageToChat }: Emer
   };
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-4 animate-fade-in font-sans">
+    <div className="flex flex-col space-y-5 px-4 animate-fade-in font-sans" style={{ paddingBottom: "80px" }}>
       {/* Tab Title in bright emergency red theme */}
       <div className="mt-2 text-center">
         <div className="w-12 h-12 rounded-full bg-red-650 flex items-center justify-center border-2 border-red-500 text-white animate-bounce mx-auto mb-1.5 shadow-[0_0_12px_rgba(239,68,68,0.7)]">

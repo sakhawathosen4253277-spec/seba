@@ -64,7 +64,15 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
         setErrorStatus("দুঃখিত, এই আইডি দিয়ে কোনো ট্রান্সফার অনুরোধ পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডিটি দিন ভাই।");
       }
     } catch (err) {
-      console.error("Error fetching transfer status:", err);
+      const errMessage = err instanceof Error ? err.message : String(err);
+      const isOffline = errMessage.toLowerCase().includes("offline") || 
+                        errMessage.toLowerCase().includes("failed to get document") ||
+                        errMessage.toLowerCase().includes("network");
+      if (isOffline) {
+        console.warn("TransferStatus fetch skipped (offline):", errMessage);
+      } else {
+        console.error("Error fetching transfer status:", err);
+      }
       setErrorStatus("সার্ভার থেকে তথ্য আনতে কিছুটা সমস্যা হয়েছে ভাই!");
     } finally {
       setLoading(false);

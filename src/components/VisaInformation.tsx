@@ -108,13 +108,13 @@ export default function VisaInformation() {
   ];
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-4 animate-fade-in font-sans bg-[#F7F8FA] min-h-screen">
+    <div className="flex flex-col space-y-5 px-4 animate-fade-in font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E]" style={{ paddingBottom: "80px" }}>
       {/* Tab Header */}
       <div className="mt-2 text-center">
-        <h2 className="text-xl font-medium text-[#1A1A2E] flex items-center justify-center space-x-1">
+        <h2 className="text-xl font-medium text-[#1A1A2E] flex items-center justify-center space-x-1 font-sans">
           <span>ভিসা সংক্রান্ত ও আইনি তথ্য</span>
         </h2>
-        <p className="text-xs text-[#6B7280] mt-1">ভিসার ক্যাটাগরি, নিয়ম কানুন ও সরকারি ক্লিয়ারেন্স গাইড</p>
+        <p className="text-xs text-[#6B7280] mt-1 font-sans">ভিসার ক্যাটাগরি, নিয়ম কানুন ও সরকারি ক্লিয়ারেন্স গাইড</p>
       </div>
 
       {/* Grid Category Selection */}
@@ -123,19 +123,19 @@ export default function VisaInformation() {
           <button
             key={guide.id}
             onClick={() => setSelectedGuideId(guide.id)}
-            style={
+            style={{
+              borderColor: selectedGuideId === guide.id ? "#1B4F72" : "#E5E7EB",
+              borderWidth: "0.5px",
+              borderRadius: "16px"
+            }}
+            className={`p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer outline-none ${
               selectedGuideId === guide.id
-                ? { border: "1.5px solid #1B4F72" }
-                : { border: "0.5px solid #E5E7EB" }
-            }
-            className={`p-3.5 rounded-[14px] flex flex-col items-center justify-center text-center transition-all outline-none ${
-              selectedGuideId === guide.id
-                ? "bg-[#EBF5FB] text-[#1B4F72]"
-                : "bg-[#FFFFFF] text-[#374151] hover:bg-[#F9FAFB]"
+                ? "bg-[#1B4F72] text-white"
+                : "bg-white text-[#1A1A2E] hover:bg-[#F9FAFB]"
             }`}
           >
             <span className="text-xl mb-1 select-none">{guide.icon}</span>
-            <span className="text-xs font-medium font-sans">{guide.title}</span>
+            <span className="text-[13px] font-medium font-sans">{guide.title}</span>
           </button>
         ))}
       </div>
@@ -143,31 +143,31 @@ export default function VisaInformation() {
       {/* Detailed Guide Panel */}
       {selectedGuideId && (
         <div 
-          style={{ border: "0.5px solid #E5E7EB" }}
-          className="bg-[#FFFFFF] p-5 rounded-[16px] space-y-4 animate-slide-up"
+          style={{ borderColor: "#E5E7EB", borderWidth: "0.5px", borderRadius: "16px" }}
+          className="bg-white p-5 space-y-4 animate-slide-up text-left"
         >
           {visaGuides.map((guide) => {
             if (guide.id !== selectedGuideId) return null;
             return (
-              <div key={guide.id} className="space-y-4">
-                <div style={{ borderColor: "#E5E7EB" }} className="flex justify-between items-center pb-2.5 border-b">
-                  <h3 className="text-sm font-medium text-[#1B4F72]">{guide.title} নির্দেশিকা</h3>
-                  <span className="text-[10px] bg-[#F3F4F6] text-[#374151] px-2 py-0.5 rounded-[8px] font-mono font-medium">
+              <div key={guide.id} className="space-y-4 text-left">
+                <div style={{ borderColor: "#E5E7EB", borderBottomWidth: "0.5px" }} className="flex justify-between items-center pb-2.5 border-b">
+                  <h3 className="text-[13px] font-medium text-[#1B4F72] font-sans">{guide.title} নির্দেশিকা</h3>
+                  <span className="text-[10px] bg-[#F0F4F8] text-[#1B4F72] px-2.5 py-0.5 rounded-lg border border-[#E5E7EB] font-serif font-medium" style={{ borderWidth: "0.5px" }}>
                     খরচ: {guide.cost}
                   </span>
                 </div>
 
-                <p className="text-xs text-[#4B5563] leading-relaxed font-sans mt-1">
+                <p className="text-[13px] text-[#6B7280] leading-relaxed font-sans">
                   {guide.description}
                 </p>
 
                 {/* Requirements */}
                 <div>
-                  <h4 className="text-[11px] font-medium text-[#1B4F72] mb-1.5 flex items-center space-x-1">
-                    <BookOpen className="w-3.5 h-3.5" />
+                  <h4 className="text-[12px] font-medium text-[#1A1A2E] mb-1.5 flex items-center space-x-1 font-sans">
+                    <BookOpen className="w-3.5 h-3.5 text-[#1B4F72]" />
                     <span>প্রয়োজনীয় কাগজপত্র (Requirements):</span>
                   </h4>
-                  <ul className="space-y-1 text-xs text-[#374151] pl-4 list-disc font-sans leading-relaxed">
+                  <ul className="space-y-1 text-xs text-[#6B7280] pl-4 list-disc font-sans leading-relaxed">
                     {guide.requirements.map((req, idx) => (
                       <li key={idx}>{req}</li>
                     ))}
@@ -176,11 +176,11 @@ export default function VisaInformation() {
 
                 {/* Steps */}
                 <div>
-                  <h4 className="text-[11px] font-medium text-[#1B4F72] mb-1.5 flex items-center space-x-1">
-                    <CheckCircle className="w-3.5 h-3.5" />
+                  <h4 className="text-[12px] font-medium text-[#1A1A2E] mb-1.5 flex items-center space-x-1 font-sans">
+                    <CheckCircle className="w-3.5 h-3.5 text-[#1B4F72]" />
                     <span>আবেদন করার ধাপসমূহ (Process Steps):</span>
                   </h4>
-                  <ol className="space-y-1.5 text-xs text-[#374151] list-decimal pl-4 font-sans leading-relaxed">
+                  <ol className="space-y-1.5 text-xs text-[#6B7280] list-decimal pl-4 font-sans leading-relaxed">
                     {guide.steps.map((step, idx) => (
                       <li key={idx}>{step}</li>
                     ))}
@@ -188,11 +188,11 @@ export default function VisaInformation() {
                 </div>
 
                 <div 
-                  style={{ border: "0.5px solid #E5E7EB" }}
-                  className="p-3 bg-[#F7F8FA] rounded-xl flex justify-between items-center text-[11px]"
+                  style={{ borderColor: "#E5E7EB", borderWidth: "0.5px", borderRadius: "12px" }}
+                  className="p-3 bg-[#F0F4F8] flex justify-between items-center text-[12px]"
                 >
-                  <span className="text-[#6B7280]">ভিসা স্থায়িত্বকাল:</span>
-                  <span className="font-medium text-[#1A1A2E]">{guide.duration}</span>
+                  <span className="text-[#6B7280] font-sans">ভিসা স্থায়িত্বকাল:</span>
+                  <span className="font-medium text-[#1A1A2E] font-sans">{guide.duration}</span>
                 </div>
               </div>
             );
@@ -202,27 +202,27 @@ export default function VisaInformation() {
 
       {/* Overstay Fine Calculator Card */}
       <div 
-        style={{ border: "0.5px solid #FCA5A5" }}
-        className="bg-[#FFFFFF] p-5 rounded-[16px] space-y-4"
+        style={{ borderColor: "#FCA5A5", borderWidth: "0.5px", borderRadius: "16px" }}
+        className="bg-white p-5 space-y-4 text-left"
       >
-        <div style={{ borderColor: "#E5E7EB" }} className="flex items-center space-x-2 pb-2.5 border-b">
+        <div style={{ borderColor: "#E5E7EB", borderBottomWidth: "0.5px" }} className="flex items-center space-x-2 pb-2.5 border-b text-left">
           <Calculator className="w-5 h-5 text-[#E74C3C]" />
-          <div>
-            <h3 className="text-xs font-medium text-[#1A1A2E]">ওভারস্টে জরিমানা ক্যালকুলেটর</h3>
-            <p className="text-[9px] text-[#6B7280]">ভিসার মেয়াদ ছাড়া কত দিন অতিরিক্ত আছেন হিসাব করুন</p>
+          <div className="text-left">
+            <h3 className="text-sm font-medium text-[#1A1A2E] font-sans">ওভারস্টে জরিমানা ক্যালকুলেটর</h3>
+            <p className="text-[11px] text-[#6B7280] font-sans">ভিসার মেয়াদ ছাড়া কত দিন অতিরিক্ত আছেন হিসাব করুন</p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-[11px] text-[#6B7280] font-medium mb-1.5">অতিরিক্ত দিনের সংখ্যা লিখুন (Extra Days):</label>
+          <div className="text-left">
+            <label className="block text-[12px] text-[#6B7280] font-medium mb-1.5 font-sans">অতিরিক্ত দিনের সংখ্যা লিখুন (Extra Days):</label>
             <input
               type="number"
               value={overstayDays}
               onChange={(e) => setOverstayDays(e.target.value)}
               placeholder="যেমন: ১৫"
-              style={{ border: "0.5px solid #E5E7EB" }}
-              className="w-full bg-[#F9FAFB] rounded-xl py-3 px-4 text-sm text-[#1A1A2E] font-mono focus:border-[#1B4F72] focus:outline-none"
+              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+              className="w-full h-12 bg-white rounded-xl px-4 text-[13px] text-[#1A1A2E] font-mono focus:border-[#1B4F72] focus:outline-none"
             />
           </div>
 
@@ -230,20 +230,20 @@ export default function VisaInformation() {
             <div 
               style={
                 isOverstayDanger 
-                  ? { border: "0.5px solid #FCA5A5", backgroundColor: "#FEF2F2" } 
-                  : { border: "0.5px solid #E5E7EB", backgroundColor: "#F7F8FA" }
+                  ? { border: "0.5px solid #E74C3C", backgroundColor: "#FDEDEC" } 
+                  : { border: "0.5px solid #E5E7EB", backgroundColor: "#F0F4F8" }
               }
-              className={`p-4 rounded-xl leading-relaxed text-xs space-y-2 text-[#1A1A2E]`}
+              className={`p-4 rounded-[12px] leading-relaxed text-xs space-y-2 text-[#1A1A2E]`}
             >
-              <div className="flex justify-between items-center font-medium">
+              <div className="flex justify-between items-center font-medium font-sans">
                 <span>আপনার আনুমানিক জরিমানা (Total Fine):</span>
                 <span className="text-base text-[#E74C3C] font-mono">${calculatedFine} USD</span>
               </div>
-              <p className="text-[10px] text-[#6B7280]">কম্বোডিয়ার আইন অনুযায়ী নিয়ম লঙ্ঘন করার ফি প্রতিদিন ১০ ডলার হিসাবে হিসাব করা হচ্ছে ভাই।</p>
+              <p className="text-[11px] text-[#6B7280] font-sans">কম্বোডিয়ার আইন অনুযায়ী নিয়ম লঙ্ঘন করার ফি প্রতিদিন ১০ ডলার হিসাবে হিসাব করা হচ্ছে ভাই।</p>
               
               {isOverstayDanger && (
-                <div className="pt-2 border-t border-[#FCA5A5] font-medium text-[#B91C1C] text-[10px]">
-                  ⚠️ সতর্ক বার্তা: আপনার ওভারস্টে ৯০ দিনের অধিক ছাড়িয়ে গেছে! আপনাকে পুলিশ যেকোনো সময় আটক বা সরাসরি বাংলাদেশ বিমান মারফতে ফেরত পাঠাতে (Deportation) পারে। অনুগ্রহ করে এখনই আমাদের দূতাবাসের জরুরি হটলাইনে যোগাযোগ করুন!
+                <div className="pt-2 border-t border-[#FCA5A5] font-medium text-[#E74C3C] text-[11px] font-sans">
+                  ⚠️ সতর্ক বার্তা: আপনার ওভারস্টে ৯০ দিনের অধিক ছাড়িয়ে গেছে! আপনাকে police যেকোনো সময় আটক বা সরাসরি বাংলাদেশ বিমান মারফতে ফেরত পাঠাতে (Deportation) পারে। অনুগ্রহ করে এখনই আমাদের দূতাবাসের জরুরি হেল্পলাইনে যোগাযোগ করুন!
                 </div>
               )}
             </div>
@@ -253,13 +253,14 @@ export default function VisaInformation() {
 
       {/* Emergency helpline shortcut */}
       <div 
-        style={{ border: "0.5px solid #FCA5A5" }}
-        className="p-4.5 rounded-[14px] bg-[#FEF2F2] text-center space-y-3"
+        style={{ borderColor: "#FCA5A5", borderWidth: "0.5px", borderRadius: "16px" }}
+        className="p-5 bg-[#FDEDEC] text-center space-y-3"
       >
-        <p className="text-xs text-[#7F1D1D] font-medium">আপনি কি পুলিশি হয়রানি বা আইনি সমস্যায় আছেন ভাই?</p>
+        <p className="text-xs text-[#E74C3C] font-medium font-sans">আপনি কি পুলিশি হয়রানি বা আইনি সমস্যায় আছেন ভাই?</p>
         <a
           href="tel:+85512345678"
-          className="inline-flex items-center space-x-2 bg-[#E74C3C] hover:bg-opacity-90 text-[#FFFFFF] font-medium text-xs py-2.5 px-5 rounded-[12px] transition-all outline-none"
+          className="inline-flex items-center justify-center space-x-2 bg-[#E74C3C] hover:bg-opacity-90 text-white font-medium text-[13px] py-3 px-5 rounded-[12px] transition-all outline-none"
+          style={{ height: '48px', minWidth: '200px' }}
         >
           <PhoneCall className="w-4 h-4" />
           <span>জরুরি কনস্যুলার হেল্পলাইন কল</span>
@@ -267,8 +268,8 @@ export default function VisaInformation() {
       </div>
 
       {/* FAQs Section */}
-      <div className="space-y-2.5">
-        <h4 className="text-xs font-medium uppercase tracking-wider text-[#6B7280] font-sans">
+      <div className="space-y-2.5 text-left">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] font-sans select-none text-left">
           সচরাচর জিজ্ঞাসিত প্রশ্ন (FAQ)
         </h4>
 
@@ -278,24 +279,24 @@ export default function VisaInformation() {
             return (
               <div 
                 key={idx} 
-                style={{ border: "0.5px solid #E5E7EB" }}
-                className="bg-[#FFFFFF] rounded-[12px] overflow-hidden"
+                style={{ borderColor: "#E5E7EB", borderWidth: "0.5px", borderRadius: "16px" }}
+                className="bg-white overflow-hidden text-left"
               >
                 <button
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
-                  className="w-full px-4 py-3.5 text-left flex justify-between items-center text-xs font-medium text-[#1A1A2E] hover:bg-[#F9FAFB] focus:outline-none"
+                  className="w-full px-4 py-3.5 text-left flex justify-between items-center text-xs font-medium text-[#1A1A2E] hover:bg-[#F9FAFB] focus:outline-none cursor-pointer"
                 >
-                  <span className="font-sans leading-relaxed">{faq.q}</span>
+                  <span className="font-sans leading-relaxed text-[13px]" style={{ fontWeight: 500 }}>{faq.q}</span>
                   {isOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-[#1B4F72] shrink-0" />
+                    <ChevronUp className="w-4 h-4 text-[#1B4F72] shrink-0" />
                   ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
+                    <ChevronDown className="w-4 h-4 text-[#9CA3AF] shrink-0" />
                   )}
                 </button>
                 {isOpen && (
                   <div 
-                    style={{ borderColor: "#E5E7EB" }}
-                    className="px-4 pb-4 text-xs text-[#4B5563] leading-relaxed font-sans border-t pt-3"
+                    style={{ borderColor: "#E5E7EB", borderTopWidth: "0.5px" }}
+                    className="px-4 pb-4 text-xs text-[#6B7280] leading-relaxed font-sans border-t pt-3 text-left"
                   >
                     {faq.a}
                   </div>

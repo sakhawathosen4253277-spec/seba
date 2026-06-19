@@ -101,7 +101,7 @@ export default function JobBoard({ jobs: propsJobs, onUpdateJobs }: JobBoardProp
   };
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-4 animate-fade-in font-sans">
+    <div className="flex flex-col space-y-5 px-4 animate-fade-in font-sans" style={{ paddingBottom: "80px" }}>
       {/* Top head */}
       <div className="mt-2 text-center">
         <h2 className="text-xl font-medium text-[#1A1A2E] flex items-center justify-center space-x-1">
