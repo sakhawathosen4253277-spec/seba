@@ -273,7 +273,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance, userName
       {/* 4. SOS Button - Red bordered card, full width, always visible */}
       <div className="px-4">
         <button
-          onClick={() => onServiceSelect("services", "emergency")}
+          onClick={() => onServiceSelect("emergency")}
           className="w-full flex items-center justify-between bg-white cursor-pointer focus:outline-none"
           style={{
             borderLeft: '4px solid #E74C3C',

@@ -60,7 +60,7 @@ function sanitizeDatabaseId(dbId: any): string | undefined {
   return clean;
 }
 
-const resolvedDatabaseId = "ai-studio-3401f350-d5cf-4f81-8d70-9e9547891396";
+const resolvedDatabaseId = sanitizeDatabaseId(process.env.VITE_FIREBASE_DATABASE_ID) || firebaseConfigJson.firestoreDatabaseId || "ai-studio-3401f350-d5cf-4f81-8d70-9e9547891396";
 
 const firebaseConfig = {
   apiKey: sanitizeEnv(process.env.VITE_FIREBASE_API_KEY) || firebaseConfigJson.apiKey,
@@ -69,14 +69,21 @@ const firebaseConfig = {
   storageBucket: sanitizeEnv(process.env.VITE_FIREBASE_STORAGE_BUCKET) || firebaseConfigJson.storageBucket,
   messagingSenderId: sanitizeEnv(process.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || firebaseConfigJson.messagingSenderId,
   appId: sanitizeEnv(process.env.VITE_FIREBASE_APP_ID) || firebaseConfigJson.appId,
-  firestoreDatabaseId: "ai-studio-3401f350-d5cf-4f81-8d70-9e9547891396",
+  firestoreDatabaseId: resolvedDatabaseId,
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp, "ai-studio-3401f350-d5cf-4f81-8d70-9e9547891396");
-const adminDb = getFirestore(firebaseApp, "ai-studio-3401f350-d5cf-4f81-8d70-9e9547891396");
+const db = getFirestore(firebaseApp, resolvedDatabaseId);
+const adminDb = getFirestore(firebaseApp, resolvedDatabaseId);
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || "",
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build'
+    }
+  }
+});
 
 async function sendTelegramNotification(message: string) {
   const TELEGRAM_TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
@@ -171,13 +178,38 @@ async function getAIContextDataLocal() {
     console.error("AI Context - Error counting transfers:", err);
   }
 
+  // 5. fetch active jobs
+  let activeJobs: any[] = [];
+  try {
+    const jobsCol = collection(adminDb, "jobs");
+    const qSnapshot = await getDocs(jobsCol);
+    const docsList = qSnapshot.docs.map(d => d.data());
+    // filter and sort if properties are present
+    activeJobs = docsList.filter((j: any) => j.isActive !== false).slice(0, 5);
+  } catch (err) {
+    console.error("AI Context - Error fetching jobs for AI:", err);
+  }
+
+  // 6. fetch scam reports
+  let activeScams: any[] = [];
+  try {
+    const scamsCol = collection(adminDb, "scamReports");
+    const qSnapshot = await getDocs(scamsCol);
+    const docsList = qSnapshot.docs.map(d => d.data());
+    activeScams = docsList.filter((s: any) => s.status === "verified" || s.isApproved === true || s.status !== "rejected").slice(0, 5);
+  } catch (err) {
+    console.error("AI Context - Error fetching scams for AI:", err);
+  }
+
   return {
     exchangeRates,
     recentAlerts,
     recentNews,
     appStats: {
       totalTransfers
-    }
+    },
+    activeJobs,
+    activeScams
   };
 }
 
@@ -279,7 +311,7 @@ Never repeat same topic twice.`;
 
   // Smart Chat API with Gemini fallback
     app.post("/api/chat", async (req, res) => {
-    const { message, previousMessages, agentName, userId, userName } = req.body;
+    const { message, previousMessages, agentName, userId, userName, userBalance, userPhone, userTier } = req.body;
     const name = agentName || "হাসান";
 
     if (!message) {
@@ -375,10 +407,19 @@ ${context.recentNews.map((n: any) => '- ' + n.title + ': ' + n.description).join
 
 Total successful transfers today: ${context.appStats.totalTransfers}
 
+VERIFIED ACTIVE JOBS ON BOARD (আজকের চাকরির বোর্ড):
+${(context.activeJobs && context.activeJobs.length > 0) ? context.activeJobs.map((j: any) => `- ${j.title} at ${j.company || "Unknown Company"} (${j.location || "Cambodia"}), Salary: ${j.salary || j.salaryRange || "Negotiable"}, Verified: ${j.isVerified ? "হ্যাঁ (Yes)" : "না (No)"}, Details: ${j.description || ""}`).join('\n') : "- নোটিফিকেশন: বর্তমানে সরাসরি বোর্ডে নতুন কোনো কাজ যুক্ত নেই ভাই।"}
+
+REPORTED ACTIVE SCAM DIRECTORY (সংগৃহীত দালালের কালো তালিকা):
+${(context.activeScams && context.activeScams.length > 0) ? context.activeScams.map((s: any) => `- অভিযুক্ত: ${s.scammerName || s.scammerInfo || "দালাল/প্রতারক"} (${s.scammerMeta || "N/A"}), বিবরণ: ${s.description || "টাকা নিয়ে ভিসা দেয়নি"}`).join('\n') : "- নোটিফিকেশন: ঈশ্বরকে ধন্যবাদ, এখনও অনুমোদিত বিভাগে কোনো নতুন প্রতারকের রিপোর্ট জমা পড়েনি ভাই।"}
+
 CURRENT USER:
-- নাম: ${userName || "ওয়ালেট ইউজার"}
+- নাম: ${userName || "প্রিয় ইউজার"}
 - User ID: ${userId || "unknown"}
-Use their name naturally in conversation.
+- মোবাইল নম্বর: ${userPhone || "N/A"}
+- ওয়ালেট ব্যালেন্স: $${userBalance || 0} USD
+- মেম্বারশিপ টায়ার: ${userTier || "Basic"}
+Use their context and name naturally in conversation, greeting them professionally.
 
 VISA INFORMATION:
 Tourist Visa (T Visa):

@@ -20,6 +20,7 @@ import AirTicket from "./components/AirTicket";
 import JobBoard from "./components/JobBoard";
 import ScamReport from "./components/ScamReport";
 import EmergencyHelp from "./components/EmergencyHelp";
+import EmergencyCenter from "./components/EmergencyCenter";
 import PremiumMembership from "./components/PremiumMembership";
 import AuthScreen from "./components/AuthScreen";
 import DepositPage from "./components/DepositPage";
@@ -57,7 +58,11 @@ const SUPPORT_NAMES = ["হাসান", "রহিম", "ইমরান", "�
 export default function App() {
   const { currentUser, userDoc, loading } = useAuth();
   const [lang, setLang] = useState<Language>("BN");
-  const [currentTab, setTab] = useState<NavTab>("home");
+  const [currentTab, setTab] = useState<NavTab>(
+    window.location.pathname === "/emergency" || window.location.pathname === "/emergency/" 
+      ? "emergency" 
+      : "home"
+  );
   const [prefilledTxId, setPrefilledTxId] = useState<string>("");
   
   // subView manages screens inside "services" or shortcuts
@@ -320,7 +325,12 @@ export default function App() {
         body: JSON.stringify({
           message: text,
           previousMessages: updatedMessages,
-          agentName: agentName
+          agentName: agentName,
+          userId: userDoc?.userId || "",
+          userName: userDoc?.name || "প্রিয় ইউজার",
+          userBalance: userDoc?.balance || 0,
+          userPhone: userDoc?.phone || "",
+          userTier: userDoc?.isPremium ? "VIP" : "Basic"
         })
       });
 
@@ -642,6 +652,11 @@ export default function App() {
                 onBackToHome={() => handleServiceSelect("home")}
                 onSelectTab={(tab, subView) => handleServiceSelect(tab, subView)}
               />
+            )}
+
+            {/* TAB: EMERGENCY CENTER */}
+            {currentTab === "emergency" && (
+              <EmergencyCenter />
             )}
 
             {/* TAB: ADMIN CONTROL PANEL PORTAL */}

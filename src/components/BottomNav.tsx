@@ -1,4 +1,4 @@
-import { Home, FileText, MessageSquare, Briefcase, User } from "lucide-react";
+import { Home, FileText, Headphones, Briefcase, User } from "lucide-react";
 import { NavTab } from "../types";
 
 interface BottomNavProps {
@@ -16,12 +16,12 @@ export default function BottomNav({
   unreadNotifications,
   unreadChatCount,
 }: BottomNavProps) {
-  const tabs = [
-    { id: "home" as NavTab, subView: "none", label: "হোম", icon: Home },
-    { id: "services" as NavTab, subView: "visa", label: "ভিসা", icon: FileText },
-    { id: "chat" as NavTab, subView: "none", label: "AI", icon: MessageSquare, badge: unreadChatCount },
-    { id: "services" as NavTab, subView: "jobs", label: "চাকরি", icon: Briefcase },
-    { id: "profile" as NavTab, subView: "none", label: "প্রোফাইল", icon: User },
+  const tabs: { id: NavTab; subView: string; label: string; icon: any; badge?: number }[] = [
+    { id: "home", subView: "none", label: "হোম", icon: Home },
+    { id: "services", subView: "visa", label: "ভিসা", icon: FileText },
+    { id: "emergency", subView: "none", label: "সাহায্য", icon: Headphones },
+    { id: "services", subView: "jobs", label: "চাকরি", icon: Briefcase },
+    { id: "profile", subView: "none", label: "প্রোফাইল", icon: User },
   ];
 
   return (
@@ -52,8 +52,8 @@ export default function BottomNav({
           isActive = currentTab === "services" && currentSubView === "visa";
         } else if (tab.id === "services" && tab.subView === "jobs") {
           isActive = currentTab === "services" && currentSubView === "jobs";
-        } else if (tab.id === "chat") {
-          isActive = currentTab === "chat";
+        } else if (tab.id === "emergency") {
+          isActive = currentTab === "emergency";
         } else if (tab.id === "profile") {
           isActive = currentTab === "profile";
         }

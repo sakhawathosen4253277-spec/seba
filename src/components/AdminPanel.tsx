@@ -43,6 +43,12 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
+  // Registered Users management
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersSearchQuery, setUsersSearchQuery] = useState("");
+  const [editingUserBalanceId, setEditingUserBalanceId] = useState<string | null>(null);
+  const [editingUserBalanceValue, setEditingUserBalanceValue] = useState<string>("");
+
   // Collections Data States
   const [news, setNews] = useState<any[]>([]);
   const [ticker, setTicker] = useState<any[]>([]);
@@ -195,6 +201,16 @@ export default function AdminPanel() {
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setTransferRequests(list);
+      } else if (tab === "users") {
+        const q = query(collection(db, "users"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setUsersList(list);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -536,6 +552,49 @@ export default function AdminPanel() {
       fetchTabData("emergency");
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
+  const handleUpdateUserBalance = async (userId: string) => {
+    const amount = Number(editingUserBalanceValue);
+    if (isNaN(amount)) {
+      showStatusMsg("সঠিক সংখ্যা লিখুন ভাই।", true);
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, { balance: amount }, { merge: true });
+      showStatusMsg("ইউজারের ব্যালেন্স সফলভাবে আপডেট করা হয়েছে ভাই।");
+      setEditingUserBalanceId(null);
+      setEditingUserBalanceValue("");
+      fetchTabData("users");
+    } catch (e) {
+      console.error("Error updating user balance in admin:", e);
+      showStatusMsg("ব্যালেন্স আপডেট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleToggleUserPremium = async (userId: string, currentStatus: boolean) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, { isPremium: !currentStatus, tier: !currentStatus ? "vip" : "basic" }, { merge: true });
+      showStatusMsg(`ইউজারের প্রিমিয়াম স্ট্যাটাস সফলভাবে ${!currentStatus ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে ভাই।`);
+      fetchTabData("users");
+    } catch (e) {
+      console.error("Error toggling user premium in admin:", e);
+      showStatusMsg("আপডেট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleToggleUserBlock = async (userId: string, currentBlocked: boolean) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, { isBlocked: !currentBlocked }, { merge: true });
+      showStatusMsg(`ইউজারকে সফলভাবে ${!currentBlocked ? 'ব্লক' : 'আনব্লক'} করা হয়েছে ভাই।`);
+      fetchTabData("users");
+    } catch (e) {
+      console.error("Error toggling user block in admin:", e);
+      showStatusMsg("আপডেট করতে সমস্যা হয়েছে ভাই।", true);
     }
   };
 
@@ -888,7 +947,8 @@ export default function AdminPanel() {
           { id: "jobs", name: "চাকরি" },
           { id: "scams", name: "স্ক্যাম" },
           { id: "tickets", name: "টিকেট" },
-          { id: "emergency", name: "জরুরি" }
+          { id: "emergency", name: "জরুরি" },
+          { id: "users", name: "ইউজার্স" }
         ].map((tab) => {
           let count = 0;
           if (tab.id === "deposit") {
@@ -2102,6 +2162,169 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "users" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-semibold">রেজিস্টার্ড প্রবাসী ইউজার লিস্ট</h2>
+                    <p className="text-[11px] opacity-90 font-sans">মোট ইউজার: {usersList.length} জন</p>
+                  </div>
+                  <button 
+                    onClick={() => fetchTabData("users")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={usersSearchQuery}
+                    onChange={(e) => setUsersSearchQuery(e.target.value)}
+                    placeholder="নাম, পিএস-আইডি, মোবাইল বা ইমেইল দিয়ে খুঁজুন ভাই..."
+                    className="w-full h-11 bg-white text-[#1A1A2E] text-[13px] pl-4 pr-10 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none transition-colors font-sans font-medium"
+                    style={{ borderWidth: "0.5px" }}
+                  />
+                  <span className="absolute right-3.5 top-3 text-[#9CA3AF] text-xs font-sans font-medium">খুঁজুন</span>
+                </div>
+
+                {/* Users list container */}
+                <div className="space-y-3">
+                  {usersList.length === 0 ? (
+                    <p className="text-xs text-[#6B7280] bg-white border rounded-xl p-4 text-center italic" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>লোড হচ্ছে বা কোনো ইউজার পাওয়া যায়নি ভাই।</p>
+                  ) : (
+                    (() => {
+                      const filtered = usersList.filter(u => {
+                        const q = usersSearchQuery.toLowerCase().trim();
+                        if (!q) return true;
+                        return (u.name || "").toLowerCase().includes(q) ||
+                               (u.email || "").toLowerCase().includes(q) ||
+                               (u.phone || "").toLowerCase().includes(q) ||
+                               (u.userId || "").toLowerCase().includes(q);
+                      });
+                      if (filtered.length === 0) {
+                        return <p className="text-xs text-[#6B7280] bg-white border rounded-xl p-4 text-center italic" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>কোনো ইউজার মেলেনি ভাই।</p>;
+                      }
+                      return filtered.map((u) => {
+                        const isPhoneUser = u.email && u.email.endsWith("@probashi.com");
+                        return (
+                          <div
+                            key={u.id}
+                            className="bg-white border p-4 rounded-[14px] space-y-3 text-left font-sans"
+                            style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-0.5">
+                                <p className="text-[14px] font-semibold text-[#1A1A2E] font-sans flex items-center space-x-1.5">
+                                  <span>{u.name}</span>
+                                  {u.isPremium && (
+                                    <span className="bg-[#1B4F72] text-white text-[9px] font-bold px-1.5 py-0.25 rounded">VIP</span>
+                                  )}
+                                  {u.isBlocked && (
+                                    <span className="bg-[#E74C3C] text-white text-[9px] font-bold px-1.5 py-0.25 rounded">BLOCKED</span>
+                                  )}
+                                </p>
+                                <p className="text-[11px] text-[#6B7280] font-mono font-bold">আইডি: {u.userId || "N/A"}</p>
+                              </div>
+                              <span className="text-[10px] text-[#6B7280] bg-[#F7F8FA] px-2 py-0.5 rounded-md">
+                                {isPhoneUser ? "ফ্রি মোবাইল অ্যাকাউন্ট" : "ইমেইল অ্যাকাউন্ট"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B7280] bg-[#F9FAFB] p-2.5 rounded-xl border border-gray-100" style={{ borderWidth: '0.5px' }}>
+                              <div>
+                                <p className="font-semibold text-[10px] text-[#9CA3AF]">মোবাইল (WhatsApp):</p>
+                                <p className="font-semibold text-[#1A1A2E] font-sans break-all">{u.phone || "N/A"}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-[10px] text-[#9CA3AF]">ইমেইল এড্রেস:</p>
+                                <p className="font-semibold text-[#1B4F72] font-sans break-all">{u.email || "N/A"}</p>
+                              </div>
+                              <div className="col-span-2 pt-1 border-t border-dashed border-gray-200 mt-1">
+                                <p className="font-semibold text-[10px] text-[#9CA3AF]">নিবন্ধনের তারিখ:</p>
+                                <p className="text-[#1A1A2E] font-mono">{u.createdAt ? new Date(u.createdAt).toLocaleString("bn-BD") : "N/A"}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-[#6B7280]">ব্যালেন্স:</span>
+                                {editingUserBalanceId === u.id ? (
+                                  <div className="flex items-center space-x-1">
+                                    <input
+                                      type="number"
+                                      value={editingUserBalanceValue}
+                                      onChange={(e) => setEditingUserBalanceValue(e.target.value)}
+                                      className="border text-xs px-2 py-1 rounded outline-none w-20 font-bold bg-[#F9FAFB] font-sans"
+                                      style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateUserBalance(u.id)}
+                                      className="bg-[#1D9E75] text-white text-xs px-2 py-1 rounded-[6px] hover:opacity-90 cursor-pointer text-[11px]"
+                                    >
+                                      সেভ
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingUserBalanceId(null);
+                                        setEditingUserBalanceValue("");
+                                      }}
+                                      className="bg-gray-100 border text-gray-500 text-xs px-2 py-1 rounded-[6px] hover:bg-gray-200 cursor-pointer text-[11px]"
+                                      style={{ borderWidth: "0.5px", borderColor: "#E5E7EB" }}
+                                    >
+                                      বাতিল
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="text-sm font-bold text-[#1D9E75] font-sans">${u.balance || 0} USD</span>
+                                    <button
+                                      onClick={() => {
+                                        setEditingUserBalanceId(u.id);
+                                        setEditingUserBalanceValue(String(u.balance || 0));
+                                      }}
+                                      className="text-[10px] text-[#1B4F72] bg-blue-50 border border-blue-100 hover:bg-blue-100 px-1.5 py-0.5 rounded cursor-pointer font-sans"
+                                    >
+                                      সংশোধন
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleToggleUserPremium(u.id, !!u.isPremium)}
+                                  className={`text-[10px] font-semibold px-2 py-1 rounded-lg cursor-pointer ${
+                                    u.isPremium
+                                      ? "bg-[#6B7280] text-white"
+                                      : "bg-[#1B4F72] text-white"
+                                  }`}
+                                >
+                                  {u.isPremium ? "VIP বাতিল" : "VIP করুন"}
+                                </button>
+                                <button
+                                  onClick={() => handleToggleUserBlock(u.id, !!u.isBlocked)}
+                                  className={`text-[10px] font-semibold px-2 py-1 rounded-lg cursor-pointer ${
+                                    u.isBlocked
+                                      ? "bg-[#1D9E75] text-white"
+                                      : "bg-[#E74C3C] text-white"
+                                  }`}
+                                >
+                                  {u.isBlocked ? "আনব্লক" : "ব্লক"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()
                   )}
                 </div>
               </div>
