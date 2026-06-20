@@ -86,6 +86,21 @@ export default function AdminPanel() {
   const [newMethodColor, setNewMethodColor] = useState("#1B4F72");
   const [newMethodAccount, setNewMethodAccount] = useState("");
 
+  // Maintenance Settings State
+  const [maintenanceSettings, setMaintenanceSettings] = useState<any>({
+    globalMaintenance: false,
+    maintenanceMessage: "সাময়িক রক্ষণাবেক্ষণ চলছে। শীঘ্রই ফিরে আসব।",
+    services: {
+      deposit: { active: true, message: "" },
+      transfer: { active: true, message: "" },
+      visa: { active: true, message: "" },
+      ticket: { active: true, message: "" },
+      jobs: { active: true, message: "" },
+      scam: { active: true, message: "" },
+      emergency: { active: true, message: "" }
+    }
+  });
+
   // Form states for adding items
   const [newNews, setNewNews] = useState({ title: "", tag: "ভিসا", description: "" });
   const [newTicker, setNewTicker] = useState({ message: "", order: 1 });
@@ -293,6 +308,12 @@ export default function AdminPanel() {
           return dateB - dateA;
         });
         setUsersList(list);
+      } else if (tab === "maintenance") {
+        const docRef = doc(db, "maintenanceMode", "settings");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setMaintenanceSettings(docSnap.data());
+        }
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -330,6 +351,20 @@ export default function AdminPanel() {
     } catch (e) {
       console.error("API Fallback failed for " + url, e);
       return false;
+    }
+  };
+
+  // MAINTENANCE TAB SAVE ACTION
+  const handleSaveMaintenanceSettings = async () => {
+    setLoading(true);
+    try {
+      await setDoc(doc(db, "maintenanceMode", "settings"), maintenanceSettings);
+      showStatusMsg("মেইনটেন্যান্স সেটিংস সফলভাবে আপডেট করা হয়েছে ভাই! 👍", false);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "maintenanceMode");
+      showStatusMsg("মেইনটেন্যান্স সেটিংস সেভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন ভাই।", true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1030,7 +1065,8 @@ export default function AdminPanel() {
           { id: "scams", name: "স্ক্যাম" },
           { id: "tickets", name: "টিকেট" },
           { id: "emergency", name: "জরুরি" },
-          { id: "users", name: "ইউজার্স" }
+          { id: "users", name: "ইউজার্স" },
+          { id: "maintenance", name: "মেইনটেন্যান্স" }
         ].map((tab) => {
           let count = 0;
           if (tab.id === "deposit") {
@@ -2409,6 +2445,161 @@ export default function AdminPanel() {
                     })()
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "maintenance" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-semibold">মেইনটেন্যান্স সেটিংস সিস্টেম</h2>
+                    <p className="text-[11px] opacity-90 font-sans">অ্যাপ্লিকেশন ও সেবা ব্লক পরিবর্তন করুন</p>
+                  </div>
+                  <button 
+                    onClick={() => fetchTabData("maintenance")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {/* Global Maintenance Banner Block */}
+                <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-4 text-left" style={{ borderWidth: "0.5px" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-[#1A1A2E]">সমগ্র অ্যাপ মেইনটেন্যান্স (Global)</h3>
+                      <p className="text-[11px] text-[#6B7280]">এটি চালু করলে সাধারণ ইউজাররা পুরো অ্যাপ্লিকেশন থেকে ব্লকড হয়ে যাবে</p>
+                    </div>
+                    <button
+                      onClick={() => setMaintenanceSettings((prev: any) => ({
+                        ...prev,
+                        globalMaintenance: !prev.globalMaintenance
+                      }))}
+                      className={`px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        maintenanceSettings.globalMaintenance 
+                          ? "bg-[#E74C3C] text-white" 
+                          : "bg-gray-100 text-[#6B7280]"
+                      }`}
+                    >
+                      {maintenanceSettings.globalMaintenance ? "সক্রিয় (Maint ON)" : "নিষ্ক্রিয় (OFF)"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E]">রক্ষণাবেক্ষণ বার্তা (Message for Users)</label>
+                    <textarea
+                      value={maintenanceSettings.maintenanceMessage || ""}
+                      onChange={(e) => setMaintenanceSettings((prev: any) => ({
+                        ...prev,
+                        maintenanceMessage: e.target.value
+                      }))}
+                      placeholder="মেইনটেন্যান্স চলাকালীন ইউজাররা যে বার্তাটি দেখবে..."
+                      className="w-full min-h-[80px] bg-gray-50 border border-[#E5E7EB] rounded-xl p-3 text-xs text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors resize-y font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Individual Services Blocks */}
+                <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-4 text-left" style={{ borderWidth: "0.5px" }}>
+                  <h3 className="text-sm font-medium text-[#1A1A2E] border-b border-[#F3F4F6] pb-2">সেবা ভিত্তিক মেইনটেন্যান্স (Service Controls)</h3>
+                  
+                  <div className="space-y-4 divide-y divide-[#F3F4F6]">
+                    {[
+                      { key: "deposit", label: "ডিপোজিট গেটওয়ে (Deposit)" },
+                      { key: "transfer", label: "টাকা ট্রান্সফার (Hundi Transfer)" },
+                      { key: "visa", label: "ভিসা তথ্য (Visa Information)" },
+                      { key: "ticket", label: "এয়ার টিকেট (Flight Tickets)" },
+                      { key: "jobs", label: "চাকরির বোর্ড (Job Board)" },
+                      { key: "scam", label: "স্ক্যাম রিপোর্ট (Scam Report)" },
+                      { key: "emergency", label: "জরুরি সাহায্য / SOS" }
+                    ].map((service, index) => {
+                      const serviceObj = maintenanceSettings.services?.[service.key] || { active: true, message: "" };
+                      
+                      return (
+                        <div key={service.key} className={`space-y-2.5 ${index > 0 ? "pt-4" : ""}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-[#1A1A2E]">{service.label}</span>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMaintenanceSettings((prev: any) => {
+                                    const updatedServices = { ...prev.services };
+                                    updatedServices[service.key] = {
+                                      ...serviceObj,
+                                      active: true
+                                    };
+                                    return { ...prev, services: updatedServices };
+                                  });
+                                }}
+                                className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg cursor-pointer transition-all ${
+                                  serviceObj.active 
+                                    ? "bg-[#1D9E75] text-white" 
+                                    : "bg-gray-100 text-[#6B7280]"
+                                }`}
+                              >
+                                সক্রিয় (Active)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMaintenanceSettings((prev: any) => {
+                                    const updatedServices = { ...prev.services };
+                                    updatedServices[service.key] = {
+                                      ...serviceObj,
+                                      active: false
+                                    };
+                                    return { ...prev, services: updatedServices };
+                                  });
+                                }}
+                                className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg cursor-pointer transition-all ${
+                                  !serviceObj.active 
+                                    ? "bg-[#E74C3C] text-white" 
+                                    : "bg-gray-100 text-[#6B7280]"
+                                }`}
+                              >
+                                বন্ধ (Maint)
+                              </button>
+                            </div>
+                          </div>
+
+                          {!serviceObj.active && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] text-gray-500 font-medium">কাস্টম সতর্কতা বার্তা (Custom Message)</label>
+                              <input
+                                type="text"
+                                value={serviceObj.message || ""}
+                                onChange={(e) => {
+                                  setMaintenanceSettings((prev: any) => {
+                                    const updatedServices = { ...prev.services };
+                                    updatedServices[service.key] = {
+                                      ...serviceObj,
+                                      message: e.target.value
+                                    };
+                                    return { ...prev, services: updatedServices };
+                                  });
+                                }}
+                                placeholder="এই সেবা সাময়িকভাবে বন্ধ আছে। কিছুক্ষণের মধ্যে ফিরে আসব।"
+                                className="w-full h-9 bg-gray-50 border border-[#E5E7EB] rounded-lg px-3 text-xs text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors"
+                                style={{ borderWidth: "0.5px" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Save Button Action Trigger */}
+                <button
+                  onClick={handleSaveMaintenanceSettings}
+                  className="w-full bg-[#1B4F72] text-white py-3.5 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
+                >
+                  সেটিংস সংরক্ষণ করুন (Save Settings)
+                </button>
               </div>
             )}
 

@@ -72,6 +72,10 @@ export default function App() {
   // subView manages screens inside "services" or shortcuts
   const [subView, setSubView] = useState<string>("none"); // "visa" | "money" | "ticket" | "jobs" | "scam" | "emergency" | "premium"
 
+  // Maintenance States
+  const [maintenance, setMaintenance] = useState<any>(null);
+  const [serviceInMaintenance, setServiceInMaintenance] = useState<any>(null);
+
   const walletBalance = userDoc?.balance || 0;
   const currentTier = userDoc?.isPremium ? "vip" : (userDoc?.tier || "basic");
   const userEmail = currentUser?.email || "";
@@ -224,7 +228,18 @@ export default function App() {
       console.warn("Exchange rate real-time listener skipped or failed:", err);
     });
 
-    return () => unsub();
+    const unsubMaintenance = onSnapshot(doc(db, "maintenanceMode", "settings"), (snapshot) => {
+      if (snapshot.exists()) {
+        setMaintenance(snapshot.data());
+      }
+    }, (err) => {
+      console.warn("Maintenance real-time listener skipped or failed:", err);
+    });
+
+    return () => {
+      unsub();
+      unsubMaintenance();
+    };
   }, []);
 
   // Transactions State
@@ -426,8 +441,31 @@ export default function App() {
     setSubView("none");
   };
 
+  const getServiceKey = (tab: NavTab, sub: string = "none"): string | null => {
+    if (tab === "deposit") return "deposit";
+    if (tab === "transfer") return "transfer";
+    if (tab === "services" && sub === "visa") return "visa";
+    if (tab === "services" && sub === "ticket") return "ticket";
+    if (tab === "services" && sub === "jobs") return "jobs";
+    if (tab === "services" && sub === "scam") return "scam";
+    if (tab === "emergency") return "emergency";
+    return null;
+  };
+
   // Switch layout view by clicking Service Grid button
   const handleServiceSelect = (tab: NavTab, sub: string = "none") => {
+    const serviceKey = getServiceKey(tab, sub);
+    if (serviceKey && maintenance?.services?.[serviceKey]) {
+      const sObj = maintenance.services[serviceKey];
+      if (sObj.active === false) {
+        setServiceInMaintenance({
+          key: serviceKey,
+          message: sObj.message || "এই সেবা সাময়িকভাবে বন্ধ আছে"
+        });
+        return; // PREVENT navigation
+      }
+    }
+
     setTab(tab);
     if (tab === "services") {
       setSubView(sub);
@@ -435,6 +473,23 @@ export default function App() {
       setSubView("none");
     }
   };
+
+  // Real-time kick of active views if a service gets disabled under-the-floor
+  useEffect(() => {
+    if (!maintenance) return;
+    const serviceKey = getServiceKey(currentTab, subView);
+    if (serviceKey && maintenance?.services?.[serviceKey]) {
+      const sObj = maintenance.services[serviceKey];
+      if (sObj.active === false) {
+        setTab("home");
+        setSubView("none");
+        setServiceInMaintenance({
+          key: serviceKey,
+          message: sObj.message || "এই সেবা সাময়িকভাবে বন্ধ আছে"
+        });
+      }
+    }
+  }, [currentTab, subView, maintenance]);
 
   // Intercept Admin Route
   if (
@@ -459,6 +514,24 @@ export default function App() {
       <div className="min-h-screen bg-[#F0F4F8] flex flex-col items-center justify-center p-6 text-center">
         <div className="w-10 h-10 border-4 border-[#1B4F72] border-t-transparent rounded-full animate-spin"></div>
         <p className="text-xs text-[#6B7280] mt-3 font-sans">প্রবাসী সেবা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  if (maintenance?.globalMaintenance && 
+      !(window.location.pathname === "/ps-control-2024" || window.location.pathname === "/ps-control-2024/")) {
+    return (
+      <div className="min-h-screen bg-[#F0F4F8] flex flex-col items-center justify-center p-6 text-center select-none text-[#1A1A2E] font-sans">
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 max-w-sm w-full mx-auto font-sans" style={{ borderWidth: "0.5px" }}>
+          <span className="text-[48px] block mb-4">🔧</span>
+          <h1 className="text-[20px] font-medium text-[#1A1A2E] mb-2">রক্ষণাবেক্ষণ চলছে</h1>
+          <p className="text-[14px] text-[#6B7280] mb-6 whitespace-pre-line leading-relaxed">
+            {maintenance.maintenanceMessage || "سامয়িক রক্ষণাবেক্ষণ চলছে। শীঘ্রই ফিরে আসব।"}
+          </p>
+          <div className="bg-[#1B4F72]/5 text-[#1B4F72] text-[13px] py-2 px-4 rounded-xl inline-block">
+            শীঘ্রই ফিরে আসব ইনশাআল্লাহ 🤲
+          </div>
+        </div>
       </div>
     );
   }
@@ -679,6 +752,7 @@ export default function App() {
               <ProfilePage
                 onBackToHome={() => handleServiceSelect("home")}
                 onSelectTab={(tab, subView) => handleServiceSelect(tab, subView)}
+                transactions={transactions}
               />
             )}
 
@@ -733,6 +807,27 @@ export default function App() {
           unreadNotifications={unreadNotifications}
           unreadChatCount={0}
         />
+      )}
+
+      {/* Service maintenance modal popup */}
+      {serviceInMaintenance && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 max-w-sm w-full mx-auto font-sans text-left" style={{ borderWidth: "0.5px" }}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[28px]">⚠️</span>
+              <h3 className="text-base font-semibold text-[#1A1A2E]">সেবা বন্ধ আছে</h3>
+            </div>
+            <p className="text-sm text-[#6B7280] leading-relaxed mb-6 whitespace-pre-line">
+              {serviceInMaintenance.message || "এই সেবা সাময়িকভাবে বন্ধ আছে। খুব শীঘ্রই আবার চালু করা হবে ইনশাআল্লাহ।"}
+            </p>
+            <button
+              onClick={() => setServiceInMaintenance(null)}
+              className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-90 active:scale-[0.98] transition-all font-sans cursor-pointer text-sm"
+            >
+              ঠিক আছে, ফিরুন
+            </button>
+          </div>
+        </div>
       )}
 
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { DollarSign, ArrowDown, HelpCircle, CheckCircle2, Clock, XCircle, ArrowUpRight } from "lucide-react";
+import { DollarSign, ArrowDown, HelpCircle, CheckCircle2, Clock, XCircle, ArrowUpRight, Download } from "lucide-react";
 import { Transaction } from "../types";
+import { downloadReceiptImage } from "../lib/receipt";
 
 export const BANGLADESHI_BANKS = [
   { id: "islami", name: "ইসলামী ব্যাংক বাংলাদেশ পিএলসি (Islami Bank BD)" },
@@ -366,6 +367,15 @@ export default function MoneyTransfer({
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">{tx.date} • {tx.recipientNumber}</p>
+                <button
+                  type="button"
+                  onClick={() => downloadReceiptImage(tx)}
+                  className="mt-2 text-[10px] text-emerald-400 font-medium flex items-center space-x-1 hover:bg-emerald-500/10 bg-emerald-500/5 border border-emerald-500/10 px-2 py-1.5 rounded transition-colors cursor-pointer select-none inline-flex"
+                  style={{ borderRadius: '6px', borderWidth: '0.5px' }}
+                >
+                  <Download className="w-3 h-3 text-emerald-400 shrink-0 mr-1" />
+                  <span>রশিদ ডাউনলোড করুন</span>
+                </button>
               </div>
 
               <div className="text-right">

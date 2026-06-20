@@ -196,6 +196,17 @@
         "createdAt": { "type": "string" }
       },
       "required": ["amount", "currency", "method", "minutesTaken", "createdAt"]
+    },
+    "MaintenanceMode": {
+      "title": "MaintenanceMode",
+      "description": "System-wide and specific service maintenance status settings",
+      "type": "object",
+      "properties": {
+        "globalMaintenance": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string" },
+        "services": { "type": "object" }
+      },
+      "required": ["globalMaintenance", "maintenanceMessage", "services"]
     }
   },
   "firestore": {
@@ -246,6 +257,10 @@
     "publicTransactions": {
       "schema": "PublicTransaction",
       "description": "Recent successful public transfers feed for trust building"
+    },
+    "maintenanceMode": {
+      "schema": "MaintenanceMode",
+      "description": "Global and service configurations for holding updates and outages"
     }
   }
 }

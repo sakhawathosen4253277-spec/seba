@@ -16,18 +16,25 @@ import {
   HelpCircle,
   Info,
   CreditCard,
-  ArrowUpRight
+  ArrowUpRight,
+  Download,
+  Clock,
+  XCircle,
+  CheckCircle2
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { Transaction } from "../types";
+import { downloadReceiptImage } from "../lib/receipt";
 
 interface ProfilePageProps {
   onBackToHome: () => void;
   onSelectTab: (tab: any, subView?: string) => void;
+  transactions?: Transaction[];
 }
 
-export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePageProps) {
+export default function ProfilePage({ onBackToHome, onSelectTab, transactions = [] }: ProfilePageProps) {
   const { userDoc } = useAuth();
   const [copied, setCopied] = useState(false);
 
@@ -187,38 +194,116 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
       </div>
 
       {/* 4. RECENT TRANSACTIONS */}
-      <div className="px-4 mt-4 text-left">
+      <div className="px-4 mt-4 text-left font-sans">
         <h4 className="text-[13px] font-medium text-[#1A1A2E] font-sans mb-2 pl-1 select-none text-left">
           সাম্প্রতিক লেনদেনসমূহ (Recent Transactions)
         </h4>
         <div 
-          className="bg-white border p-4.5 space-y-3"
+          className="bg-white border p-4 space-y-3"
           style={{
             borderColor: '#E5E7EB',
             borderWidth: '0.5px',
             borderRadius: '16px'
           }}
         >
-          {/* Mock clean standard transaction representation */}
-          <div className="flex items-center justify-between pb-3 border-b border-[#F0F4F8]" style={{ borderBottomWidth: '0.5px' }}>
-            <div className="flex items-center space-x-3 text-left">
-              <div className="w-9 h-9 rounded-full bg-[#E8F8F1] flex items-center justify-center shrink-0">
-                <CreditCard className="w-4 h-4 text-[#1D9E75]" />
-              </div>
-              <div className="text-left">
-                <p className="text-[13px] font-medium text-[#1A1A2E] font-sans">মেম্বার ওয়ালেট ডিপোজিট</p>
-                <p className="text-[11px] text-[#6B7280] font-sans">১৪ জুন ২০২৬</p>
-              </div>
+          {transactions && transactions.length > 0 ? (
+            <div className="space-y-4">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="flex items-start justify-between pb-3 border-b border-[#F0F4F8] last:border-0 last:pb-0 font-sans" style={{ borderBottomWidth: '0.5px' }}>
+                  <div className="text-left flex-1">
+                    <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                      <span className="text-[13px] font-semibold text-[#1A1A2E]">{tx.recipientName}</span>
+                      <span className="text-[9px] bg-[#1B4F72]/10 text-[#1B4F72] px-1.5 py-0.5 rounded font-medium">
+                        {tx.recipientMethod === "bKash" && "বিকাশ"}
+                        {tx.recipientMethod === "Nagad" && "নগদ"}
+                        {tx.recipientMethod === "Rocket" && "রকেট"}
+                        {tx.recipientMethod === "Bank" && "ব্যাংক"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] mt-0.5">{tx.date} • {tx.recipientNumber}</p>
+                    <button
+                      onClick={() => downloadReceiptImage(tx)}
+                      className="mt-2 text-[10px] text-[#1B4F72] font-semibold flex items-center space-x-1 bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
+                      style={{ borderRadius: '6px', borderWidth: '0.5px' }}
+                    >
+                      <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
+                      <span>রশিদ ডাউনলোড করুন</span>
+                    </button>
+                  </div>
+                  <div className="text-right ml-2">
+                    <p className="text-[13px] font-bold text-[#1D9E75] font-mono">৳ {tx.amountBdt.toLocaleString("bn-BD")} BDT</p>
+                    <p className="text-[10px] text-[#6B7280] font-mono mt-0.5">${tx.amountUsd} USD</p>
+                    <div className="mt-1 flex justify-end">
+                      {tx.status === "completed" && (
+                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-1.5 py-0.25 rounded-md border border-[#1D9E75]/20">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>সম্পন্ন</span>
+                        </span>
+                      )}
+                      {tx.status === "pending" && (
+                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.25 rounded-md border border-amber-500/20 animate-pulse">
+                          <Clock className="w-3 h-3" />
+                          <span>অপেক্ষারত</span>
+                        </span>
+                      )}
+                      {tx.status === "cancelled" && (
+                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#E74C3C] bg-[#E74C3C]/10 px-1.5 py-0.25 rounded-md border border-[#E74C3C]/20">
+                          <XCircle className="w-3 h-3" />
+                          <span>বাতিল</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="text-right">
-              <p className="text-[13px] font-semibold text-[#1D9E75] font-mono">+${balance.toFixed(2)}</p>
-              <span className="text-[10px] bg-[#E8F8F1] text-[#1D9E75] px-2 py-0.5 rounded-full font-sans">সফল</span>
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Default mock/previous transaction showing actual balance deposit */}
+              <div className="flex items-start justify-between pb-3 border-b border-[#F0F4F8]" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="flex-1 text-left">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-full bg-[#E8F8F1] flex items-center justify-center shrink-0">
+                      <CreditCard className="w-4 h-4 text-[#1D9E75]" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[13px] font-medium text-[#1A1A2E] font-sans">মেম্বার ওয়ালেট ডিপোজিট</p>
+                      <p className="text-[11px] text-[#6B7280] font-sans">১৪ জুন ২০২৬</p>
+                    </div>
+                  </div>
+                  {balance > 0 && (
+                    <button
+                      onClick={() => downloadReceiptImage({
+                        id: "TX-784910",
+                        senderName: name,
+                        recipientName: name,
+                        recipientMethod: "Bank",
+                        recipientNumber: "মেম্বার ওয়ালেট ডিপোজিট",
+                        amountUsd: balance,
+                        amountBdt: Math.round(balance * 110.8),
+                        feeUsd: 0,
+                        date: "১৪ জুন ২০২৬",
+                        status: "completed"
+                      })}
+                      className="mt-3.5 text-[10px] text-[#1B4F72] font-semibold flex items-center bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
+                      style={{ borderRadius: '6px', borderWidth: '0.5px' }}
+                    >
+                      <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
+                      <span>রশিদ ডাউনলোড করুন</span>
+                    </button>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-[13px] font-semibold text-[#1D9E75] font-mono">+${balance.toFixed(2)} USD</p>
+                  <span className="text-[10px] bg-[#E8F8F1] text-[#1D9E75] px-2 py-0.5 rounded-full font-sans inline-block mt-1">সফল</span>
+                </div>
+              </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-[11px] text-[#6B7280] font-sans text-center w-full">কোনো পুরনো ট্রানজেকশন রেকর্ড নেই ভাই</p>
-          </div>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[11px] text-[#6B7280] font-sans text-center w-full">কোনো পুরনো ট্রানজেকশন রেকর্ড নেই ভাই</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -15,6 +15,7 @@ import {
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
 import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { useAuth } from "../lib/AuthContext";
 
 interface HomeDashboardProps {
   onServiceSelect: (tab: NavTab, subView?: string) => void;
@@ -23,7 +24,8 @@ interface HomeDashboardProps {
   userName?: string;
 }
 
-export default function HomeDashboard({ onServiceSelect, walletBalance, userName }: HomeDashboardProps) {
+export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDashboardProps) {
+  const { userDoc, currentUser } = useAuth();
   const [dbLoading, setDbLoading] = useState<boolean>(true);
   const [dbRates, setDbRates] = useState({
     bkash: 110.50,
@@ -200,7 +202,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance, userName
           {/* Greeting & Balance Block */}
           <div className="mb-4 text-left font-sans">
             <h2 className="text-[16px] font-medium text-white/90 mb-1">
-              আস-সালামু আলাইকুম ভাই 👋
+              আস-সালামু আলাইকুম {userDoc?.name || currentUser?.displayName ? `${userDoc?.name || currentUser?.displayName} ভাই` : "ভাই"} 👋
             </h2>
             <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>
               আপনার মেম্বার ওয়ালেট (Wallet Balance)

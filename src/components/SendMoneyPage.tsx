@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
 import { collection, setDoc, doc, getDoc } from "firebase/firestore";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useAuth } from "../lib/AuthContext";
 
 interface SendMoneyPageProps {
   onBack: () => void;
@@ -10,6 +11,9 @@ interface SendMoneyPageProps {
 }
 
 export default function SendMoneyPage({ onBack, userEmail, walletBalance }: SendMoneyPageProps) {
+  const { userDoc, currentUser } = useAuth();
+  const balance = userDoc?.balance || 0;
+
   const [exchangeRate, setExchangeRate] = useState<number>(110.8);
   const [loadingRate, setLoadingRate] = useState<boolean>(true);
   
@@ -54,30 +58,16 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
     loadRate();
   }, []);
 
-  const numAmount = Number(amountUsd) || 0;
-  
-  // Calculate service charge: 1 - 19.99 USD has NO service charge. Otherwise 2%
-  const serviceChargePercent = (numAmount > 0 && numAmount < 20) ? 0 : 2;
-  const serviceChargeUsd = Number(((numAmount * serviceChargePercent) / 100).toFixed(2));
-  
-  // Calculate total deductible standard and amount recipient will get
-  // For simplicity, is service charge added or subtracted?
-  // Let's standardly show recipient BDT based on amountUsd (minus service charge, or is service charge subtracted from balance?
-  // Let's deduce service charge from the amount sent, i.e. recipient receives (amountUsd - serviceChargeUsd) * exchangeRate.
-  // Or is service charge extra? Usually, "আপনি পাঠাচ্ছেন $50, আপনার ওয়ালেট থেকে কাটবে $51, প্রাপক পাবে $50 value". Yes! That is perfect for wallets.
-  // Let's check max allowance: amountUsd + serviceChargeUsd must be <= walletBalance.
-  const totalNeededUsd = numAmount + serviceChargeUsd;
-  const bdtRecipientGets = Number((numAmount * exchangeRate).toFixed(1));
+  const totalAmount = parseFloat(amountUsd) || 0;
+  const serviceCharge = totalAmount * 0.02; // 2%
+  const recipientGets = totalAmount - serviceCharge;
+  const bdtAmount = recipientGets * exchangeRate;
 
   const handleSendSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (numAmount <= 0) {
+    if (totalAmount <= 0) {
       alert("সঠিক ডলারের পরিমাণ লিখুন ভাই!");
-      return;
-    }
-    if (totalNeededUsd > walletBalance) {
-      alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd.toFixed(2)} USD আপনার ওয়ালেটে আছে: $${walletBalance.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
       return;
     }
     if (!recipientName.trim()) {
@@ -103,9 +93,9 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
 
     try {
       // Fetch latest wallet balance from Firestore for precision
-      const userRef = doc(db, "users", userEmail || "guest@probashi.com");
+      const userRef = doc(db, "users", currentUser?.uid || userEmail || "guest@probashi.com");
       const userSnap = await getDoc(userRef);
-      let currentBal = walletBalance;
+      let currentBal = balance;
       if (userSnap.exists()) {
         const uData = userSnap.data();
         if (uData.balance !== undefined) {
@@ -113,14 +103,8 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
         }
       }
 
-      if (totalNeededUsd > currentBal) {
-        alert(`দুঃখিত ভাই! আপনার মেম্বার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। প্রয়োজনীয় মোট: $${totalNeededUsd.toFixed(2)} USD আপনার ওয়ালেটে আছে: $${currentBal.toFixed(2)} USD। অনুগ্রহ করে প্রথমে ডলারে ডিপোজিট করুন।`);
-        setSubmitLoading(false);
-        return;
-      }
-
       // Deduct balance from Firestore
-      const newBal = currentBal - totalNeededUsd;
+      const newBal = currentBal - totalAmount;
       await setDoc(userRef, { balance: newBal }, { merge: true });
 
       // Create transfer request via Server API
@@ -129,13 +113,11 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: transferId,
-          userId: userEmail || "guest@probashi.com",
-          senderName: "ওয়ালেট ইউজার",
-          senderPhone: "",
-          amount: numAmount,
-          serviceCharge: serviceChargeUsd,
-          totalDeducted: totalNeededUsd,
-          calculatedBdt: bdtRecipientGets,
+          userId: currentUser?.uid || userEmail || "guest_user",
+          totalDeducted: totalAmount,
+          serviceCharge: serviceCharge,
+          recipientAmount: recipientGets,
+          bdtAmount: bdtAmount,
           recipientName: recipientName.trim(),
           recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
           recipientMethod: recipientMethod,
@@ -143,7 +125,12 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
           recipientBankAccount: isBank ? bankAccount.trim() : "",
           recipientMethodName: recipientMethod,
           status: "pending",
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          // backward compatibility with server.ts
+          amount: recipientGets,
+          calculatedBdt: bdtAmount,
+          senderName: "ওয়ালেট ইউজার",
+          senderPhone: ""
         })
       });
 
@@ -213,7 +200,7 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
       {/* WALLET BALANCE CARD */}
       <div className="bg-[#1B4F72] rounded-xl p-4 text-center text-white">
         <p className="text-[11px] text-[#7FB3D3]">আপনার ব্যালেন্স (Available Balance)</p>
-        <h3 className="text-2xl font-semibold mt-1">${walletBalance.toFixed(2)} USD</h3>
+        <h3 className="text-2xl font-semibold mt-1">আপনার বর্তমান ব্যালেন্স: ${balance.toFixed(2)} USD</h3>
       </div>
 
       {/* SEND FORM */}
@@ -229,7 +216,7 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
               <label className="text-[11px] text-[#6B7280] font-medium">কত পাঠাবেন ($):</label>
               <button 
                 type="button" 
-                onClick={() => setAmountUsd(Math.floor(walletBalance).toString())}
+                onClick={() => setAmountUsd(Math.floor(balance).toString())}
                 className="text-[10px] text-[#1B4F72] font-semibold hover:underline"
               >
                 Max Balance
@@ -251,37 +238,26 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
             </div>
 
             {/* Live rates and charges breakdown */}
-            {numAmount > 0 && (
+            {totalAmount > 0 && (
               <div className="bg-[#F7F8FA] rounded-xl p-3 space-y-1.5 font-sans border border-gray-100 text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-[#6B7280]">আপনি পাঠাচ্ছেন:</span>
-                  <span className="text-[#1A1A2E] font-medium">${numAmount.toFixed(2)} USD</span>
+                  <span className="text-[#6B7280]">আপনার ব্যালেন্স থেকে কাটবে:</span>
+                  <span className="text-[#1A1A2E] font-medium">${totalAmount} USD</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6B7280]">সার্ভিস চার্জ:</span>
+                  <span className="text-[#E74C3C] font-mono">${serviceCharge.toFixed(2)} USD</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#6B7280]">প্রাপক পাবেন:</span>
-                  <span className="text-[#0F6E56] font-semibold">{bdtRecipientGets.toFixed(1)} BDT</span>
+                  <span className="text-[#0F6E56] font-semibold">${recipientGets.toFixed(2)} USD</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#6B7280]">লাইভ রেট:</span>
-                  <span className="text-[#1A1A2E] font-mono">1 USD = {exchangeRate.toFixed(2)} BDT</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6B7280]">সার্ভিস চার্জ ({serviceChargePercent}%):</span>
-                  <span className={serviceChargeUsd > 0 ? "text-[#E74C3C]" : "text-[#1D9E75]"}>
-                    {serviceChargeUsd > 0 ? `$${serviceChargeUsd} USD` : "ফ্রি (no charge)"}
-                  </span>
-                </div>
-                <div className="pt-1 border-t border-dashed border-gray-200 flex justify-between font-bold text-xs text-[#1B4F72]">
-                  <span>মোট ব্যালেন্স কাটবে:</span>
-                  <span>${totalNeededUsd.toFixed(2)} USD</span>
+                  <span className="text-[#6B7280]">টাকায়:</span>
+                  <span className="text-[#1B4F72] font-bold font-mono">{bdtAmount.toFixed(0)} BDT</span>
                 </div>
               </div>
             )}
-            
-            {/* Disclaimer for service charge waiver under 20 USD */}
-            <p className="text-[10px] text-[#1D9E75] font-semibold">
-              💡 ১.০০$ থেকে ১৯.৯৯$ পর্যন্ত পাঠালে সম্পূর্ণ চার্জ ফ্রি!
-            </p>
           </div>
 
           {/* Recipient Method Select */}

@@ -3,6 +3,26 @@ import { doc, getDoc, setDoc, collection, addDoc, getDocs } from "firebase/fires
 
 export async function seedDatabaseIfNeeded() {
   try {
+    // Seed maintenanceMode -> "settings" if it doesn't exist
+    const maintDocRef = doc(db, "maintenanceMode", "settings");
+    const maintDoc = await getDoc(maintDocRef);
+    if (!maintDoc.exists()) {
+      await setDoc(maintDocRef, {
+        globalMaintenance: false,
+        maintenanceMessage: "সাময়িক রক্ষণাবেক্ষণ চলছে। শীঘ্রই ফিরে আসব।",
+        services: {
+          deposit: {active: true, message: ""},
+          transfer: {active: true, message: ""},
+          visa: {active: true, message: ""},
+          ticket: {active: true, message: ""},
+          jobs: {active: true, message: ""},
+          scam: {active: true, message: ""},
+          emergency: {active: true, message: ""}
+        }
+      });
+      console.log("Seeding maintenanceMode settings document initialized.");
+    }
+
     // We check if "exchangeRates" -> "current" exists. 
     // If not, we assume seed is needed.
     const exchangeDocRef = doc(db, "exchangeRates", "current");
