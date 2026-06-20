@@ -26,19 +26,22 @@ export default function BottomNav({
 
   return (
     <nav 
-      className="absolute bottom-0 left-0 right-0 z-[9999] bg-white w-full pointer-events-auto" 
+      className="fixed bottom-0 z-[99999] bg-white pointer-events-auto" 
       style={{ 
-        position: "absolute", 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        backgroundColor: "#ffffff", 
-        borderTop: "0.5px solid #E5E7EB", 
-        zIndex: 9999, 
-        padding: "10px 0 16px", 
-        display: "flex", 
-        justifyContent: "space-around",
-        pointerEvents: "auto"
+        position: 'fixed',
+        bottom: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: '480px',
+        zIndex: 99999,
+        background: 'white',
+        borderTop: '0.5px solid #E5E7EB',
+        display: 'flex',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        padding: '10px 0 16px',
+        pointerEvents: 'auto'
       }}
     >
       {tabs.map((tab, idx) => {

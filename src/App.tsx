@@ -65,6 +65,10 @@ export default function App() {
   );
   const [prefilledTxId, setPrefilledTxId] = useState<string>("");
   
+  const navigate = (dir: number | string) => {
+    setTab("home");
+  };
+  
   // subView manages screens inside "services" or shortcuts
   const [subView, setSubView] = useState<string>("none"); // "visa" | "money" | "ticket" | "jobs" | "scam" | "emergency" | "premium"
 
@@ -439,6 +443,14 @@ export default function App() {
     window.location.pathname === "/shamim" || 
     window.location.pathname === "/shamim/"
   ) {
+    window.location.href = "/";
+    return <div className="min-h-screen bg-white" />;
+  }
+
+  if (
+    window.location.pathname === "/ps-control-2024" || 
+    window.location.pathname === "/ps-control-2024/"
+  ) {
     return <AdminPanel />;
   }
 
@@ -548,14 +560,17 @@ export default function App() {
                 ) : (
                   <div className="relative">
                     {/* Floating Back navigation to list */}
-                    <div className="px-4 py-2 border-b border-[#E5E7EB] bg-white flex justify-between items-center text-xs">
-                      <button
-                        onClick={() => setSubView("none")}
-                        className="text-[#1B4F72] hover:opacity-80 font-medium font-sans"
-                      >
-                        ← সকল সেবা তালিকায় ফিরুন
-                      </button>
-                      <span className="text-[#6B7280] italic text-[10px]">অফিসিয়াল সেবা উইং</span>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '12px 16px',
+                      background: 'white',
+                      borderBottom: '0.5px solid #E5E7EB',
+                      cursor: 'pointer'
+                    }} onClick={() => setSubView("none")}>
+                      <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+                      <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
                     </div>
 
                     <div className="pt-3">
@@ -595,13 +610,26 @@ export default function App() {
 
             {/* TAB: SYSTEM NOTIFICATIONS */}
             {currentTab === "notifications" && (
-              <div className="flex flex-col space-y-4 px-4 pb-10">
-                <div className="text-center py-2 mt-2">
+              <div className="flex flex-col space-y-4 pb-10">
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  background: 'white',
+                  borderBottom: '0.5px solid #E5E7EB',
+                  cursor: 'pointer'
+                }} onClick={() => navigate(-1)}>
+                  <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+                  <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
+                </div>
+
+                <div className="text-center py-2 mt-2 px-4">
                   <h2 className="text-lg font-medium text-[#1A1A2E] font-sans">দূতাবাস ও প্রবাসী সেবা নোটিশ</h2>
                   <p className="text-xs text-[#6B7280] mt-1">সবচেয়ে গুরুত্বপূর্ণ আইনি সতর্কবার্তা ও লাইভ নোটিশ</p>
                 </div>
 
-                <div className="space-y-3.5">
+                <div className="space-y-3.5 px-4">
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
@@ -656,7 +684,21 @@ export default function App() {
 
             {/* TAB: EMERGENCY CENTER */}
             {currentTab === "emergency" && (
-              <EmergencyCenter />
+              <div className="flex flex-col">
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  background: 'white',
+                  borderBottom: '0.5px solid #E5E7EB',
+                  cursor: 'pointer'
+                }} onClick={() => navigate(-1)}>
+                  <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+                  <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
+                </div>
+                <EmergencyCenter />
+              </div>
             )}
 
             {/* TAB: ADMIN CONTROL PANEL PORTAL */}

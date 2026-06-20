@@ -94,11 +94,67 @@ export default function AdminPanel() {
   const [editPhoneValue, setEditPhoneValue] = useState<string>("");
 
   useEffect(() => {
+    // Check initial login status and lockout
+    const lockUntilText = localStorage.getItem("adminLockUntil");
+    if (lockUntilText) {
+      const lockUntil = parseInt(lockUntilText, 10);
+      if (Date.now() < lockUntil) {
+        setLoginError("৩ বার ভুল পাসওয়ার্ড দিয়েছেন। ৩০ মিনিট পর চেষ্টা করুন।");
+      }
+    }
+
     const isLogged = localStorage.getItem("isAdminLogged") === "true";
-    if (isLogged) {
-      setIsAdminLoggedIn(true);
+    const lastActive = localStorage.getItem("adminLastActivity");
+    const now = Date.now();
+
+    if (isLogged && lastActive) {
+      const inactiveMs = now - parseInt(lastActive, 10);
+      if (inactiveMs > 2 * 60 * 60 * 1000) { // 2 hours
+        localStorage.removeItem("isAdminLogged");
+        localStorage.removeItem("adminLoginTime");
+        localStorage.removeItem("adminLastActivity");
+        setIsAdminLoggedIn(false);
+      } else {
+        localStorage.setItem("adminLastActivity", now.toString());
+        setIsAdminLoggedIn(true);
+      }
     }
   }, []);
+
+  // Track user activity & expire session after 2 hours of inactivity
+  useEffect(() => {
+    if (isAdminLoggedIn) {
+      const checkSession = () => {
+        const lastActive = localStorage.getItem("adminLastActivity");
+        const now = Date.now();
+        if (lastActive) {
+          const inactiveMs = now - parseInt(lastActive, 10);
+          if (inactiveMs > 2 * 60 * 60 * 1000) { // 2 hours
+            handleLogout();
+            alert("সেশন শেষ হয়ে গেছে ভাই। আবার লগইন করুন।");
+          }
+        }
+      };
+
+      localStorage.setItem("adminLastActivity", Date.now().toString());
+      const interval = setInterval(checkSession, 10000); // Check every 10 seconds
+
+      const updateActivity = () => {
+        localStorage.setItem("adminLastActivity", Date.now().toString());
+      };
+
+      window.addEventListener("mousemove", updateActivity);
+      window.addEventListener("keydown", updateActivity);
+      window.addEventListener("click", updateActivity);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("mousemove", updateActivity);
+        window.removeEventListener("keydown", updateActivity);
+        window.removeEventListener("click", updateActivity);
+      };
+    }
+  }, [isAdminLoggedIn]);
 
   // Fetch initial badge count data of Dep & Transfer pending on Logged state
   useEffect(() => {
@@ -128,17 +184,43 @@ export default function AdminPanel() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === "shamim123456789") {
+    const now = Date.now();
+    
+    // Check lockout period
+    const lockUntilText = localStorage.getItem("adminLockUntil");
+    if (lockUntilText) {
+      const lockUntil = parseInt(lockUntilText, 10);
+      if (now < lockUntil) {
+        setLoginError("৩ বার ভুল পাসওয়ার্ড দিয়েছেন। ৩০ মিনিট পর চেষ্টা করুন।");
+        return;
+      }
+    }
+
+    if (passwordInput === "PS@Admin#2024!Secure") {
       localStorage.setItem("isAdminLogged", "true");
+      localStorage.setItem("adminLoginTime", now.toString());
+      localStorage.setItem("adminLastActivity", now.toString());
+      localStorage.removeItem("adminAttempts");
+      localStorage.removeItem("adminLockUntil");
       setIsAdminLoggedIn(true);
       setLoginError("");
     } else {
-      setLoginError("পাসওয়ার্ড ভুল হয়েছে");
+      const currentAttempts = parseInt(localStorage.getItem("adminAttempts") || "0", 10) + 1;
+      localStorage.setItem("adminAttempts", currentAttempts.toString());
+      if (currentAttempts >= 3) {
+        const lockDuration = 30 * 60 * 1000; // 30 mins
+        localStorage.setItem("adminLockUntil", (now + lockDuration).toString());
+        setLoginError("৩ বার ভুল পাসওয়ার্ড দিয়েছেন। ৩০ মিনিট পর চেষ্টা করুন।");
+      } else {
+        setLoginError(`পাসওয়ার্ড ভুল হয়েছে। আপনি ${currentAttempts}/৩ বার চেষ্টা করেছেন।`);
+      }
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("isAdminLogged");
+    localStorage.removeItem("adminLoginTime");
+    localStorage.removeItem("adminLastActivity");
     setIsAdminLoggedIn(false);
   };
 

@@ -337,19 +337,25 @@ export default function DepositPage({ onBack, userEmail }: DepositPageProps) {
     <div className="flex flex-col space-y-4 px-4 bg-[#F0F4F8] min-h-screen text-[#1A1A2E] font-sans text-left" style={{ paddingBottom: "80px" }}>
       
       {/* PAGE HEADER */}
-      <div className="flex items-center space-x-3 pt-4">
-        <button 
-          onClick={onBack}
-          className="h-10 px-4 rounded-xl border border-[#E5E7EB] bg-white hover:bg-gray-100 transition-all text-[#1B4F72] flex items-center gap-1.5 cursor-pointer font-sans text-[13px]"
-          style={{ borderWidth: "0.5px" }}
-        >
-          <ArrowLeft className="w-4 h-4 text-[#1B4F72]" />
-          <span>ফিরে যান</span>
-        </button>
-        <div className="text-left font-sans">
-          <h2 className="text-lg font-medium text-[#1A1A2E]">ডিপোজিট করুন</h2>
-          <p className="text-xs text-[#6B7280]">আপনার অ্যাকাউন্টে ডলার যোগ করুন</p>
-        </div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '12px 16px',
+        background: 'white',
+        borderBottom: '0.5px solid #E5E7EB',
+        cursor: 'pointer',
+        marginLeft: '-16px',
+        marginRight: '-16px',
+        marginBottom: '10px'
+      }} onClick={onBack}>
+        <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+        <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
+      </div>
+
+      <div className="text-left font-sans">
+        <h2 className="text-lg font-medium text-[#1A1A2E]">ডিপোজিট করুন</h2>
+        <p className="text-xs text-[#6B7280]">আপনার অ্যাকাউন্টে ডলার যোগ করুন</p>
       </div>
  
       {/* TRUST BAR */}

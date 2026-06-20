@@ -103,18 +103,25 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
     <div className="flex flex-col space-y-4 px-4 pb-24 bg-[#F7F8FA]" id="transfer-status-container">
       
       {/* Header Back navigation */}
-      <div className="flex items-center space-x-3 pt-2">
-        <button 
-          onClick={onBack}
-          className="p-1 px-2.5 py-1.5 rounded-xl border border-[#E5E7EB] bg-white hover:bg-[#F2F4F4] transition-all text-[#1B4F72] flex items-center gap-1 font-sans"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-xs font-sans">ফিরুন</span>
-        </button>
-        <div className="text-left font-sans">
-          <h2 className="text-base font-medium text-[#1A1A2E]">ট্রান্সফার ট্র্যাকিং 🇧🇩</h2>
-          <p className="text-[11px] text-[#6B7280]">আপনার টাকা পাঠানোর সর্বশেষ অবস্থা জানুন</p>
-        </div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '12px 16px',
+        background: 'white',
+        borderBottom: '0.5px solid #E5E7EB',
+        cursor: 'pointer',
+        marginLeft: '-16px',
+        marginRight: '-16px',
+        marginBottom: '10px'
+      }} onClick={onBack}>
+        <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+        <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
+      </div>
+
+      <div className="text-left font-sans">
+        <h2 className="text-base font-medium text-[#1A1A2E]">ট্রান্সফার ট্র্যাকিং 🇧🇩</h2>
+        <p className="text-[11px] text-[#6B7280]">আপনার টাকা পাঠানোর সর্বশেষ অবস্থা জানুন</p>
       </div>
 
       {/* Search Input Box */}

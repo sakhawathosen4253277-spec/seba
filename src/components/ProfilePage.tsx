@@ -55,6 +55,20 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   return (
     <div className="flex flex-col font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E]" style={{ paddingBottom: "80px" }}>
       
+      {/* 0. BACK BUTTON BAR */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '12px 16px',
+        background: 'white',
+        borderBottom: '0.5px solid #E5E7EB',
+        cursor: 'pointer'
+      }} onClick={onBackToHome}>
+        <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
+        <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
+      </div>
+      
       {/* 1. HEADER SECTION (Navy Blue, specific padding) */}
       <div 
         className="bg-[#1B4F72] text-white text-center select-none"
