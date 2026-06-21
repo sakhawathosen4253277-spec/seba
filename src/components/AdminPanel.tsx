@@ -1025,9 +1025,9 @@ export default function AdminPanel() {
 
     try {
       const transferId = selectedCompletedTransfer.id;
-      const amount = selectedCompletedTransfer.amount;
-      const method = selectedCompletedTransfer.recipientMethod;
-      const durationNum = Number(minutesDuration) || 12;
+      const amount = selectedCompletedTransfer.amount || 0;
+      const method = selectedCompletedTransfer.recipientMethod || selectedCompletedTransfer.recipientMethodName || "bkash";
+      const durationNum = Number(minutesDuration) || 10;
 
       // Update transfer request in Firestore
       await updateDoc(doc(db, "transferRequests", transferId), {
@@ -1106,14 +1106,45 @@ export default function AdminPanel() {
   const handleProofImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        showStatusMsg("ফাইল সাইজ ২ মেগাবাইটের বেশি হওয়া যাবে না!", true);
+      if (file.size > 5 * 1024 * 1024) {
+        showStatusMsg("ফাইল সাইজ ৫ মেগাবাইটের বেশি হওয়া যাবে না!", true);
         return;
       }
       setProofSentImageName(file.name);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProofSentImageCode(reader.result as string);
+        const img = new Image();
+        img.src = reader.result as string;
+        img.onload = () => {
+          // Downscale and compress to pass within Firestore 1MB document limit
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Use JPEG format with 0.65 quality factor to dramatically reduce base64 length
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.65);
+            setProofSentImageCode(compressedBase64);
+          } else {
+            setProofSentImageCode(reader.result as string);
+          }
+        };
       };
       reader.readAsDataURL(file);
     }
@@ -3098,6 +3129,7 @@ export default function AdminPanel() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 text-[#1A1A2E] font-sans">
           <div className="bg-white rounded-3xl p-6 w-full max-w-[340px] text-left relative space-y-4">
             <button
+              type="button"
               onClick={() => setSelectedCompletedTransfer(null)}
               className="absolute top-4 right-4 p-1.5 text-gray-500 hover:text-black rounded-full bg-gray-100 transition-colors"
             >
@@ -3108,6 +3140,18 @@ export default function AdminPanel() {
               <h3 className="text-sm font-bold text-[#1D9E75]">ট্রান্সফার সম্পন্ন নিশ্চিত করুন</h3>
               <p className="text-[11px] text-gray-500 font-mono leading-none">আইডি: {selectedCompletedTransfer.id}</p>
             </div>
+
+            {/* Modal internal status notification */}
+            {message && (
+              <div className={`p-3 rounded-xl text-xs flex items-center space-x-2 border animate-fade-in ${
+                message.isError 
+                  ? "bg-[#FDEDEC] text-[#E74C3C] border-[#FADBD8]" 
+                  : "bg-[#E9F7EF] text-[#1D9E75] border-[#D4EFDF]"
+              }`}>
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="leading-tight">{message.text}</span>
+              </div>
+            )}
 
             <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-[11px] space-y-1">
               <p>👤 <strong>গ্রাহক:</strong> {selectedCompletedTransfer.senderName}</p>
@@ -3150,6 +3194,7 @@ export default function AdminPanel() {
             </div>
 
             <button
+              type="button"
               onClick={handleCompleteTransferSubmit}
               className="w-full py-3 bg-[#1D9E75] hover:bg-opacity-95 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer font-sans"
             >
