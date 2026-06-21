@@ -18,6 +18,12 @@ export interface UserDoc {
   createdAt: string;
   phone?: string;
   tier?: string;
+  referralCode?: string;
+  referredBy?: string | null;
+  referralBalance?: number;
+  totalReferrals?: number;
+  referralEarnings?: number;
+  referralCompleted?: boolean;
 }
 
 interface AuthContextType {
@@ -87,6 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser]);
 
   const logout = async () => {
+    try {
+      // Clear all keys from sessionStorage related to home alerts
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("home_alerts_shown_")) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      sessionStorage.removeItem("home_alerts_shown_anon");
+    } catch (e) {
+      console.warn("sessionStorage clear failed", e);
+    }
     await firebaseSignOut(auth);
   };
 

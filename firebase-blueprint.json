@@ -114,7 +114,13 @@
         "email": { "type": "string" },
         "isPremium": { "type": "boolean" },
         "isBlocked": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "referralCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "referralBalance": { "type": "number" },
+        "totalReferrals": { "type": "number" },
+        "referralEarnings": { "type": "number" },
+        "referralCompleted": { "type": "boolean" }
       },
       "required": ["name", "phone", "isPremium", "isBlocked"]
     },

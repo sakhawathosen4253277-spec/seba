@@ -11,7 +11,9 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy 
+  orderBy,
+  increment,
+  serverTimestamp
 } from "firebase/firestore";
 import { 
   ShieldAlert, 
@@ -108,6 +110,14 @@ export default function AdminPanel() {
     minimumTransfer: 1,
     maximumTransfer: 1000,
     firstTransferFree: true
+  });
+
+  // Referral settings state
+  const [referralSettings, setReferralSettings] = useState<any>({
+    referralSystemEnabled: true,
+    referralBonusAmount: 1,
+    referralMinTransfer: 50,
+    prizeAnnouncement: "এই মাসের সেরা ৩ রেফারার পাবেন আকর্ষণীয় পুরস্কার! 🎁"
   });
 
   // Home Alerts states
@@ -350,6 +360,12 @@ export default function AdminPanel() {
           return ordA - ordB;
         });
         setHomeAlertsList(list);
+      } else if (tab === "referral") {
+        const docRef = doc(db, "settings", "referral");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setReferralSettings(docSnap.data());
+        }
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -399,6 +415,20 @@ export default function AdminPanel() {
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, "maintenanceMode");
       showStatusMsg("মেইনটেন্যান্স সেটিংস সেভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন ভাই।", true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // REFERRAL TAB SAVE ACTION
+  const handleSaveReferralSettings = async () => {
+    setLoading(true);
+    try {
+      await setDoc(doc(db, "settings", "referral"), referralSettings, { merge: true });
+      showStatusMsg("রেফারেল সেটিংস সফলভাবে সেভ করা হয়েছে ভাই! 🎉", false);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "settings/referral");
+      showStatusMsg("রেফারেল সেটিংস সেভ করতে সমস্যা হয়েছে ভাই!", true);
     } finally {
       setLoading(false);
     }
@@ -1047,6 +1077,70 @@ export default function AdminPanel() {
         createdAt: new Date().toISOString()
       });
 
+      // Auto transfer referral bonus to main balance if requirements are met
+      if (selectedCompletedTransfer.userId) {
+        let referralEnabled = true;
+        let referralBonus = 1;
+        let referralMin = 50;
+        
+        try {
+          const configSnap = await getDoc(doc(db, "settings", "referral"));
+          if (configSnap.exists()) {
+            const configData = configSnap.data();
+            if (configData.referralSystemEnabled !== undefined) {
+              referralEnabled = configData.referralSystemEnabled;
+            }
+            if (configData.referralBonusAmount !== undefined) {
+              referralBonus = Number(configData.referralBonusAmount);
+            }
+            if (configData.referralMinTransfer !== undefined) {
+              referralMin = Number(configData.referralMinTransfer);
+            }
+          }
+        } catch (confErr) {
+          console.error("Error loading referral custom settings, using defaults:", confErr);
+        }
+
+        if (referralEnabled && amount >= referralMin) {
+          const referredUserRef = doc(db, "users", selectedCompletedTransfer.userId);
+          const referredUserSnap = await getDoc(referredUserRef);
+          if (referredUserSnap.exists()) {
+            const referredUserData = referredUserSnap.data();
+            if (referredUserData.referredBy && !referredUserData.referralCompleted) {
+              const refCode = referredUserData.referredBy;
+              const referrerQuery = query(collection(db, "users"), where("referralCode", "==", refCode));
+              const referrerQuerySnap = await getDocs(referrerQuery);
+              
+              if (!referrerQuerySnap.empty) {
+                const referrerDoc = referrerQuerySnap.docs[0];
+                const referrerRef = referrerDoc.ref;
+                
+                // Move referralBonus from referrer's referralBalance to balance:
+                await updateDoc(referrerRef, {
+                  referralBalance: increment(-referralBonus),
+                  balance: increment(referralBonus),
+                  referralEarnings: increment(referralBonus)
+                });
+                
+                // Send notification to referrer:
+                await addDoc(collection(db, "notifications"), {
+                  userId: referrerDoc.id,
+                  message: `আপনার রেফার করা বন্ধু $${referralMin}+ পাঠিয়েছেন! $${referralBonus} বোনাস মেইন ব্যালেন্সে যোগ হয়েছে 🎉`,
+                  type: "referral_bonus_completed",
+                  isRead: false,
+                  createdAt: serverTimestamp()
+                });
+                
+                // Mark this referral as completed in user document:
+                await updateDoc(referredUserRef, {
+                  referralCompleted: true
+                });
+              }
+            }
+          }
+        }
+      }
+
       showStatusMsg("অভিনন্দন! ট্রান্সফার সফলভাবে সম্পন্ন হয়েছে এবং পাবলিক ফিডে লগ করা হয়েছে।");
       setSelectedCompletedTransfer(null);
       setProofSentImageCode("");
@@ -1217,6 +1311,7 @@ export default function AdminPanel() {
           { id: "exchange", name: "এক্সচেঞ্জ রেট" },
           { id: "fees", name: "ফি সেটিংস" },
           { id: "alerts", name: "হোম সতর্কতা" },
+          { id: "referral", name: "রেফারেল" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
           { id: "jobs", name: "চাকরি" },
@@ -2878,6 +2973,115 @@ export default function AdminPanel() {
                     className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
                   >
                     আপডেট করুন
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === "referral" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">রেফারেল সিস্টেম সেটিংস</h2>
+                    <p className="text-[11px] opacity-90 font-sans">রেফারেল বোনাস, লিমিট ও অন/অফ সেটিংস</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("referral")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveReferralSettings();
+                  }} 
+                  className="bg-white border border-[#E5E7EB] rounded-[16px] p-5 space-y-5 text-left" 
+                  style={{ borderWidth: "0.5px" }}
+                >
+                  <div className="flex items-center justify-between pt-1 font-sans">
+                    <div>
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">রেফারেল সিস্টেম</label>
+                      <p className="text-[11px] text-[#6B7280] font-sans">রেফারেল সিস্টেম সচল বা নিষ্ক্রিয় করুন</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        referralSystemEnabled: !prev.referralSystemEnabled
+                      }))}
+                      className={`px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        referralSettings.referralSystemEnabled 
+                          ? "bg-[#1D9E75] text-white" 
+                          : "bg-gray-100 text-[#6B7280]"
+                      }`}
+                    >
+                      {referralSettings.referralSystemEnabled ? "চালু (ON)" : "বন্ধ (OFF)"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">রেফারেল বোনাস পরিমাণ ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={referralSettings.referralBonusAmount !== undefined ? referralSettings.referralBonusAmount : ""}
+                      onChange={(e) => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        referralBonusAmount: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ১"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">প্রতি সফল রেফারেলে কত বোনাস পাবে (ডিফল্ট: $১)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">আনলকের জন্য সর্বনিম্ন প্রথম ট্রান্সফার ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={referralSettings.referralMinTransfer !== undefined ? referralSettings.referralMinTransfer : ""}
+                      onChange={(e) => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        referralMinTransfer: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ৫০"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">আমন্ত্রিত বন্ধু সর্বনিম্ন কত ডলার পাঠালে বোনাস মূল ব্যালেন্সে যাবে (ডিফল্ট: $৫০)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">অ্যানাউন্সমেন্ট টেক্সট</label>
+                    <input
+                      type="text"
+                      value={referralSettings.prizeAnnouncement || ""}
+                      onChange={(e) => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        prizeAnnouncement: e.target.value
+                      }))}
+                      placeholder="যেমন: এই মাসের সেরা ৩ রেফারার পাবেন পুরস্কার!"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">রেফারেল পেজের লিডারবোর্ডের ওপরে প্রদর্শিত হবে</p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
+                  >
+                    সেটিংস সংরক্ষণ করুন
                   </button>
                 </form>
               </div>

@@ -10,7 +10,8 @@ import {
   Briefcase, 
   AlertOctagon,
   ChevronRight,
-  Loader2
+  Loader2,
+  Gift
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
@@ -163,7 +164,24 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   // Trigger important popup alerts in sequence based on order and duration
   useEffect(() => {
     if (!dbLoading && activeAlerts.length > 0) {
+      const storageKey = currentUser ? `home_alerts_shown_${currentUser.uid}` : "home_alerts_shown_anon";
+      if (sessionStorage.getItem(storageKey) === "true") {
+        setAlertOpen(false);
+        setActiveAlert(null);
+        return;
+      }
+
       if (currentAlertIndex < activeAlerts.length) {
+        // Mark as shown immediately when the first alert is about to be displayed 
+        // to prevent repetitive popups if the user navigates away or taps Home rapidly
+        if (currentAlertIndex === 0) {
+          try {
+            sessionStorage.setItem(storageKey, "true");
+          } catch (e) {
+            console.warn("Failed to set sessionStorage", e);
+          }
+        }
+
         const currentAlertItem = activeAlerts[currentAlertIndex];
         setActiveAlert(currentAlertItem);
         setAlertOpen(true);
@@ -183,9 +201,9 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         setActiveAlert(null);
       }
     }
-  }, [dbLoading, activeAlerts, currentAlertIndex]);
+  }, [dbLoading, activeAlerts, currentAlertIndex, currentUser]);
 
-  // 6 grid services
+  // 7 grid services
   const gridServices = [
     {
       id: "visa",
@@ -222,6 +240,12 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       label: "চাকরির বোর্ড",
       icon: Briefcase,
       action: () => onServiceSelect("services", "jobs")
+    },
+    {
+      id: "referral",
+      label: "রেফার ও ইনকাম",
+      icon: Gift,
+      action: () => onServiceSelect("referral")
     }
   ];
 
@@ -317,6 +341,50 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         </div>
       </div>
 
+      {/* Referral Banner/Ad Card below Wallet Card */}
+      <div className="px-4 mb-2">
+        <div 
+          className="bg-white border text-left flex items-center justify-between"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px',
+            padding: '12px 14px'
+          }}
+        >
+          <div className="flex items-center flex-1 mr-3">
+            <div 
+              className="w-9 h-9 flex items-center justify-center shrink-0 mr-3 animate-bounce"
+              style={{
+                backgroundColor: '#EBF5FB',
+                color: '#1B4F72',
+                borderRadius: '10px'
+              }}
+            >
+              <Gift className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h4 className="text-[12px] font-semibold text-[#1A1A2E] leading-tight font-sans">
+                রেফার করুন ও ইনকাম করুন!
+              </h4>
+              <p className="text-[11px] font-normal text-[#6B7280] mt-0.5 font-sans leading-tight">
+                বন্ধুদের সাথে রেফারেল কোড শেয়ার করে প্রতি সফল রেফারেলে $1 বোনাস পান!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onServiceSelect("referral")}
+            className="shrink-0 px-3 py-1.5 font-sans font-medium text-[11px] text-white hover:bg-opacity-90 transition-all select-none cursor-pointer outline-none"
+            style={{
+              backgroundColor: '#1B4F72',
+              borderRadius: '8px'
+            }}
+          >
+            কোড কপি
+          </button>
+        </div>
+      </div>
+
       {/* 4. SOS Button - Red bordered card, full width, always visible */}
       <div className="px-4">
         <button
@@ -391,6 +459,9 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             } else if (service.id === "job") {
               cardBg = "#F0F3F4";
               iconClr = "#444441";
+            } else if (service.id === "referral") {
+              cardBg = "#EBF5FB";
+              iconClr = "#1A5276";
             }
 
             return (

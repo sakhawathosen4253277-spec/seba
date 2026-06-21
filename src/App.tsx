@@ -29,6 +29,7 @@ import TransferStatus from "./components/TransferStatus";
 import AdminDashboard, { SupportTicket } from "./components/AdminDashboard";
 import AdminPanel from "./components/AdminPanel";
 import ProfilePage from "./components/ProfilePage";
+import ReferralPage from "./components/ReferralPage";
 import { useAuth } from "./lib/AuthContext";
 import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
 import { db } from "./lib/firebase";
@@ -753,6 +754,13 @@ export default function App() {
                 onBackToHome={() => handleServiceSelect("home")}
                 onSelectTab={(tab, subView) => handleServiceSelect(tab, subView)}
                 transactions={transactions}
+              />
+            )}
+
+            {/* TAB: REFERAL PAGE SYSTEM */}
+            {currentTab === "referral" && (
+              <ReferralPage
+                onBackToHome={() => handleServiceSelect("home", "none")}
               />
             )}
 

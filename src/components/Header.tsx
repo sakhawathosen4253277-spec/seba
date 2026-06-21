@@ -1,6 +1,8 @@
 import { Bell } from "lucide-react";
 import { LiveNotification } from "../types";
 import { useState, useEffect } from "react";
+import { onSnapshot, collection, query, orderBy, doc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 interface HeaderProps {
   notifications: LiveNotification[];
@@ -10,17 +12,85 @@ interface HeaderProps {
   exchangeRate?: number;
 }
 
-export default function Header({ unreadCount, onBellClick }: HeaderProps) {
-  const [tickerItems, setTickerItems] = useState<string[]>([
-    "💸 প্রবাসী সেবায় টাকা পাঠান — ৫ মিনিট থেকে ২ ঘণ্টায় দেশে পৌঁছায়",
-    "✅ আজ পর্যন্ত ১০০% সফল ট্রান্সফার — আমাদের বিশ্বাস করুন ভাই",
-    "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
-    "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
-    "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
-    "💰 আজকের রেট: 1 USD = 110.80 BDT — সবচেয়ে ভালো রেট আমাদের কাছে",
-    "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
-    "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
-  ]);
+export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80 }: HeaderProps) {
+  const [dbExchangeRate, setDbExchangeRate] = useState<number>(exchangeRate);
+  const [dbTickerItems, setDbTickerItems] = useState<string[]>([]);
+  const [tickerItems, setTickerItems] = useState<string[]>([]);
+  const [aiNewsItems, setAiNewsItems] = useState<string[]>([]);
+
+  // Function to dynamically replace static rates in messages with correct live rates in real-time
+  const formatTickerMessage = (message: string, rate: number): string => {
+    const regex = /1\s*USD\s*=\s*\d+(?:\.\d+)?/gi;
+    if (regex.test(message)) {
+      return message.replace(regex, `1 USD = ${rate.toFixed(2)}`);
+    }
+    return message;
+  };
+
+  // Sync with prop when prop updates
+  useEffect(() => {
+    if (exchangeRate !== undefined) {
+      setDbExchangeRate(exchangeRate);
+    }
+  }, [exchangeRate]);
+
+  // Subscribe directly to real-time current exchange rates
+  useEffect(() => {
+    const unsubRate = onSnapshot(doc(db, "exchangeRates", "current"), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.usdRate !== undefined) {
+          setDbExchangeRate(Number(data.usdRate));
+        } else if (data.bkash !== undefined) {
+          setDbExchangeRate(Number(data.bkash));
+        }
+      }
+    }, (err) => {
+      console.warn("Header exchange rate subscription failed:", err);
+    });
+
+    return () => unsubRate();
+  }, []);
+
+  // Subscribe directly to active admin-defined ticker messages
+  useEffect(() => {
+    const q = query(collection(db, "ticker"), orderBy("order", "asc"));
+    const unsubTicker = onSnapshot(q, (snapshot) => {
+      const messages: string[] = [];
+      snapshot.forEach((dt) => {
+        const val = dt.data();
+        if (val.isActive !== false && val.message) {
+          messages.push(val.message);
+        }
+      });
+      setDbTickerItems(messages);
+    }, (err) => {
+      console.warn("Header ticker subscription failed:", err);
+    });
+
+    return () => unsubTicker();
+  }, []);
+
+  useEffect(() => {
+    async function loadGeneratedNews() {
+      try {
+        const response = await fetch("/api/generate-news");
+        if (response.ok) {
+          const aiNews = await response.json();
+          if (Array.isArray(aiNews) && aiNews.length > 0) {
+            setAiNewsItems(aiNews);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch generated news, using defaults:", err);
+      }
+    }
+
+    loadGeneratedNews();
+    // Poll news updates every 30 minutes
+    const interval = setInterval(loadGeneratedNews, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     function shuffleArray(array: string[]) {
@@ -32,39 +102,35 @@ export default function Header({ unreadCount, onBellClick }: HeaderProps) {
       return arr;
     }
 
-    async function loadGeneratedNews() {
-      try {
-        const response = await fetch("/api/generate-news");
-        const staticItems = [
-          "💸 প্রবাসী সেবায় টাকা পাঠান — ৫ মিনিট থেকে ২ ঘণ্টায় দেশে পৌঁছায়",
-          "✅ আজ পর্যন্ত ১০০% সফল ট্রান্সফার — আমাদের বিশ্বাস করুন ভাই",
-          "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
-          "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
-          "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
-          "💰 আজকের রেট: 1 USD = 110.80 BDT — সবচেয়ে ভালো রেট আমাদের কাছে",
-          "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
-          "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
-        ];
+    // Determine the baseline list of scrolling news
+    let baseItems = [...dbTickerItems];
 
-        if (response.ok) {
-          const aiNews = await response.json();
-          if (Array.isArray(aiNews) && aiNews.length > 0) {
-            const combined = [...staticItems, ...aiNews];
-            setTickerItems(shuffleArray(combined));
-            return;
-          }
-        }
-        setTickerItems(shuffleArray(staticItems));
-      } catch (err) {
-        console.warn("Failed to fetch generated news, using defaults:", err);
+    if (baseItems.length === 0) {
+      // Fallback default set if there are no ticker items in the database yet
+      baseItems = [
+        "💸 প্রবাসী সেবায় টাকা পাঠান — ৫ মিনিট থেকে ২ ঘণ্টায় দেশে পৌঁছায়",
+        "✅ আজ পর্যন্ত ১০০% সফল ট্রান্সফার — আমাদের বিশ্বাস করুন ভাই",
+        "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
+        "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
+        "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
+        `💰 আজকের রেট: 1 USD = ${dbExchangeRate.toFixed(2)} BDT — সবচেয়ে ভালো রেট আমাদের কাছে`,
+        "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
+        "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
+      ];
+    } else {
+      // Format existing items from database with the live rate replacement helper
+      baseItems = baseItems.map(item => formatTickerMessage(item, dbExchangeRate));
+
+      // Ensure that if no database ticker mentions the rate, we automatically append the high contrast live rate banner
+      const hasRateMsg = baseItems.some(msg => /1\s*USD/i.test(msg));
+      if (!hasRateMsg) {
+        baseItems.unshift(`💰 আজকের রেট: 1 USD = ${dbExchangeRate.toFixed(2)} BDT — সবচেয়ে ভালো রেট আমাদের কাছে`);
       }
     }
 
-    loadGeneratedNews();
-    // Poll news updates every 30 minutes
-    const interval = setInterval(loadGeneratedNews, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+    const combined = [...baseItems, ...aiNewsItems.map(item => formatTickerMessage(item, dbExchangeRate))];
+    setTickerItems(shuffleArray(combined));
+  }, [dbExchangeRate, dbTickerItems, aiNewsItems]);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-[#E5E7EB]" style={{ borderBottomWidth: "0.5px" }}>
