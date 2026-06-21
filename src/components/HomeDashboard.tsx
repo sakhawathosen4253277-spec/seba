@@ -35,6 +35,8 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   });
   
   const [newsList, setNewsList] = useState<any[]>([]);
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [currentAlertIndex, setCurrentAlertIndex] = useState<number>(0);
   const [activeAlert, setActiveAlert] = useState<any | null>(null);
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
 
@@ -97,6 +99,39 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         } else {
           setNewsList(defaultNewsCards);
         }
+
+        // 3. Fetch Home Alerts (Warnings)
+        const alertsSnap = await getDocs(collection(db, "homeAlerts"));
+        if (!alertsSnap.empty) {
+          const fetchedAlerts = alertsSnap.docs
+            .map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                title: data.title || "",
+                desc: data.description || "",
+                tag: data.tag || "সতর্কতা",
+                duration: data.duration !== undefined ? Number(data.duration) : 10,
+                isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+                order: data.order !== undefined ? Number(data.order) : 100
+              };
+            })
+            .filter(a => a.isActive === true)
+            .sort((a, b) => a.order - b.order);
+          setActiveAlerts(fetchedAlerts);
+        } else {
+          setActiveAlerts([
+            {
+              id: "alert-default-1",
+              title: "ফনম পেনহে নতুন স্ক্যাম চক্র সক্রিয়",
+              desc: "অপরিচিত এজেন্ট বা দালালের দেওয়া কাজের প্রলোভন থেকে সাবধান থাকুন ভাই।",
+              tag: "সতর্কতা",
+              duration: 10,
+              isActive: true,
+              order: 1
+            }
+          ]);
+        }
       } catch (err) {
         const errMessage = err instanceof Error ? err.message : String(err);
         const isOffline = errMessage.toLowerCase().includes("offline") || 
@@ -118,27 +153,37 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
 
   const currentNewsList = newsList.length > 0 ? newsList : defaultNewsCards;
 
-  // Trigger important popup alert if found
+  const handleCloseAlert = () => {
+    setAlertOpen(false);
+    setTimeout(() => {
+      setCurrentAlertIndex(prev => prev + 1);
+    }, 400);
+  };
+
+  // Trigger important popup alerts in sequence based on order and duration
   useEffect(() => {
-    if (!dbLoading && currentNewsList.length > 0) {
-      const importantItem = currentNewsList.find(item => 
-        item.tag?.includes("সতর্কতা") || 
-        item.tag?.includes("জরুরি") || 
-        item.tag?.includes("গুরুত্বপূর্ণ") ||
-        item.tag?.includes("অ্যালার্ট")
-      );
-      if (importantItem) {
-        setActiveAlert(importantItem);
+    if (!dbLoading && activeAlerts.length > 0) {
+      if (currentAlertIndex < activeAlerts.length) {
+        const currentAlertItem = activeAlerts[currentAlertIndex];
+        setActiveAlert(currentAlertItem);
         setAlertOpen(true);
 
+        const durationSec = currentAlertItem.duration !== undefined ? currentAlertItem.duration : 10;
         const timer = setTimeout(() => {
           setAlertOpen(false);
-        }, 10000); // 10-second automatic timer to close smoothly
+          const nextTimer = setTimeout(() => {
+            setCurrentAlertIndex(prev => prev + 1);
+          }, 500);
+          return () => clearTimeout(nextTimer);
+        }, durationSec * 1000);
 
         return () => clearTimeout(timer);
+      } else {
+        setAlertOpen(false);
+        setActiveAlert(null);
       }
     }
-  }, [dbLoading, currentNewsList]);
+  }, [dbLoading, activeAlerts, currentAlertIndex]);
 
   // 6 grid services
   const gridServices = [
@@ -472,7 +517,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
 
             {/* Prominent Close Button */}
             <button
-              onClick={() => setAlertOpen(false)}
+              onClick={handleCloseAlert}
               className="w-full h-[46px] flex items-center justify-center text-white cursor-pointer select-none outline-none font-sans font-medium hover:bg-[#153e5a] active:scale-95 transition-all"
               style={{
                 backgroundColor: '#1B4F72',

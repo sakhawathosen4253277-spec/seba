@@ -207,9 +207,46 @@
         "services": { "type": "object" }
       },
       "required": ["globalMaintenance", "maintenanceMessage", "services"]
+    },
+    "FeeSettings": {
+      "title": "FeeSettings",
+      "description": "Service charges and minimum/maximum transaction limit config document",
+      "type": "object",
+      "properties": {
+        "transferFeePercent": { "type": "number" },
+        "transferFeeFixed": { "type": "number" },
+        "minimumTransfer": { "type": "number" },
+        "maximumTransfer": { "type": "number" },
+        "firstTransferFree": { "type": "boolean" },
+        "feeUpdatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["transferFeePercent", "transferFeeFixed", "minimumTransfer", "maximumTransfer", "firstTransferFree"]
+    },
+    "HomeAlert": {
+      "title": "HomeAlert",
+      "description": "Sequenceable pop-up home warning alerts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tag": { "type": "string" },
+        "duration": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "tag", "duration", "isActive", "order"]
     }
   },
   "firestore": {
+    "homeAlerts": {
+      "schema": "HomeAlert",
+      "description": "Manageable sequence-based home popups with display timers"
+    },
+    "settings": {
+      "schema": "FeeSettings",
+      "description": "Global agency transfer fees and transaction limit presets"
+    },
     "news": {
       "schema": "News",
       "description": "Latest news and updates collection"

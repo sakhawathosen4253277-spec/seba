@@ -1,8 +1,23 @@
 import { db } from "./firebase";
-import { doc, getDoc, setDoc, collection, addDoc, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 
 export async function seedDatabaseIfNeeded() {
   try {
+    // Seed settings -> "fees" if it doesn't exist
+    const feesDocRef = doc(db, "settings", "fees");
+    const feesDoc = await getDoc(feesDocRef);
+    if (!feesDoc.exists()) {
+      await setDoc(feesDocRef, {
+        transferFeePercent: 2,
+        transferFeeFixed: 0,
+        minimumTransfer: 1,
+        maximumTransfer: 1000,
+        firstTransferFree: true,
+        feeUpdatedAt: serverTimestamp()
+      });
+      console.log("Seeding fees settings document initialized.");
+    }
+
     // Seed maintenanceMode -> "settings" if it doesn't exist
     const maintDocRef = doc(db, "maintenanceMode", "settings");
     const maintDoc = await getDoc(maintDocRef);
@@ -21,6 +36,30 @@ export async function seedDatabaseIfNeeded() {
         }
       });
       console.log("Seeding maintenanceMode settings document initialized.");
+    }
+
+    // Seed homeAlerts if empty
+    const alertsSnap = await getDocs(collection(db, "homeAlerts"));
+    if (alertsSnap.empty) {
+      console.log("Seeding initial home alerts...");
+      await addDoc(collection(db, "homeAlerts"), {
+        title: "ফনম পেনহে নতুন স্ক্যাম চক্র সক্রিয়",
+        description: "অপরিচিত এজেন্ট বা দালালের দেওয়া কাজের প্রলোভন থেকে সাবধান থাকুন ভাই।",
+        tag: "সতর্কতা",
+        duration: 10,
+        isActive: true,
+        order: 1,
+        createdAt: new Date().toISOString()
+      });
+      await addDoc(collection(db, "homeAlerts"), {
+        title: "ভিসা এক্সটেনশনের ক্ষেত্রে অনলাইন জালিয়াতি",
+        description: "ভিসা এক্সটেনশনের ফি সরাসরি ইমিগ্রেশনে পরিশোধ করুন। প্রতারক চক্র থেকে সতর্ক থাকুন।",
+        tag: "অনলাইন সতর্কতা",
+        duration: 12,
+        isActive: true,
+        order: 2,
+        createdAt: new Date().toISOString()
+      });
     }
 
     // We check if "exchangeRates" -> "current" exists. 

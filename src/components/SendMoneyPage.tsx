@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { collection, setDoc, doc, getDoc } from "firebase/firestore";
+import { collection, setDoc, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 
@@ -27,6 +27,16 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
 
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
+
+  const [feeSettings, setFeeSettings] = useState<any>({
+    transferFeePercent: 2,
+    transferFeeFixed: 0,
+    minimumTransfer: 1,
+    maximumTransfer: 1000,
+    firstTransferFree: true
+  });
+  const [loadingFees, setLoadingFees] = useState<boolean>(true);
+  const [isFirstTransfer, setIsFirstTransfer] = useState<boolean>(false);
 
   // Load exchange rate from DB
   useEffect(() => {
@@ -58,9 +68,46 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
     loadRate();
   }, []);
 
+  // Load fee settings and transfer history check
+  useEffect(() => {
+    async function loadFeesAndHistory() {
+      const uid = currentUser?.uid || "guest_user";
+      try {
+        // 1. Fetch fees document
+        const feeSnap = await getDoc(doc(db, "settings", "fees"));
+        if (feeSnap.exists()) {
+          const fData = feeSnap.data();
+          setFeeSettings({
+            transferFeePercent: fData.transferFeePercent !== undefined ? Number(fData.transferFeePercent) : 2,
+            transferFeeFixed: fData.transferFeeFixed !== undefined ? Number(fData.transferFeeFixed) : 0,
+            minimumTransfer: fData.minimumTransfer !== undefined ? Number(fData.minimumTransfer) : 1,
+            maximumTransfer: fData.maximumTransfer !== undefined ? Number(fData.maximumTransfer) : 1000,
+            firstTransferFree: fData.firstTransferFree !== undefined ? Boolean(fData.firstTransferFree) : true
+          });
+        }
+
+        // 2. Fetch past transaction history size
+        const q = query(
+          collection(db, "transferRequests"),
+          where("userId", "==", uid)
+        );
+        const transSnap = await getDocs(q);
+        setIsFirstTransfer(transSnap.size === 0);
+      } catch (err) {
+        console.error("Error loading fees settings/history:", err);
+      } finally {
+        setLoadingFees(false);
+      }
+    }
+    loadFeesAndHistory();
+  }, [currentUser]);
+
+  const feePercent = (feeSettings.firstTransferFree && isFirstTransfer) ? 0 : feeSettings.transferFeePercent;
+  const feeFixed = (feeSettings.firstTransferFree && isFirstTransfer) ? 0 : feeSettings.transferFeeFixed;
+
   const totalAmount = parseFloat(amountUsd) || 0;
-  const serviceCharge = totalAmount * 0.02; // 2%
-  const recipientGets = totalAmount - serviceCharge;
+  const serviceCharge = (totalAmount * feePercent / 100) + feeFixed;
+  const recipientGets = Math.max(0, totalAmount - serviceCharge);
   const bdtAmount = recipientGets * exchangeRate;
 
   const handleSendSubmit = async (e: React.FormEvent) => {
@@ -68,6 +115,18 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
 
     if (totalAmount <= 0) {
       alert("সঠিক ডলারের পরিমাণ লিখুন ভাই!");
+      return;
+    }
+    if (totalAmount < feeSettings.minimumTransfer) {
+      alert(`সর্বনিম্ন ট্রান্সফার $${feeSettings.minimumTransfer} USD ভাই!`);
+      return;
+    }
+    if (totalAmount > feeSettings.maximumTransfer) {
+      alert(`সর্বোচ্চ ট্রান্সফার $${feeSettings.maximumTransfer} USD ভাই!`);
+      return;
+    }
+    if (totalAmount > balance) {
+      alert("দুঃখিত ভাই, আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই!");
       return;
     }
     if (!recipientName.trim()) {
@@ -258,6 +317,17 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
                 step="any"
               />
               <span className="absolute right-3 font-bold text-gray-400 text-[10.5px]">USD</span>
+            </div>
+
+            {/* Limit and fee rules info banner */}
+            <div className="flex flex-col space-y-0.5 pt-1 text-[10px] text-[#6B7280] font-sans">
+              <div className="flex justify-between">
+                <span>সীমা: ${feeSettings.minimumTransfer} - ${feeSettings.maximumTransfer} USD</span>
+                <span>ফি: {feeSettings.transferFeePercent}% + ${feeSettings.transferFeeFixed}</span>
+              </div>
+              {feeSettings.firstTransferFree && isFirstTransfer && (
+                <div className="text-[#1D9E75] font-semibold mt-0.5">🎉 অভিনন্দন! প্রথম ট্রান্সফার সম্পূর্ণ ফ্রি।</div>
+              )}
             </div>
 
             {/* Live rates and charges breakdown */}

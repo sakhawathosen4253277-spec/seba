@@ -101,6 +101,26 @@ export default function AdminPanel() {
     }
   });
 
+  // Fee settings state
+  const [feeSettings, setFeeSettings] = useState<any>({
+    transferFeePercent: 2,
+    transferFeeFixed: 0,
+    minimumTransfer: 1,
+    maximumTransfer: 1000,
+    firstTransferFree: true
+  });
+
+  // Home Alerts states
+  const [homeAlertsList, setHomeAlertsList] = useState<any[]>([]);
+  const [newHomeAlert, setNewHomeAlert] = useState({
+    title: "",
+    description: "",
+    tag: "সতর্কতা",
+    duration: 10,
+    isActive: true,
+    order: 1
+  });
+
   // Form states for adding items
   const [newNews, setNewNews] = useState({ title: "", tag: "ভিসا", description: "" });
   const [newTicker, setNewTicker] = useState({ message: "", order: 1 });
@@ -314,6 +334,22 @@ export default function AdminPanel() {
         if (docSnap.exists()) {
           setMaintenanceSettings(docSnap.data());
         }
+      } else if (tab === "fees") {
+        const docRef = doc(db, "settings", "fees");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setFeeSettings(docSnap.data());
+        }
+      } else if (tab === "alerts") {
+        const q = query(collection(db, "homeAlerts"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => {
+          const ordA = a.order !== undefined ? Number(a.order) : 999;
+          const ordB = b.order !== undefined ? Number(b.order) : 999;
+          return ordA - ordB;
+        });
+        setHomeAlertsList(list);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -548,6 +584,95 @@ export default function AdminPanel() {
         handleFirestoreError(err, OperationType.WRITE, path);
         showStatusMsg("এক্সচেঞ্জ রেট আপডেট করতে সমস্যা হয়েছে।", true);
       }
+    }
+  };
+
+  // FEES TAB
+  const handleUpdateFees = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const path = "settings/fees";
+    const feeData = {
+      transferFeePercent: Number(feeSettings.transferFeePercent),
+      transferFeeFixed: Number(feeSettings.transferFeeFixed),
+      minimumTransfer: Number(feeSettings.minimumTransfer),
+      maximumTransfer: Number(feeSettings.maximumTransfer),
+      firstTransferFree: Boolean(feeSettings.firstTransferFree),
+      feeUpdatedAt: new Date().toISOString()
+    };
+
+    try {
+      await setDoc(doc(db, "settings", "fees"), feeData, { merge: true });
+      showStatusMsg("ফি সেটিংস সফলভাবে আপডেট করা হয়েছে ভাই!");
+      fetchTabData("fees");
+    } catch (err) {
+      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, path);
+      showStatusMsg("ফি সেটিংস আপডেট করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  // HOME POPUP ALERTS TAB
+  const handleCreateHomeAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const path = "homeAlerts";
+    const alertData = {
+      title: newHomeAlert.title.trim(),
+      description: newHomeAlert.description.trim(),
+      tag: newHomeAlert.tag.trim() || "সতর্কতা",
+      duration: Number(newHomeAlert.duration) || 10,
+      isActive: Boolean(newHomeAlert.isActive),
+      order: Number(newHomeAlert.order) || 1,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!alertData.title || !alertData.description) {
+      alert("শিরোনাম এবং বিবরণ সম্পূর্ণ পূরণ করুন ভাই!");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "homeAlerts"), alertData);
+      showStatusMsg("নতুন সতর্কতা পপআপ সফলভাবে যুক্ত করা হয়েছে ভাই!");
+      setNewHomeAlert({
+        title: "",
+        description: "",
+        tag: "সতর্কতা",
+        duration: 10,
+        isActive: true,
+        order: homeAlertsList.length + 2
+      });
+      fetchTabData("alerts");
+    } catch (err) {
+      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, path);
+      showStatusMsg("সতর্কতা পপআপ যুক্ত করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleToggleAlertActive = async (item: any) => {
+    const path = `homeAlerts/${item.id}`;
+    try {
+      await updateDoc(doc(db, "homeAlerts", item.id), {
+        isActive: !item.isActive
+      });
+      showStatusMsg("সতর্কতা পপআপ অ্যাক্টিভ স্থিতি আপডেট হয়েছে।");
+      fetchTabData("alerts");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+      showStatusMsg("অ্যাক্টিভ স্থিতি পরিবর্তন করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleDeleteHomeAlert = async (id: string) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই সতর্কতা পপআপটি ডিলিট করতে চান ভাই?")) return;
+    const path = `homeAlerts/${id}`;
+    try {
+      await deleteDoc(doc(db, "homeAlerts", id));
+      showStatusMsg("সতর্কতা পপআপটি সফলভাবে মুছে ফেলা হয়েছে ভাই!");
+      fetchTabData("alerts");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+      showStatusMsg("সতর্কতা পপআপটি মুছতে সমস্যা হয়েছে।", true);
     }
   };
 
@@ -1059,6 +1184,8 @@ export default function AdminPanel() {
           { id: "news", name: "নিউজ" },
           { id: "ticker", name: "টিকার" },
           { id: "exchange", name: "এক্সচেঞ্জ রেট" },
+          { id: "fees", name: "ফি সেটিংস" },
+          { id: "alerts", name: "হোম সতর্কতা" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
           { id: "jobs", name: "চাকরি" },
@@ -2600,6 +2727,294 @@ export default function AdminPanel() {
                 >
                   সেটিংস সংরক্ষণ করুন (Save Settings)
                 </button>
+              </div>
+            )}
+
+            {activeTab === "fees" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">লেনদেনের সার্ভিস ফি সেটিংস</h2>
+                    <p className="text-[11px] opacity-90 font-sans">ট্রান্সফার ফি ও লিমিট পরিবর্তন করুন</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("fees")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handleUpdateFees} className="bg-white border border-[#E5E7EB] rounded-[16px] p-5 space-y-5 text-left" style={{ borderWidth: "0.5px" }}>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">ট্রান্সফার ফি (%)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={feeSettings.transferFeePercent !== undefined ? feeSettings.transferFeePercent : ""}
+                      onChange={(e) => setFeeSettings((prev: any) => ({
+                        ...prev,
+                        transferFeePercent: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ২"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">যেমন: 2 মানে 2% ফি</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">নির্দিষ্ট ফি ($)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={feeSettings.transferFeeFixed !== undefined ? feeSettings.transferFeeFixed : ""}
+                      onChange={(e) => setFeeSettings((prev: any) => ({
+                        ...prev,
+                        transferFeeFixed: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ০"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">% ফি এর পাশাপাশি fixed ফি (0 = নেই)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সর্বনিম্ন ট্রান্সফার ($)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={feeSettings.minimumTransfer !== undefined ? feeSettings.minimumTransfer : ""}
+                      onChange={(e) => setFeeSettings((prev: any) => ({
+                        ...prev,
+                        minimumTransfer: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ১"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সর্বোচ্চ ট্রান্সফার ($)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={feeSettings.maximumTransfer !== undefined ? feeSettings.maximumTransfer : ""}
+                      onChange={(e) => setFeeSettings((prev: any) => ({
+                        ...prev,
+                        maximumTransfer: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ১০০০"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 font-sans">
+                    <div>
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">প্রথম ট্রান্সফার ফ্রি</label>
+                      <p className="text-[11px] text-[#6B7280] font-sans">সক্রিয় থাকলে প্রথমবার লেনদেন সম্পূর্ণ ফ্রিতে করা যাবে</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFeeSettings((prev: any) => ({
+                        ...prev,
+                        firstTransferFree: !prev.firstTransferFree
+                      }))}
+                      className={`px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        feeSettings.firstTransferFree 
+                          ? "bg-[#1D9E75] text-white" 
+                          : "bg-gray-100 text-[#6B7280]"
+                      }`}
+                    >
+                      {feeSettings.firstTransferFree ? "চালু (ON)" : "বন্ধ (OFF)"}
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
+                  >
+                    আপডেট করুন
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === "alerts" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">হোম সতর্কতা পপআপ সেটিংস</h2>
+                    <p className="text-[11px] opacity-90 font-sans">পপআপের লেখা, সময়সীমা ও সিকোয়েন্স নির্ধারণ করুন</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("alerts")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {/* Add New Alert Form */}
+                <form onSubmit={handleCreateHomeAlert} className="bg-white border border-[#E5E7EB] rounded-[16px] p-5 space-y-4 text-left" style={{ borderWidth: "0.5px" }}>
+                  <h3 className="text-xs font-semibold text-[#1B4F72] font-sans border-b pb-2 mb-2">নতুন সতর্কতা পপআপ যোগ করুন</h3>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সতর্কতা টাইটেল (Title) *</label>
+                    <input
+                      type="text"
+                      value={newHomeAlert.title}
+                      onChange={(e) => setNewHomeAlert((prev: any) => ({ ...prev, title: e.target.value }))}
+                      placeholder="যেমন: ফনম পেনহে নতুন স্ক্যাম চক্র সক্রিয়"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">বিস্তারিত বার্তা (Description) *</label>
+                    <textarea
+                      value={newHomeAlert.description}
+                      onChange={(e) => setNewHomeAlert((prev: any) => ({ ...prev, description: e.target.value }))}
+                      placeholder="যেমন: অপরিচিত কেউ ভালো কাজের প্রলোভন দেখালে পা বাড়াবেন না ভাই।"
+                      rows={3}
+                      className="w-full bg-gray-50 border border-[#E5E7EB] rounded-xl p-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 font-sans">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">ট্যাগ (Tag)</label>
+                      <input
+                        type="text"
+                        value={newHomeAlert.tag}
+                        onChange={(e) => setNewHomeAlert((prev: any) => ({ ...prev, tag: e.target.value }))}
+                        placeholder="যেমন: সতর্কতা"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সময়সীমা (সেকেন্ড) *</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="120"
+                        value={newHomeAlert.duration !== undefined ? newHomeAlert.duration : ""}
+                        onChange={(e) => setNewHomeAlert((prev: any) => ({ ...prev, duration: e.target.value !== "" ? Number(e.target.value) : "" }))}
+                        placeholder="যেমন: ১০"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 font-sans">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">ক্রমানুসার (Order) *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newHomeAlert.order !== undefined ? newHomeAlert.order : ""}
+                        onChange={(e) => setNewHomeAlert((prev: any) => ({ ...prev, order: e.target.value !== "" ? Number(e.target.value) : "" }))}
+                        placeholder="যেমন: ১"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-[22px] px-1 font-sans">
+                      <label className="text-[11px] font-semibold text-[#1A1A2E]">অবস্থা: {newHomeAlert.isActive ? "সক্রিয়" : "নিষ্ক্রিয়"}</label>
+                      <button
+                        type="button"
+                        onClick={() => setNewHomeAlert((prev: any) => ({ ...prev, isActive: !prev.isActive }))}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                          newHomeAlert.isActive 
+                            ? "bg-[#1D9E75] text-white" 
+                            : "bg-gray-100 text-[#6B7280]"
+                        }`}
+                      >
+                        {newHomeAlert.isActive ? "সক্রিয় (ON)" : "বন্ধ (OFF)"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
+                  >
+                    সতর্কতা যোগ করুন
+                  </button>
+                </form>
+
+                {/* Existing Alerts Queue List */}
+                <div className="space-y-3 font-sans">
+                  <h3 className="text-xs font-semibold text-[#1A1A2E] font-sans px-1">চলমান সতর্কতা তালিকা (সিরিয়াল অনুযায়ী প্রদর্শিত হবে)</h3>
+                  
+                  {homeAlertsList.length === 0 ? (
+                    <div className="bg-white border border-[#E5E7EB] rounded-[16px] p-8 text-center text-xs text-[#6B7280]" style={{ borderWidth: "0.5px" }}>
+                      কোনো সতর্কতা পপআপ সেট করা নেই ভাই।
+                    </div>
+                  ) : (
+                    homeAlertsList.map((item) => (
+                      <div key={item.id} className="bg-white border border-[#E5E7EB] rounded-[16px] p-4 space-y-3 relative text-left" style={{ borderWidth: "0.5px" }}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            <span className="text-[10px] bg-[#FDEDEC] text-[#C0392B] px-2 py-0.5 rounded-full font-medium">{item.tag || "সতর্কতা"}</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">ক্রম #{item.order}</span>
+                            <span className="text-[10px] bg-sky-50 text-[#1B4F72] px-2 py-0.5 rounded-full">{item.duration} সেকেন্ড</span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAlertActive(item)}
+                              className={`text-[10px] font-semibold px-2 py-1 rounded cursor-pointer ${
+                                item.isActive 
+                                  ? "bg-[#E9F7EF] text-[#1D9E75]" 
+                                  : "bg-gray-100 text-[#6B7280]"
+                              }`}
+                            >
+                              {item.isActive ? "সক্রিয়" : "বন্ধ"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteHomeAlert(item.id)}
+                              className="p-1 hover:bg-gray-50 rounded-lg text-[#E74C3C] cursor-pointer"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-[#1A1A2E]">{item.title}</h4>
+                          <p className="text-xs text-[#6B7280] leading-relaxed">{item.description}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
