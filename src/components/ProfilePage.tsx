@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   User, 
   Mail, 
@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { signOut } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { Transaction } from "../types";
 import { downloadReceiptImage } from "../lib/receipt";
 
@@ -34,9 +35,38 @@ interface ProfilePageProps {
   transactions?: Transaction[];
 }
 
-export default function ProfilePage({ onBackToHome, onSelectTab, transactions = [] }: ProfilePageProps) {
-  const { userDoc } = useAuth();
+export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePageProps) {
+  const { userDoc, currentUser } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // We fetch from 'transferRequests' which is where client transactions are stored
+    const q = query(
+      collection(db, 'transferRequests'),
+      where('userId', '==', currentUser.uid)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const txList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort client-side to prevent Firestore composite index query errors
+      txList.sort((a: any, b: any) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      setTransactions(txList);
+    });
+    
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const userId = userDoc?.userId || "PS-000000";
   const name = userDoc?.name || "প্রবাসী ভাই";
@@ -208,101 +238,75 @@ export default function ProfilePage({ onBackToHome, onSelectTab, transactions = 
         >
           {transactions && transactions.length > 0 ? (
             <div className="space-y-4">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-start justify-between pb-3 border-b border-[#F0F4F8] last:border-0 last:pb-0 font-sans" style={{ borderBottomWidth: '0.5px' }}>
-                  <div className="text-left flex-1">
-                    <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                      <span className="text-[13px] font-semibold text-[#1A1A2E]">{tx.recipientName}</span>
-                      <span className="text-[9px] bg-[#1B4F72]/10 text-[#1B4F72] px-1.5 py-0.5 rounded font-medium">
-                        {tx.recipientMethod === "bKash" && "বিকাশ"}
-                        {tx.recipientMethod === "Nagad" && "নগদ"}
-                        {tx.recipientMethod === "Rocket" && "রকেট"}
-                        {tx.recipientMethod === "Bank" && "ব্যাংক"}
-                      </span>
+              {transactions.map((tx) => {
+                const displayDate = tx.date || (tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("bn-BD", {day: "numeric", month: "long", year: "numeric"}) : "আজ");
+                const displayNum = tx.recipientNumber || tx.recipientPhone || tx.recipientBankAccount || "";
+                const displayBdt = tx.amountBdt || tx.calculatedBdt || tx.bdtAmount || 0;
+                const displayUsd = tx.amountUsd || tx.amount || tx.totalDeducted || 0;
+                const normalizedTxForReceipt = {
+                  id: tx.id,
+                  senderName: tx.senderName || name || "ওয়ালেট ইউজার",
+                  recipientName: tx.recipientName,
+                  recipientMethod: tx.recipientMethod || "Bank",
+                  recipientNumber: displayNum,
+                  amountUsd: Number(displayUsd),
+                  amountBdt: Number(displayBdt),
+                  feeUsd: Number(tx.serviceCharge || 0),
+                  date: displayDate,
+                  status: tx.status || "pending"
+                };
+
+                return (
+                  <div key={tx.id} className="flex items-start justify-between pb-3 border-b border-[#F0F4F8] last:border-0 last:pb-0 font-sans" style={{ borderBottomWidth: '0.5px' }}>
+                    <div className="text-left flex-1">
+                      <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                        <span className="text-[13px] font-semibold text-[#1A1A2E]">{tx.recipientName}</span>
+                        <span className="text-[9px] bg-[#1B4F72]/10 text-[#1B4F72] px-1.5 py-0.5 rounded font-medium">
+                          {tx.recipientMethodName || tx.recipientMethod}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#6B7280] mt-0.5">{displayDate} • {displayNum}</p>
+                      <button
+                        onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
+                        className="mt-2 text-[10px] text-[#1B4F72] font-semibold flex items-center space-x-1 bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
+                        style={{ borderRadius: '6px', borderWidth: '0.5px' }}
+                      >
+                        <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
+                        <span>রশিদ ডাউনলোড করুন</span>
+                      </button>
                     </div>
-                    <p className="text-[11px] text-[#6B7280] mt-0.5">{tx.date} • {tx.recipientNumber}</p>
-                    <button
-                      onClick={() => downloadReceiptImage(tx)}
-                      className="mt-2 text-[10px] text-[#1B4F72] font-semibold flex items-center space-x-1 bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
-                      style={{ borderRadius: '6px', borderWidth: '0.5px' }}
-                    >
-                      <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
-                      <span>রশিদ ডাউনলোড করুন</span>
-                    </button>
-                  </div>
-                  <div className="text-right ml-2">
-                    <p className="text-[13px] font-bold text-[#1D9E75] font-mono">৳ {tx.amountBdt.toLocaleString("bn-BD")} BDT</p>
-                    <p className="text-[10px] text-[#6B7280] font-mono mt-0.5">${tx.amountUsd} USD</p>
-                    <div className="mt-1 flex justify-end">
-                      {tx.status === "completed" && (
-                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-1.5 py-0.25 rounded-md border border-[#1D9E75]/20">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>সম্পন্ন</span>
-                        </span>
-                      )}
-                      {tx.status === "pending" && (
-                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.25 rounded-md border border-amber-500/20 animate-pulse">
-                          <Clock className="w-3 h-3" />
-                          <span>অপেক্ষারত</span>
-                        </span>
-                      )}
-                      {tx.status === "cancelled" && (
-                        <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#E74C3C] bg-[#E74C3C]/10 px-1.5 py-0.25 rounded-md border border-[#E74C3C]/20">
-                          <XCircle className="w-3 h-3" />
-                          <span>বাতিল</span>
-                        </span>
-                      )}
+                    <div className="text-right ml-2 shrink-0">
+                      <p className="text-[13px] font-bold text-[#1D9E75] font-mono">৳ {displayBdt.toLocaleString("bn-BD")} BDT</p>
+                      <p className="text-[10px] text-[#6B7280] font-mono mt-0.5">${displayUsd} USD</p>
+                      <div className="mt-1 flex justify-end">
+                        {tx.status === "completed" && (
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-1.5 py-0.25 rounded-md border border-[#1D9E75]/20">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>সম্পন্ন</span>
+                          </span>
+                        )}
+                        {(tx.status === "pending" || tx.status === "processing" || tx.status === "sent") && (
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.25 rounded-md border border-amber-500/20 animate-pulse">
+                            <Clock className="w-3 h-3" />
+                            <span>অপেক্ষারত</span>
+                          </span>
+                        )}
+                        {(tx.status === "cancelled" || tx.status === "failed") && (
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#E74C3C] bg-[#E74C3C]/10 px-1.5 py-0.25 rounded-md border border-[#E74C3C]/20">
+                            <XCircle className="w-3 h-3" />
+                            <span>বাতিল</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <>
-              {/* Default mock/previous transaction showing actual balance deposit */}
-              <div className="flex items-start justify-between pb-3 border-b border-[#F0F4F8]" style={{ borderBottomWidth: '0.5px' }}>
-                <div className="flex-1 text-left">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-full bg-[#E8F8F1] flex items-center justify-center shrink-0">
-                      <CreditCard className="w-4 h-4 text-[#1D9E75]" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[13px] font-medium text-[#1A1A2E] font-sans">মেম্বার ওয়ালেট ডিপোজিট</p>
-                      <p className="text-[11px] text-[#6B7280] font-sans">১৪ জুন ২০২৬</p>
-                    </div>
-                  </div>
-                  {balance > 0 && (
-                    <button
-                      onClick={() => downloadReceiptImage({
-                        id: "TX-784910",
-                        senderName: name,
-                        recipientName: name,
-                        recipientMethod: "Bank",
-                        recipientNumber: "মেম্বার ওয়ালেট ডিপোজিট",
-                        amountUsd: balance,
-                        amountBdt: Math.round(balance * 110.8),
-                        feeUsd: 0,
-                        date: "১৪ জুন ২০২৬",
-                        status: "completed"
-                      })}
-                      className="mt-3.5 text-[10px] text-[#1B4F72] font-semibold flex items-center bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
-                      style={{ borderRadius: '6px', borderWidth: '0.5px' }}
-                    >
-                      <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
-                      <span>রশিদ ডাউনলোড করুন</span>
-                    </button>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-[13px] font-semibold text-[#1D9E75] font-mono">+${balance.toFixed(2)} USD</p>
-                  <span className="text-[10px] bg-[#E8F8F1] text-[#1D9E75] px-2 py-0.5 rounded-full font-sans inline-block mt-1">সফল</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-[11px] text-[#6B7280] font-sans text-center w-full">কোনো পুরনো ট্রানজেকশন রেকর্ড নেই ভাই</p>
-              </div>
-            </>
+            <div style={{ color: '#6B7280', textAlign: 'center', padding: '20px' }}>
+              এখনো কোনো লেনদেন নেই
+            </div>
           )}
         </div>
       </div>

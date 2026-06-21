@@ -107,35 +107,58 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
       const newBal = currentBal - totalAmount;
       await setDoc(userRef, { balance: newBal }, { merge: true });
 
-      // Create transfer request via Server API
-      const response = await fetch("/api/transfer-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: transferId,
-          userId: currentUser?.uid || userEmail || "guest_user",
-          totalDeducted: totalAmount,
-          serviceCharge: serviceCharge,
-          recipientAmount: recipientGets,
-          bdtAmount: bdtAmount,
-          recipientName: recipientName.trim(),
-          recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
-          recipientMethod: recipientMethod,
-          recipientBankName: isBank ? bankName.trim() : "",
-          recipientBankAccount: isBank ? bankAccount.trim() : "",
-          recipientMethodName: recipientMethod,
-          status: "pending",
-          createdAt: new Date().toISOString(),
-          // backward compatibility with server.ts
-          amount: recipientGets,
-          calculatedBdt: bdtAmount,
-          senderName: "ওয়ালেট ইউজার",
-          senderPhone: ""
-        })
+      // Create transfer request directly in Firestore first (perfect for client-only/Vercel support)
+      await setDoc(doc(db, "transferRequests", transferId), {
+        id: transferId,
+        userId: currentUser?.uid || userEmail || "guest_user",
+        totalDeducted: totalAmount,
+        serviceCharge: serviceCharge,
+        recipientAmount: recipientGets,
+        bdtAmount: bdtAmount,
+        recipientName: recipientName.trim(),
+        recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
+        recipientMethod: recipientMethod,
+        recipientBankName: isBank ? bankName.trim() : "",
+        recipientBankAccount: isBank ? bankAccount.trim() : "",
+        recipientMethodName: recipientMethod,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        // backward compatibility with server.ts and AdminPanel
+        amount: recipientGets,
+        calculatedBdt: bdtAmount,
+        senderName: "ওয়ালেট ইউজার",
+        senderPhone: ""
       });
 
-      if (!response.ok) {
-        throw new Error("API request failed");
+      // Try calling the backup Server API for Telegram notifications, but catch error so it never blocks the user (e.g. on Vercel)
+      try {
+        await fetch("/api/transfer-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: transferId,
+            userId: currentUser?.uid || userEmail || "guest_user",
+            totalDeducted: totalAmount,
+            serviceCharge: serviceCharge,
+            recipientAmount: recipientGets,
+            bdtAmount: bdtAmount,
+            recipientName: recipientName.trim(),
+            recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
+            recipientMethod: recipientMethod,
+            recipientBankName: isBank ? bankName.trim() : "",
+            recipientBankAccount: isBank ? bankAccount.trim() : "",
+            recipientMethodName: recipientMethod,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+            // backward compatibility with server.ts
+            amount: recipientGets,
+            calculatedBdt: bdtAmount,
+            senderName: "ওয়ালেট ইউজার",
+            senderPhone: ""
+          })
+        });
+      } catch (apiErr) {
+        console.warn("Server API failed or not found, request saved directly to Firestore.", apiErr);
       }
 
       setSuccess(true);
