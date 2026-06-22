@@ -20,10 +20,11 @@ import {
   Download,
   Clock,
   XCircle,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
-import { signOut } from "firebase/auth";
+import { signOut, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { Transaction } from "../types";
@@ -39,6 +40,49 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   const { userDoc, currentUser } = useAuth();
   const [copied, setCopied] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
+  
+  // Settings & Modal system states
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [txAlerts, setTxAlerts] = useState(() => localStorage.getItem("txAlerts") !== "false");
+  const [offerAlerts, setOfferAlerts] = useState(() => localStorage.getItem("offerAlerts") !== "false");
+  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem("selectedLanguage") || "বাংলা");
+  const [pwResetLoading, setPwResetLoading] = useState(false);
+  const [pwResetMsg, setPwResetMsg] = useState<{ text: string; isError: boolean } | null>(null);
+
+  const toggleTxAlerts = () => {
+    const newVal = !txAlerts;
+    setTxAlerts(newVal);
+    localStorage.setItem("txAlerts", String(newVal));
+  };
+
+  const toggleOfferAlerts = () => {
+    const newVal = !offerAlerts;
+    setOfferAlerts(newVal);
+    localStorage.setItem("offerAlerts", String(newVal));
+  };
+
+  const selectLang = (lang: string) => {
+    setSelectedLanguage(lang);
+    localStorage.setItem("selectedLanguage", lang);
+  };
+
+  const handlePasswordReset = async () => {
+    if (!currentUser?.email) {
+      setPwResetMsg({ text: "আপনার ইমেইল পাওয়া যায়নি ভাই।", isError: true });
+      return;
+    }
+    setPwResetLoading(true);
+    setPwResetMsg(null);
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email);
+      setPwResetMsg({ text: "আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিঙ্ক পাঠানো হয়েছে ভাই। অনুগ্রহ করে ইমেইল ইনবক্স চেক করুন ভাই।", isError: false });
+    } catch (err: any) {
+      console.error(err);
+      setPwResetMsg({ text: "পাসওয়ার্ড রিসেট ইমেইল পাঠাতে সমস্যা সৃষ্টি হয়েছে ভাই। দয়া করে পরে চেষ্টা করুন।", isError: true });
+    } finally {
+      setPwResetLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -319,7 +363,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* Notification settings */}
         <button
-          onClick={() => alert("নোটিফিকেশন সিস্টেমটি সচল আছে ভাই!")}
+          onClick={() => setActiveModal("notifications")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -338,7 +382,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* Global language */}
         <button
-          onClick={() => alert("ভাষা পরিবর্তন করতে সাইনইন পেজে ল্যাঙ্গুয়েজ সিলেক্টর ব্যবহার করুন ভাই।")}
+          onClick={() => setActiveModal("language")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -357,7 +401,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* Security */}
         <button
-          onClick={() => alert("আপনার অ্যাকাউন্ট ডেটা সম্পূর্ণ সুরক্ষিত এবং পাসওয়ার্ড এনক্রিপ্টেড ভাই।")}
+          onClick={() => setActiveModal("security")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -376,9 +420,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* Support */}
         <button
-          onClick={() => {
-            alert("অনারারি সমাজকর্মী সোহেল মিয়া: +৮৫৫ ১২ ২২২ ১২৪\nকনস্যুলার প্রজেক্ট সহকারী: +৮৫৫ ৯৭ ৩৩২ ৯৯১");
-          }}
+          onClick={() => setActiveModal("helpline")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -397,7 +439,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* App Info */}
         <button
-          onClick={() => alert("Probashi Sheba v2.4.0 — Cambodian-BD migrant support app.")}
+          onClick={() => setActiveModal("about")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -416,7 +458,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
         {/* Premium Membership guide */}
         <button
-          onClick={() => onSelectTab("services", "premium")}
+          onClick={() => setActiveModal("premium_guide")}
           className="w-full bg-white border flex items-center justify-between p-4 cursor-pointer outline-none text-left transition-colors active:bg-gray-50"
           style={{
             borderColor: '#E5E7EB',
@@ -455,9 +497,287 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
       {/* Footnote details */}
       <div className="text-center space-y-1 select-none text-[10px] text-[#6B7280] mt-8 font-mono pb-8">
-        <p>Probashi Sheba v2.4.0 (Alpha)</p>
+        <p>Probashi Sheba v1.0.0 (Gold Release)</p>
         <p>© 2026 Probashi Sheba • All Rights Reserved</p>
       </div>
+
+      {/* MODAL SYSTEM */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity animate-fade-in">
+          {/* Backdrop click to close */}
+          <div className="absolute inset-0" onClick={() => { setActiveModal(null); setPwResetMsg(null); }} />
+
+          {/* Modal layout container */}
+          <div 
+            className="relative bg-white w-full sm:max-w-md rounded-2xl border flex flex-col max-h-[85vh] sm:max-h-[90vh] shadow-xl text-left transition-all animate-scale-up"
+            style={{
+              borderWidth: '0.5px',
+              borderColor: '#E5E7EB',
+              borderRadius: '16px'
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 select-none" style={{ borderBottomWidth: '0.5px' }}>
+              <h3 className="text-sm font-semibold text-[#1A1A2E] font-sans">
+                {activeModal === "notifications" && "নোটিফিকেশন সেটিংস্"}
+                {activeModal === "language" && "ভাষা পরিবর্তন (Language)"}
+                {activeModal === "security" && "নিরাপত্তা ও প্রাইভেসি"}
+                {activeModal === "helpline" && "হেল্পলাইন ভলান্টিয়ার সাপোর্ট"}
+                {activeModal === "about" && "অ্যাপ সম্পর্কে"}
+                {activeModal === "premium_guide" && "প্রিমিয়াম ভিআইপি মেম্বার গাইড"}
+              </h3>
+              <button 
+                onClick={() => { setActiveModal(null); setPwResetMsg(null); }}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer outline-none shrink-0"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content area */}
+            <div className="p-5 overflow-y-auto space-y-4 font-sans text-left" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
+              
+              {/* 1. NOTIFICATIONS */}
+              {activeModal === "notifications" && (
+                <div className="space-y-4 font-sans">
+                  {/* Option 1 */}
+                  <div className="flex items-center justify-between text-left">
+                    <div className="pr-2">
+                      <p className="text-xs font-semibold text-[#1A1A2E]">লেনদেন সফল হলে (Transaction alerts)</p>
+                      <p className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">টাকা পাঠানো বা ডিপোজিট সফল হলে তাৎক্ষণিক নোটিফিকেশন পাবেন</p>
+                    </div>
+                    <button 
+                      onClick={toggleTxAlerts}
+                      className="w-10 h-6 p-0.5 rounded-full transition-colors relative cursor-pointer outline-none shrink-0"
+                      style={{ backgroundColor: txAlerts ? '#1D9E75' : '#D1D5DB' }}
+                    >
+                      <span 
+                        className="block bg-white w-5 h-5 rounded-full shadow transition-transform"
+                        style={{ transform: txAlerts ? 'translateX(16px)' : 'translateX(0)' }}
+                      />
+                    </button>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  {/* Option 2 */}
+                  <div className="flex items-center justify-between text-left">
+                    <div className="pr-2">
+                      <p className="text-xs font-semibold text-[#1A1A2E]">নতুন অফার (New offers)</p>
+                      <p className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">নতুন এয়ার টিকিট প্রমোশন বা বিশেষ রেট সংক্রান্ত সতর্কতা</p>
+                    </div>
+                    <button 
+                      onClick={toggleOfferAlerts}
+                      className="w-10 h-6 p-0.5 rounded-full transition-colors relative cursor-pointer outline-none shrink-0"
+                      style={{ backgroundColor: offerAlerts ? '#1D9E75' : '#D1D5DB' }}
+                    >
+                      <span 
+                        className="block bg-white w-5 h-5 rounded-full shadow transition-transform"
+                        style={{ transform: offerAlerts ? 'translateX(16px)' : 'translateX(0)' }}
+                      />
+                    </button>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  {/* Option 3 */}
+                  <div className="flex items-center justify-between opacity-85 text-left">
+                    <div className="pr-2">
+                      <p className="text-xs font-semibold text-[#1A1A2E]">জরুরি বিজ্ঞপ্তি (Emergency alerts)</p>
+                      <p className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">কম্বোডিয়া প্রবাসী ও কনস্যুলার জরুরি নোটিশ (বন্ধ করা যাবে না)</p>
+                    </div>
+                    <button 
+                      disabled
+                      className="w-10 h-6 p-0.5 rounded-full transition-colors relative cursor-not-allowed shrink-0 bg-[#1D9E75]/40"
+                    >
+                      <span 
+                        className="block bg-white w-5 h-5 rounded-full shadow transition-transform"
+                        style={{ transform: 'translateX(16px)' }}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. LANGUAGE */}
+              {activeModal === "language" && (
+                <div className="space-y-2.5 font-sans">
+                  {[
+                    { key: "বাংলা", label: "বাংলা" },
+                    { key: "English", label: "English" },
+                    { key: "Khmer", label: "ភាសាខ្មែរ (Khmer)" }
+                  ].map((item) => {
+                    const isSelected = selectedLanguage === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => selectLang(item.key)}
+                        className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50 border transition-all cursor-pointer outline-none text-left"
+                        style={{
+                          borderColor: isSelected ? '#1B4F72' : '#E5E7EB',
+                          borderWidth: isSelected ? '1px' : '0.5px',
+                          borderRadius: '12px',
+                          backgroundColor: isSelected ? '#F4F8FA' : '#FFFFFF'
+                        }}
+                      >
+                        <span className={`text-[13px] ${isSelected ? 'font-medium text-[#1B4F72]' : 'font-normal text-[#1A1A2E]'}`}>
+                          {item.label}
+                        </span>
+                        {isSelected && <Check className="w-4 h-4 text-[#1B4F72] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 3. SECURITY */}
+              {activeModal === "security" && (
+                <div className="space-y-4 font-sans text-left">
+                  <div className="bg-[#EBF5FB] p-4 border border-[#D5E6F2] flex items-start space-x-3 text-[#1B4F72]" style={{ borderWidth: '0.5px', borderRadius: '12px' }}>
+                    <Shield className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div className="text-left">
+                      <p className="text-[13px] font-semibold">নিরাপত্তা ও এনক্রিপশন</p>
+                      <p className="text-[11px] opacity-90 leading-relaxed mt-0.5">
+                        প্রবাসীদের সকল তথ্য এবং অর্থনৈতিক রেকর্ড এনক্রিপ্টেড পদ্ধতিতে আমাদের সম্পূর্ণ নিরাপদ ডাটাবেজে জমা থাকে।
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 text-left bg-gray-50 p-3 rounded-xl border border-gray-100" style={{ borderWidth: '0.5px' }}>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-[#1D9E75] text-[12px] font-bold mt-0.5">✓</span>
+                      <p className="text-xs text-[#1A1A2E] leading-relaxed">আমাদের সকল তথ্য এনক্রিপ্টেড এবং সুরক্ষিত</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-[#1D9E75] text-[12px] font-bold mt-0.5">✓</span>
+                      <p className="text-xs text-[#1A1A2E] leading-relaxed">আমরা কখনো তৃতীয় পক্ষের সাথে তথ্য শেয়ার করি না</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handlePasswordReset}
+                    disabled={pwResetLoading}
+                    className="w-full bg-[#1B4F72] hover:bg-opacity-95 text-white py-3 rounded-xl text-xs font-medium cursor-pointer outline-none select-none transition-all flex items-center justify-center"
+                  >
+                    {pwResetLoading ? "অনুরোধ পাঠানো হচ্ছে..." : "পাসওয়ার্ড পরিবর্তন করুন (Change Password)"}
+                  </button>
+
+                  {pwResetMsg && (
+                    <div 
+                      className={`p-3 rounded-xl text-[11px] leading-relaxed border ${
+                        pwResetMsg.isError ? "bg-red-50 text-[#E74C3C] border-red-100" : "bg-green-50 text-[#1D9E75] border-green-100"
+                      }`}
+                      style={{ borderWidth: '0.5px' }}
+                    >
+                      {pwResetMsg.text}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 4. HELPLINE */}
+              {activeModal === "helpline" && (
+                <div className="space-y-4 font-sans text-left">
+                  <div className="bg-white border border-[#E5E7EB] p-4 rounded-xl flex items-center justify-between" style={{ borderWidth: '0.5px' }}>
+                    <div className="text-left">
+                      <p className="text-[10px] text-[#6B7280] uppercase tracking-wider font-mono">অফিশিয়াল ওয়াটসঅ্যাপ</p>
+                      <p className="text-sm font-bold text-[#1B4F72] mt-0.5">+855762012121</p>
+                      <p className="text-[11px] text-[#6B7280] mt-1">সকাল 12টা থেকে রাত 9টা (12AM - 09PM)</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-[#EBF5FB] flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-5 h-5 text-[#1B4F72]" />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-[#6B7280] leading-relaxed">
+                    কম্বোডিয়া প্রবাসী ভাইদের যেকোনো জরুরি সাহায্য, আইনি গাইডেন্স, কিংবা সেবা সংক্রান্ত সাহায্যের জন্য আমাদের অ্যাক্টিভ প্রবাসী ভলান্টিয়ার টিম সদা নিয়োজিত থাকে।
+                  </p>
+
+                  <a 
+                    href="https://wa.me/855762012121" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="w-full bg-[#1D9E75] hover:bg-opacity-95 text-white py-3 rounded-xl text-xs font-medium block text-center transition-all select-none"
+                  >
+                    সরাসরি ওয়াটসঅ্যাপ মেসেজ দিন (WhatsApp Support)
+                  </a>
+                </div>
+              )}
+
+              {/* 5. ABOUT */}
+              {activeModal === "about" && (
+                <div className="space-y-4 font-sans text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#EBF5FB] flex items-center justify-center shrink-0 mx-auto border border-[#D5E6F2]" style={{ borderWidth: '0.5px' }}>
+                    <Info className="w-7 h-7 text-[#1B4F72]" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#1A1A2E]">প্রবাসী সেবা v1.0</h3>
+                    <p className="text-xs text-[#1B4F72] font-medium mt-1">কম্বোডিয়ায় বাংলাদেশিদের বিশ্বস্ত সঙ্গী</p>
+                    <p className="text-[11px] text-[#6B7280] mt-2 leading-relaxed">
+                      কম্বোডিয়ায় বসবাসরত বাংলাদেশি ভাইদের জীবনযাত্রা ও সরকারি গাইডেন্স আরও সহজীকরণ করার লক্ষ্যে আমাদের এই ক্ষুদ্র প্রবাসবান্ধব উদ্যোগ।
+                    </p>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  <p className="text-[11px] text-[#6B7280] font-mono leading-none">
+                    © 2026 Probashi Sheba. All rights reserved.
+                  </p>
+                </div>
+              )}
+
+              {/* 6. PREMIUM MEMBER GUIDE */}
+              {activeModal === "premium_guide" && (
+                <div className="space-y-4 font-sans text-left">
+                  <div className="bg-[#E8F8F1] border border-[#D1F2E1] p-4 flex items-start space-x-3 text-[#1D9E75]" style={{ borderWidth: '0.5px', borderRadius: '12px' }}>
+                    <Sparkles className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[13px] font-semibold">প্রিমিয়াম ভিআইপি সুবিধা</p>
+                      <p className="text-[11px] opacity-90 leading-relaxed mt-0.5">
+                        প্রবাসের মাটিতে আমাদের বিশেষ সাহায্য গাইডলাইনের মেম্বার হতে নিচের সুবিধাদি উপভোগ করুন:
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-2 text-left">
+                      <span className="text-[#1D9E75] font-bold text-[13px] shrink-0 mt-0.5">✓</span>
+                      <div>
+                        <p className="text-xs font-semibold text-[#1A1A2E]">অগ্রাধিকার সেবা (Priority service)</p>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">যেকোনো ডিপোজিট বা টাকা পাঠানোর ফাইল দ্রুততম সময়ে সম্পন্ন করার সুবিধা।</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-2 text-left">
+                      <span className="text-[#1D9E75] font-bold text-[13px] shrink-0 mt-0.5">✓</span>
+                      <div>
+                        <p className="text-xs font-semibold text-[#1A1A2E]">বিশেষ এক্সচেঞ্জ রেট (Special exchange rate)</p>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">লেনদেন করার সময় সেরা বিনিময় হার উপভোগ করার সুবর্ণ সুযোগ ভাই!</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-2 text-left">
+                      <span className="text-[#1D9E75] font-bold text-[13px] shrink-0 mt-0.5">✓</span>
+                      <div>
+                        <p className="text-xs font-semibold text-[#1A1A2E]">২৪/৭ সাপোর্ট (24/7 support)</p>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">মেম্বারদের যেকোনো জরুরি প্রয়োজনে ২৪ ঘণ্টা মেসেজিং এবং ভলান্টিয়ার অ্যাসিস্ট্যান্স।</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  <div className="bg-gray-50 p-3 rounded-xl text-xs text-center font-semibold text-[#1B4F72] border border-gray-100" style={{ borderWidth: '0.5px' }}>
+                    যোগাযোগ: +855762012121
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

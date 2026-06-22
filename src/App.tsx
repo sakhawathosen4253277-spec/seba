@@ -770,7 +770,7 @@ export default function App() {
 
             {/* TAB: SYSTEM NOTIFICATIONS */}
             {currentTab === "notifications" && (
-              <div className="flex flex-col space-y-4 pb-10">
+              <div className="flex flex-col space-y-4 pb-32">
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/firebase";
-import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, orderBy, doc, getDoc } from "firebase/firestore";
 
 interface ReferralPageProps {
   onBackToHome: () => void;
@@ -30,8 +30,13 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [referralCode, setReferralCode] = useState<string>(() => {
+    if (userDoc?.userId) {
+      return userDoc.userId.replace("PS-", "PS-REF-");
+    }
+    return userDoc?.referralCode || "PS-REF-000000";
+  });
 
-  const referralCode = userDoc?.referralCode || "PS-REF-000000";
   const referralBalance = userDoc?.referralBalance || 0;
   const referralEarnings = userDoc?.referralEarnings || 0;
 
@@ -43,15 +48,44 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
     return trimmed.substring(0, 2) + "***";
   };
 
+  // Fetch current user's document to guarantee correct referral code
   useEffect(() => {
-    if (!currentUser || !userDoc?.referralCode) return;
+    if (!currentUser) return;
+
+    const fetchUserReferralCode = async () => {
+      try {
+        const userRef = doc(db, "users", currentUser.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          const userId = data.userId || "";
+          if (userId) {
+            const realCode = userId.replace("PS-", "PS-REF-");
+            setReferralCode(realCode);
+          } else if (data.referralCode) {
+            setReferralCode(data.referralCode);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user document in ReferralPage:", err);
+      }
+    };
+
+    fetchUserReferralCode();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || !referralCode || referralCode === "PS-REF-000000") {
+      setLoadingFriends(false);
+      return;
+    }
 
     // Fetch referred friends
     const fetchFriends = async () => {
       try {
         const q = query(
           collection(db, "users"),
-          where("referredBy", "==", userDoc.referralCode)
+          where("referredBy", "==", referralCode)
         );
         const snap = await getDocs(q);
         const friends = snap.docs.map(doc => {
@@ -71,6 +105,10 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
       }
     };
 
+    fetchFriends();
+  }, [currentUser, referralCode]);
+
+  useEffect(() => {
     // Fetch dynamic top 10 referrers leaderboard
     const fetchLeaderboard = async () => {
       try {
@@ -100,9 +138,8 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
       }
     };
 
-    fetchFriends();
     fetchLeaderboard();
-  }, [currentUser, userDoc]);
+  }, []);
 
   // Copy Referral Code
   const handleCopyCode = () => {
