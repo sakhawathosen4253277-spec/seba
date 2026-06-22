@@ -33,7 +33,7 @@ import ReferralPage from "./components/ReferralPage";
 import { useAuth } from "./lib/AuthContext";
 import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
 import { db } from "./lib/firebase";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, collection, query, where, orderBy, getDocs, updateDoc, writeBatch } from "firebase/firestore";
 
 import { 
   ShieldAlert, 
@@ -195,6 +195,122 @@ export default function App() {
     }
   ]);
 
+  // Notifications State
+  const [notifications, setNotifications] = useState<LiveNotification[]>([
+    {
+      id: "notif-1",
+      title: "Ambassador Warning: Police Checking",
+      bengaliTitle: "ফনম পেন পুলিশ স্পেশাল চেকিং!",
+      description: "কম্বোডিয়ার ফনম পেনের ওয়াট ফনম এবং সেন সক এলাকায় ট্রাফিক ও ইমিগ্রেশন চেক জোরদার রয়েছে। সকল প্রবাসী ভাইদের কাছে ভ্যালিড পাসপোর্ট ও বিজনেস ভিসা কপি সাথে রাখার জন্য অনুরোধ করা যাচ্ছে।",
+      date: "আজকে, ১০:৩০ AM",
+      type: "alert",
+      isRead: false
+    } as any,
+    {
+      id: "notif-2",
+      title: "Exchange Rate Hike!",
+      bengaliTitle: "আজকে ডলারের রেট বৃদ্ধি পেয়েছে!",
+      description: "বাংলাদেশী প্রবাসী ভাইদের জন্য প্রবাসীদের কষ্টের অর্থ প্রেরণে বিশেষ বোনাস যুক্ত হয়েছে। প্রতি ডলারের রেট সর্বোচ্চ ১১০.৮০ বিডিটি!",
+      date: "আজকে, ০৮:১৫ AM",
+      type: "success",
+      isRead: false
+    } as any,
+    {
+      id: "notif-3",
+      title: "Scam Warning",
+      bengaliTitle: "ভুয়ো টিকেট বিক্রেতা চক্র হতে সাবধান",
+      description: "সামাজিক যোগাযোগ মাধ্যমে কিছু হ্যাকার কম মূল্যে বিমান টিকিট সরবরাহের কথা বলে ভুয়া PNR ফাইল ছড়াচ্ছে। টিকিট কেনার আগে আমাদের পোর্টাল থেকে সঠিক কোড মিলিয়ে নিন।",
+      date: "গতকাল",
+      type: "warning",
+      isRead: false
+    } as any
+  ]);
+
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(3);
+
+  // Auto calculate unread count when notifications change
+  useEffect(() => {
+    const count = notifications.filter(n => !(n as any).isRead).length;
+    setUnreadNotifications(count);
+  }, [notifications]);
+
+  // Subscribe to real-time database notifications when user changes
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("userId", "==", currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const dbList: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const val = docSnap.data();
+        let formattedDate = "আজকে";
+        if (val.createdAt) {
+          try {
+            const dateObj = val.createdAt.toDate ? val.createdAt.toDate() : new Date(val.createdAt);
+            formattedDate = dateObj.toLocaleTimeString("bn-BD", { hour: "2-digit", minute: "2-digit" });
+          } catch(e) {}
+        }
+        dbList.push({
+          id: docSnap.id,
+          title: val.type || "Notification",
+          bengaliTitle: val.message || "নতুন নোটিফিকেশন",
+          description: val.message || "নতুন আপডেট এসেছে",
+          date: formattedDate,
+          type: val.type === "referral_bonus" || val.type === "referral_bonus_completed" ? "success" : "info",
+          isRead: val.isRead || false,
+          isDbNotification: true
+        });
+      });
+
+      setNotifications((prev) => {
+        // Keep hardcoded/static ones that don't come from database
+        const staticList = prev.filter(n => !(n as any).isDbNotification);
+        // Combine DB items + static items (prevent duplicates)
+        const combined = [...dbList, ...staticList];
+        return combined;
+      });
+    }, (err) => {
+      console.warn("Real-time notifications listen failed:", err);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Mark single notification as read
+  const markAsRead = async (id: string, isDbNotification?: boolean) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } as any : n));
+    if (isDbNotification && currentUser) {
+      try {
+        await updateDoc(doc(db, "notifications", id), { isRead: true });
+      } catch (err) {
+        console.warn("Failed to update notification status in DB:", err);
+      }
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    const dbNotifIds = notifications.filter(n => (n as any).isDbNotification && !(n as any).isRead).map(n => n.id);
+    
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true } as any)));
+
+    if (currentUser && dbNotifIds.length > 0) {
+      try {
+        const batch = writeBatch(db);
+        dbNotifIds.forEach((id) => {
+          batch.update(doc(db, "notifications", id), { isRead: true });
+        });
+        await batch.commit();
+      } catch (err) {
+        console.warn("Failed to mark all notifications as read in DB:", err);
+      }
+    }
+  };
+
   // Random Support Agent Name for human touch
   const [agentName, setAgentName] = useState<string>("হাসান");
 
@@ -202,7 +318,7 @@ export default function App() {
   const [exchangeRate, setExchangeRate] = useState<number>(110.80);
   const [exchangeRateUnderTen, setExchangeRateUnderTen] = useState<number>(120.00);
   const [exchangeRateLimit, setExchangeRateLimit] = useState<number>(10.00);
-  
+
   useEffect(() => {
     const randomName = SUPPORT_NAMES[Math.floor(Math.random() * SUPPORT_NAMES.length)];
     setAgentName(randomName);
@@ -270,36 +386,6 @@ export default function App() {
       status: "completed"
     }
   ]);
-
-  // Notifications State
-  const [notifications, setNotifications] = useState<LiveNotification[]>([
-    {
-      id: "notif-1",
-      title: "Ambassador Warning: Police Checking",
-      bengaliTitle: "ফনম পেন পুলিশ স্পেশাল চেকিং!",
-      description: "কম্বোডিয়ার ফনম পেনের ওয়াট ফনম এবং সেন সক এলাকায় ট্রাফিক ও ইমিগ্রেশন চেক জোরদার রয়েছে। সকল প্রবাসী ভাইদের কাছে ভ্যালিড পাসপোর্ট ও বিজনেস ভিসা কপি সাথে রাখার জন্য অনুরোধ করা যাচ্ছে।",
-      date: "আজকে, ১০:৩০ AM",
-      type: "alert"
-    },
-    {
-      id: "notif-2",
-      title: "Exchange Rate Hike!",
-      bengaliTitle: "আজকে ডলারের রেট বৃদ্ধি পেয়েছে!",
-      description: "বাংলাদেশী প্রবাসী ভাইদের জন্য প্রবাসীদের কষ্টের অর্থ প্রেরণে বিশেষ বোনাস যুক্ত হয়েছে। প্রতি ডলারের রেট সর্বোচ্চ ১১০.৮০ বিডিটি!",
-      date: "আজকে, ০৮:১৫ AM",
-      type: "success"
-    },
-    {
-      id: "notif-3",
-      title: "Scam Warning",
-      bengaliTitle: "ভুয়ো টিকেট বিক্রেতা চক্র হতে সাবধান",
-      description: "সামাজিক যোগাযোগ মাধ্যমে কিছু হ্যাকার কম মূল্যে বিমান টিকিট সরবরাহের কথা বলে ভুয়া PNR ফাইল ছড়াচ্ছে। টিকিট কেনার আগে আমাদের পোর্টাল থেকে সঠিক কোড মিলিয়ে নিন।",
-      date: "গতকাল",
-      type: "warning"
-    }
-  ]);
-
-  const [unreadNotifications, setUnreadNotifications] = useState<number>(3);
 
   // Chat/Messages State with initial Agent text
   const [messages, setMessages] = useState<Message[]>([]);
@@ -698,36 +784,58 @@ export default function App() {
                   <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
                 </div>
 
-                <div className="text-center py-2 mt-2 px-4">
-                  <h2 className="text-lg font-medium text-[#1A1A2E] font-sans">দূতাবাস ও প্রবাসী সেবা নোটিশ</h2>
-                  <p className="text-xs text-[#6B7280] mt-1">সবচেয়ে গুরুত্বপূর্ণ আইনি সতর্কবার্তা ও লাইভ নোটিশ</p>
-                </div>
-
-                <div className="space-y-3.5 px-4">
-                  {notifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`p-5 rounded-2xl border bg-white border-[#E5E7EB] shadow-sm`}
+                <div className="flex justify-between items-center px-4 py-3 mt-1 bg-white rounded-2xl border border-[#E5E7EB] mx-4 shadow-xs">
+                  <div className="flex flex-col text-left">
+                    <h2 className="text-sm font-medium text-[#1A1A2E] font-sans">দূতাবাস ও প্রবাসী সেবা নোটিশ</h2>
+                    <p className="text-[11px] text-[#6B7280] mt-0.5">সবচেয়ে গুরুত্বপূর্ণ আইনি সতর্কবার্তা ও লাইভ নোটিশ</p>
+                  </div>
+                  {notifications.some(n => !n.isRead) && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-[#1B4F72] hover:text-[#1B4F72]/80 font-sans border border-[#1B4F72]/20 rounded-xl px-3 py-1.5 active:scale-95 transition-all outline-none bg-[#F4F6F8] font-medium"
                     >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className={`text-[9px] font-medium px-2 py-0.5 rounded-lg ${
-                          notif.type === "alert" ? "bg-[#FDEDEC] text-[#E74C3C]" :
-                          notif.type === "warning" ? "bg-[#FDF2E9] text-[#D68910]" :
-                          notif.type === "success" ? "bg-[#E9F7EF] text-[#1D9E75]" :
-                          "bg-gray-100 text-[#6B7280]"
-                        }`}>
-                          {notif.type === "alert" && "জরুরি সতর্কবার্তা"}
-                          {notif.type === "warning" && "সতর্কতা পরামর্শ"}
-                          {notif.type === "success" && "বিজ্ঞপ্তি আপডেট"}
-                        </span>
-                        <span className="text-[10px] text-[#6B7280] font-sans">{notif.date}</span>
-                      </div>
-
-                      <h3 className="text-xs font-medium font-sans text-[#1A1A2E] mb-2 leading-snug">{notif.bengaliTitle}</h3>
-                      <p className="text-xs text-[#4B5563] leading-relaxed font-sans">{notif.description}</p>
-                    </div>
-                  ))}
+                      সব পঠিত করুন
+                    </button>
+                  )}
                 </div>
+ 
+                 <div className="space-y-3.5 px-4">
+                   {notifications.map((notif) => (
+                     <div
+                       key={notif.id}
+                       onClick={() => markAsRead(notif.id, (notif as any).isDbNotification)}
+                       className={`p-5 rounded-2xl border bg-white shadow-sm transition-all cursor-pointer ${
+                         notif.isRead 
+                           ? "border-[#E5E7EB]" 
+                           : "border-[#1B4F72] bg-[#F4F8FA]"
+                       }`}
+                     >
+                       <div className="flex justify-between items-center mb-2">
+                         <div className="flex items-center gap-1.5">
+                           {!notif.isRead && (
+                             <span className="w-2 h-2 rounded-full bg-[#E74C3C] animate-pulse" />
+                           )}
+                           <span className={`text-[9px] font-medium px-2 py-0.5 rounded-lg ${
+                             notif.type === "alert" ? "bg-[#FDEDEC] text-[#E74C3C]" :
+                             notif.type === "warning" ? "bg-[#FDF2E9] text-[#D68910]" :
+                             notif.type === "success" ? "bg-[#E9F7EF] text-[#1D9E75]" :
+                             "bg-gray-100 text-[#6B7280]"
+                           }`}>
+                             {notif.type === "alert" && "জরুরি সতর্কবার্তা"}
+                             {notif.type === "warning" && "সতর্কতা পরামর্শ"}
+                             {notif.type === "success" && "বিজ্ঞপ্তি আপডেট"}
+                           </span>
+                         </div>
+                         <span className="text-[10px] text-[#6B7280] font-sans">{notif.date}</span>
+                       </div>
+ 
+                       <h3 className="text-xs font-medium font-sans text-[#1A1A2E] mb-2 leading-snug">
+                         {notif.bengaliTitle}
+                       </h3>
+                       <p className="text-xs text-[#4B5563] leading-relaxed font-sans">{notif.description}</p>
+                     </div>
+                   ))}
+                 </div>
               </div>
             )}
 

@@ -130,3 +130,19 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Wiggle/Ring animation for the notification bell when a new notification arrives */
+@keyframes wiggleNotification {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-10deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-4deg); }
+}
+
+.animate-wiggle {
+  animation: wiggleNotification 0.8s ease-in-out;
+}
+
+

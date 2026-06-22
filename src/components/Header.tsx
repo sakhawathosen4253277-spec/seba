@@ -18,6 +18,19 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
   const [tickerItems, setTickerItems] = useState<string[]>([]);
   const [aiNewsItems, setAiNewsItems] = useState<string[]>([]);
 
+  const [shouldWiggle, setShouldWiggle] = useState(false);
+  const [prevUnreadCount, setPrevUnreadCount] = useState(unreadCount);
+
+  // Trigger animation when unreadCount increases
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount) {
+      setShouldWiggle(true);
+      const timer = setTimeout(() => setShouldWiggle(false), 800);
+      return () => clearTimeout(timer);
+    }
+    setPrevUnreadCount(unreadCount);
+  }, [unreadCount, prevUnreadCount]);
+
   // Function to dynamically replace static rates in messages with correct live rates in real-time
   const formatTickerMessage = (message: string, rate: number): string => {
     const regex = /1\s*USD\s*=\s*\d+(?:\.\d+)?/gi;
@@ -157,13 +170,15 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
           {/* Bell Button */}
           <button
             onClick={onBellClick}
-            className="w-9 h-9 rounded-full border border-[#E5E7EB] flex items-center justify-center relative active:scale-95 transition-all outline-none"
+            className={`w-9 h-9 rounded-full border border-[#E5E7EB] flex items-center justify-center relative active:scale-95 transition-all outline-none ${shouldWiggle ? "border-[#E74C3C]" : ""}`}
             style={{ borderWidth: "0.5px" }}
             id="btn-bell-notifications"
           >
-            <Bell className="w-4.5 h-4.5 text-[#1A1A2E]" />
+            <Bell className={`w-4.5 h-4.5 text-[#1A1A2E] transition-all ${shouldWiggle ? "animate-wiggle text-[#E74C3C]" : ""}`} />
             {unreadCount > 0 && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#E74C3C]" />
+              <span className="absolute -top-1 -right-1 min-w-[17px] h-4.5 flex items-center justify-center rounded-full bg-[#E74C3C] text-white text-[9px] font-sans font-medium px-1 leading-none shadow-sm animate-pulse">
+                {unreadCount}
+              </span>
             )}
           </button>
         </div>

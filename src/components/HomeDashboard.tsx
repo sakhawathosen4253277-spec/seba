@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 
 interface HomeDashboardProps {
@@ -155,6 +155,19 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   const currentNewsList = newsList.length > 0 ? newsList : defaultNewsCards;
 
   const handleCloseAlert = () => {
+    if (activeAlert) {
+      try {
+        const userRefKey = currentUser ? `dismissed_alerts_${currentUser.uid}` : "dismissed_alerts_anon";
+        const dismissedAlertsRaw = localStorage.getItem(userRefKey);
+        const dismissedAlertsList: string[] = dismissedAlertsRaw ? JSON.parse(dismissedAlertsRaw) : [];
+        if (!dismissedAlertsList.includes(activeAlert.id)) {
+          dismissedAlertsList.push(activeAlert.id);
+          localStorage.setItem(userRefKey, JSON.stringify(dismissedAlertsList));
+        }
+      } catch (e) {
+        console.warn("Failed to set localStorage dismissed_alerts List", e);
+      }
+    }
     setAlertOpen(false);
     setTimeout(() => {
       setCurrentAlertIndex(prev => prev + 1);
@@ -164,6 +177,23 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   // Trigger important popup alerts in sequence based on order and duration
   useEffect(() => {
     if (!dbLoading && activeAlerts.length > 0) {
+      // Filter out alerts already dismissed in previous sessions
+      const userRefKey = currentUser ? `dismissed_alerts_${currentUser.uid}` : "dismissed_alerts_anon";
+      let dismissedAlertsList: string[] = [];
+      try {
+        const dismissedAlertsRaw = localStorage.getItem(userRefKey);
+        dismissedAlertsList = dismissedAlertsRaw ? JSON.parse(dismissedAlertsRaw) : [];
+      } catch (e) {
+        console.warn("Failed to parse dismissed alerts", e);
+      }
+
+      const freshAlerts = activeAlerts.filter(alert => !dismissedAlertsList.includes(alert.id));
+      if (freshAlerts.length === 0) {
+        setAlertOpen(false);
+        setActiveAlert(null);
+        return;
+      }
+
       const storageKey = currentUser ? `home_alerts_shown_${currentUser.uid}` : "home_alerts_shown_anon";
       if (sessionStorage.getItem(storageKey) === "true") {
         setAlertOpen(false);
@@ -171,7 +201,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         return;
       }
 
-      if (currentAlertIndex < activeAlerts.length) {
+      if (currentAlertIndex < freshAlerts.length) {
         // Mark as shown immediately when the first alert is about to be displayed 
         // to prevent repetitive popups if the user navigates away or taps Home rapidly
         if (currentAlertIndex === 0) {
@@ -182,12 +212,24 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           }
         }
 
-        const currentAlertItem = activeAlerts[currentAlertIndex];
+        const currentAlertItem = freshAlerts[currentAlertIndex];
         setActiveAlert(currentAlertItem);
         setAlertOpen(true);
 
         const durationSec = currentAlertItem.duration !== undefined ? currentAlertItem.duration : 10;
         const timer = setTimeout(() => {
+          // Auto dismiss
+          try {
+            const dismissedAlertsRaw = localStorage.getItem(userRefKey);
+            const currentList: string[] = dismissedAlertsRaw ? JSON.parse(dismissedAlertsRaw) : [];
+            if (!currentList.includes(currentAlertItem.id)) {
+              currentList.push(currentAlertItem.id);
+              localStorage.setItem(userRefKey, JSON.stringify(currentList));
+            }
+          } catch (e) {
+            console.warn("Failed to set localStorage auto dismiss", e);
+          }
+
           setAlertOpen(false);
           const nextTimer = setTimeout(() => {
             setCurrentAlertIndex(prev => prev + 1);
@@ -202,6 +244,78 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       }
     }
   }, [dbLoading, activeAlerts, currentAlertIndex, currentUser]);
+
+  // Daily check-in logic
+  const [claiming, setClaiming] = useState(false);
+  const [claimMsg, setClaimMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState<string>("");
+
+  useEffect(() => {
+    const calculateCooldown = () => {
+      if (!userDoc?.lastDailyClaim) {
+        setCooldownRemaining("");
+        return;
+      }
+      const lastClaimTime = new Date(userDoc.lastDailyClaim).getTime();
+      const now = Date.now();
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const diff = oneDayMs - (now - lastClaimTime);
+
+      if (diff > 0) {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setCooldownRemaining(
+          `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        );
+      } else {
+        setCooldownRemaining("");
+      }
+    };
+
+    calculateCooldown();
+    const interval = setInterval(calculateCooldown, 1000);
+    return () => clearInterval(interval);
+  }, [userDoc?.lastDailyClaim]);
+
+  const handleCollectDailyBonus = async () => {
+    if (!currentUser) {
+      setClaimMsg({ text: "বোনাস সংগ্রহ করতে অনুগ্রহ করে আগে লগইন করুন ভাই।", type: "error" });
+      return;
+    }
+    if (claiming) return;
+
+    const lastClaimTime = userDoc?.lastDailyClaim ? new Date(userDoc.lastDailyClaim).getTime() : 0;
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    if (lastClaimTime && (now - lastClaimTime < oneDayMs)) {
+      setClaimMsg({ text: "আপনি আজকে ইতিমধ্যে বোনাস নিয়েছেন ভাই! ২৪ ঘণ্টা পর আবার চেষ্টা করুন।", type: "error" });
+      return;
+    }
+
+    setClaiming(true);
+    setClaimMsg(null);
+
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      const newBalance = Number((userDoc?.balance || 0) + 0.05);
+      const claimDateStr = new Date().toISOString();
+
+      await setDoc(userRef, {
+        balance: newBalance,
+        lastDailyClaim: claimDateStr
+      }, { merge: true });
+
+      setClaimMsg({ text: "আলহামদুলিল্লাহ ভাই! $0.05 ডেইলি বোনাস আপনার ওয়ালেটে যুক্ত হয়েছে। 🎉", type: "success" });
+      setTimeout(() => setClaimMsg(null), 6000);
+    } catch (err) {
+      console.error("Failed to collect daily bonus:", err);
+      setClaimMsg({ text: "বোনাস সংগ্রহ করতে সমস্যা হয়েছে ভাই। দয়া করে আবার চেষ্টা করুন।", type: "error" });
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   // 7 grid services
   const gridServices = [
@@ -382,6 +496,81 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           >
             কোড কপি
           </button>
+        </div>
+      </div>
+
+      {/* Daily Check-in Card */}
+      <div className="px-4 mb-2">
+        <div 
+          className="bg-white border text-left"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px',
+            padding: '16px'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center flex-1 mr-3">
+              <div 
+                className="w-10 h-10 flex items-center justify-center shrink-0 mr-3"
+                style={{
+                  backgroundColor: '#E8F8F1',
+                  color: '#1D9E75',
+                  borderRadius: '12px'
+                }}
+              >
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="text-left">
+                <h4 className="text-[13px] font-semibold text-[#1A1A2E] leading-tight font-sans">
+                  দৈনিক ফ্রি বোনাস সংগ্রহ
+                </h4>
+                <p className="text-[11px] font-normal text-[#6B7280] mt-1 font-sans leading-tight">
+                  প্রতি ২৪ ঘণ্টায় প্রবাসী সেবার পক্ষ থেকে $0.05 বোনাস পান ভাই!
+                </p>
+              </div>
+            </div>
+            
+            {cooldownRemaining ? (
+              <div
+                className="shrink-0 px-3 py-2 font-sans font-medium text-[11px] text-center border border-gray-200"
+                style={{
+                  backgroundColor: '#F7F8FA',
+                  color: '#6B7280',
+                  borderRadius: '10px',
+                  minWidth: '85px'
+                }}
+              >
+                <div style={{ fontSize: '9px', color: '#9CA3AF' }} className="mb-0.5">অপেক্ষা করুন</div>
+                <div className="font-mono">{cooldownRemaining}</div>
+              </div>
+            ) : (
+              <button
+                onClick={handleCollectDailyBonus}
+                disabled={claiming}
+                className="shrink-0 px-4 py-2 font-sans font-medium text-[12px] text-white hover:bg-opacity-90 active:scale-95 transition-all select-none cursor-pointer outline-none"
+                style={{
+                  backgroundColor: '#1B4F72',
+                  borderRadius: '10px'
+                }}
+              >
+                {claiming ? "লোড হচ্ছে..." : "বোনাস নিন"}
+              </button>
+            )}
+          </div>
+
+          {claimMsg && (
+            <div 
+              className={`mt-3 p-2.5 rounded-xl text-xs font-sans text-left transition-all ${
+                claimMsg.type === "success" 
+                  ? "bg-[#E9F7EF] text-[#1D9E75]" 
+                  : "bg-[#FDEDEC] text-[#E74C3C]"
+              }`}
+            >
+              {claimMsg.text}
+            </div>
+          )}
         </div>
       </div>
 

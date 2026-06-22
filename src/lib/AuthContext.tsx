@@ -16,14 +16,16 @@ export interface UserDoc {
   isPremium: boolean;
   isBlocked: boolean;
   createdAt: string;
-  phone?: string;
-  tier?: string;
-  referralCode?: string;
-  referredBy?: string | null;
-  referralBalance?: number;
-  totalReferrals?: number;
-  referralEarnings?: number;
-  referralCompleted?: boolean;
+  phone: string;
+  tier: string;
+  referralCode: string;
+  referredBy: string | null;
+  referralBalance: number;
+  totalReferrals: number;
+  referralEarnings: number;
+  referralCompleted: boolean;
+  totalTransfers: number;
+  lastDailyClaim?: string;
 }
 
 interface AuthContextType {
@@ -77,7 +79,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isBlocked: !!data.isBlocked,
           createdAt: data.createdAt || "",
           phone: data.phone || "",
-          tier: data.tier || "basic"
+          tier: data.tier || "basic",
+          referralCode: data.referralCode || "",
+          referredBy: data.referredBy || null,
+          referralBalance: Number(data.referralBalance) || 0,
+          totalReferrals: Number(data.totalReferrals) || 0,
+          referralEarnings: Number(data.referralEarnings) || 0,
+          referralCompleted: !!data.referralCompleted,
+          totalTransfers: Number(data.totalTransfers) || 0,
+          lastDailyClaim: data.lastDailyClaim || ""
         });
       } else {
         setUserDoc(null);
