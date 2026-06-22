@@ -325,7 +325,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             referralBalance: 0,
             totalReferrals: 0,
             referralEarnings: 0,
-            referralCompleted: false
+            referralCompleted: false,
+            totalTransfers: 0
           });
 
           await auth.signOut();
@@ -392,7 +393,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             referralBalance: 0,
             totalReferrals: 0,
             referralEarnings: 0,
-            referralCompleted: false
+            referralCompleted: false,
+            totalTransfers: 0
           });
           
           await auth.signOut();

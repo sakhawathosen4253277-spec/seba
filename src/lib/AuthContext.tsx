@@ -4,7 +4,7 @@ import {
   onAuthStateChanged,
   signOut as firebaseSignOut
 } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "./firebase";
 
 export interface UserDoc {
@@ -66,28 +66,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     const docRef = doc(db, "users", currentUser.uid);
     
-    const unsubscribeDoc = onSnapshot(docRef, (snap) => {
+    const unsubscribeDoc = onSnapshot(docRef, async (snap) => {
       if (snap.exists()) {
-        const data = snap.data();
+        const existingData = snap.data();
+        
+        // Auto-generate referral code if missing
+        if (!existingData.referralCode) {
+          const newCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          try {
+            await updateDoc(doc(db, "users", currentUser.uid), {
+              referralCode: newCode,
+              referralBalance: 0,
+              totalReferrals: 0,
+              referralEarnings: 0
+            });
+          } catch (e) {
+            console.warn("Failed to auto-generate referral code:", e);
+          }
+        }
+
         setUserDoc({
           uid: currentUser.uid,
-          userId: data.userId || "",
-          name: data.name || "",
-          email: data.email || currentUser.email || "",
-          balance: Number(data.balance) || 0,
-          isPremium: !!data.isPremium,
-          isBlocked: !!data.isBlocked,
-          createdAt: data.createdAt || "",
-          phone: data.phone || "",
-          tier: data.tier || "basic",
-          referralCode: data.referralCode || "",
-          referredBy: data.referredBy || null,
-          referralBalance: Number(data.referralBalance) || 0,
-          totalReferrals: Number(data.totalReferrals) || 0,
-          referralEarnings: Number(data.referralEarnings) || 0,
-          referralCompleted: !!data.referralCompleted,
-          totalTransfers: Number(data.totalTransfers) || 0,
-          lastDailyClaim: data.lastDailyClaim || ""
+          userId: existingData.userId || "",
+          name: existingData.name || "",
+          email: existingData.email || currentUser.email || "",
+          balance: Number(existingData.balance) || 0,
+          isPremium: !!existingData.isPremium,
+          isBlocked: !!existingData.isBlocked,
+          createdAt: existingData.createdAt || "",
+          phone: existingData.phone || "",
+          tier: existingData.tier || "basic",
+          referralCode: existingData.referralCode || "",
+          referredBy: existingData.referredBy || null,
+          referralBalance: Number(existingData.referralBalance) || 0,
+          totalReferrals: Number(existingData.totalReferrals) || 0,
+          referralEarnings: Number(existingData.referralEarnings) || 0,
+          referralCompleted: !!existingData.referralCompleted,
+          totalTransfers: Number(existingData.totalTransfers) || 0,
+          lastDailyClaim: existingData.lastDailyClaim || ""
         });
       } else {
         setUserDoc(null);
