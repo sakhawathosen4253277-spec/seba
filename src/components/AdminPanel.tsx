@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "../lib/seed";
 import { 
   collection, 
   doc, 
@@ -43,6 +44,7 @@ export default function AdminPanel() {
   // Tabs state
   const [activeTab, setActiveTab] = useState<string>("news");
   const [loading, setLoading] = useState<boolean>(false);
+  const [resettingDb, setResettingDb] = useState<boolean>(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   // Registered Users management
@@ -267,6 +269,64 @@ export default function AdminPanel() {
     localStorage.removeItem("adminLoginTime");
     localStorage.removeItem("adminLastActivity");
     setIsAdminLoggedIn(false);
+  };
+
+  const handleResetAllUsersAndData = async () => {
+    const confirmation = window.confirm(
+      "সাবধান ভাই!\n\nআপনি কি নিশ্চিত যে ডাটাবেজ থেকে সমস্ত ইউজার ডাটা ডিলিট করতে চান?\n\nএর ফলে সমস্ত নিবন্ধিত ইউজার প্রোফাইল, সমস্ত ডিপোজিট পেমেন্ট, টাকা পাঠানোর ট্রান্সফার রিকোয়েস্ট, স্ক্যাম রিপোর্ট এবং টিকেট রিকোয়েস্ট চিরতরে মুছে যাবে।\n\n(কিন্তু এক্সচেঞ্জ রেট, জরুরি কন্টাক্ট, পেমেন্ট গেটওয়ে এবং নিউজ নোটিশগুলো পুনরায় সেট করা থাকবে)।"
+    );
+    if (!confirmation) return;
+
+    const secondConfirm = window.confirm(
+      "আপনার সমস্ত ইউজার ডাটা মুছে যাবে! আপনি কি ১০০% নিশ্চিত ভাই?"
+    );
+    if (!secondConfirm) return;
+
+    setResettingDb(true);
+    setLoading(true);
+    showStatusMsg("ডাটাবেজ সাফ করা শুরু হয়েছে, দয়া করে অপেক্ষা করুন...", false);
+
+    try {
+      // Helper function to delete a collection by fetching docs in batches/all
+      const deleteCollectionDocs = async (collectionName: string) => {
+        try {
+          const snap = await getDocs(collection(db, collectionName));
+          const deletePromises = snap.docs.map(d => deleteDoc(doc(db, collectionName, d.id)));
+          await Promise.all(deletePromises);
+          console.log(`Deleted all documents in collection: ${collectionName}`);
+        } catch (err) {
+          console.error(`Error deleting collection ${collectionName}:`, err);
+        }
+      };
+
+      // Delete user specifics
+      await deleteCollectionDocs("users");
+      await deleteCollectionDocs("depositRequests");
+      await deleteCollectionDocs("transferRequests");
+      await deleteCollectionDocs("scamReports");
+      await deleteCollectionDocs("ticketRequests");
+      await deleteCollectionDocs("notifications");
+
+      // Re-run references seeding so they are preserved
+      showStatusMsg("ইউজার ডাটা ডিলিট হয়েছে। এবার বেসিক সিস্টেম ডাটা রি-সিড (re-seed) করা হচ্ছে...", false);
+      await seedDatabaseIfNeeded();
+      await seedPaymentMethodsIfNeeded();
+
+      showStatusMsg("আলহামদুলিল্লাহ ভাই! সমস্ত ইউজার ডাটা ডিলিট এবং রিসেট সম্পন্ন হয়েছে। 🎉", false);
+      
+      // Update local states so Admin Panel UI updates immediately
+      setUsersList([]);
+      setDepositRequests([]);
+      setTransferRequests([]);
+      setScams([]);
+      setTickets([]);
+    } catch (err) {
+      console.error("Database reset failed:", err);
+      showStatusMsg("ডাটাবেজ রিসেট করতে কোনো সমস্যা হয়েছে ভাই। দয়া করে আবার চেষ্টা করুন।", true);
+    } finally {
+      setResettingDb(false);
+      setLoading(false);
+    }
   };
 
   const showStatusMsg = (text: string, isError: boolean = false) => {
@@ -1319,7 +1379,8 @@ export default function AdminPanel() {
           { id: "tickets", name: "টিকেট" },
           { id: "emergency", name: "জরুরি" },
           { id: "users", name: "ইউজার্স" },
-          { id: "maintenance", name: "মেইনটেন্যান্স" }
+          { id: "maintenance", name: "মেইনটেন্যান্স" },
+          { id: "database", name: "ডাটাবেজ ডিলিট" }
         ].map((tab) => {
           let count = 0;
           if (tab.id === "deposit") {
@@ -2853,6 +2914,52 @@ export default function AdminPanel() {
                 >
                   সেটিংস সংরক্ষণ করুন (Save Settings)
                 </button>
+              </div>
+            )}
+
+            {activeTab === "database" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#E74C3C] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-semibold">ডাটাবেজ নিয়ন্ত্রণ ও ক্লিয়ার সেন্টার</h2>
+                    <p className="text-[11px] opacity-90 font-sans">সমস্ত ইউজার প্রোফাইল ও ট্রানজেকশন ক্লিয়ার করুন</p>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-4 text-left" style={{ borderWidth: "0.5px" }}>
+                  <div className="flex items-start space-x-3 text-[#E74C3C]">
+                    <ShieldAlert className="w-6 h-6 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold">অতি বিপজ্জনক কর্নার!</h4>
+                      <p className="text-xs text-[#6B7280] leading-relaxed mt-1">
+                        নিচের লাল বাটনে ক্লিক করলে ডাটাবেজ থেকে সমস্ত রেজিস্টার্ড প্রবাসী ইউজার প্রোফাইল এবং তাদের অধীনে করা সমস্ত লেনদেন (ডিপোজিট, ট্রান্সফার, স্ক্যাম রিপোর্ট, টিকেট) চিরতরে মুছে যাবে।
+                      </p>
+                      <p className="text-xs text-[#6B7280] leading-relaxed mt-1 font-semibold">
+                        কিন্তু খবর (News), এক্সচেঞ্জ রেট, জরুরি কন্টাক্ট এবং পেমেন্ট মেথড গেটওয়েগুলো অক্ষত থাকবে এবং স্বয়ংক্রিয়ভাবে রিসেট হয়ে থাকবে।
+                      </p>
+                    </div>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  <div className="bg-red-50 p-3.5 rounded-xl border border-red-100">
+                    <p className="text-xs text-[#E74C3C] font-semibold">
+                      🚨 নিয়মাবলি:
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] text-[#A04000] mt-1 space-y-1 font-medium leading-relaxed">
+                      <li>এটি মূলত ডেমো বা টেস্ট ইউজারদের সাফ করার জন্য ব্যবহৃত হয়।</li>
+                      <li>ক্লিক করার পর নিশ্চিতকরণের জন্য ২টি পপআপ দেখাবে, সাবধানে "Yes"/"Ok" করবেন।</li>
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={handleResetAllUsersAndData}
+                    disabled={resettingDb}
+                    className="w-full bg-[#E74C3C] hover:bg-opacity-95 text-white py-3.5 rounded-xl font-medium active:scale-[0.99] transition-all font-sans cursor-pointer text-sm flex items-center justify-center space-x-2"
+                  >
+                    <span>{resettingDb ? "ডাটা সাফ হচ্ছে..." : "সমস্ত ইউজার ডাটা ডিলিট করুন (Reset Users Data)"}</span>
+                  </button>
+                </div>
               </div>
             )}
 
