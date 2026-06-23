@@ -141,25 +141,28 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
     fetchLeaderboard();
   }, []);
 
-  // Copy Referral Code
+  // Copy Referral Code with auto-filled Link
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(referralCode);
+    const origin = window.location.origin || "https://probashisheba.vercel.app";
+    const signupLink = `${origin}?ref=${referralCode}`;
+    navigator.clipboard.writeText(signupLink);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
   // Copy Referral/App Link
   const handleCopyLink = () => {
-    const signupLink = `https://probashisheba.vercel.app?ref=${referralCode}`;
+    const origin = window.location.origin || "https://probashisheba.vercel.app";
+    const signupLink = `${origin}?ref=${referralCode}`;
     navigator.clipboard.writeText(signupLink);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   // Share message formats
-  const shareMessage = `ভাই, প্রবাসী সেবা ব্যবহার করুন! আমার কোড দিয়ে register করলে আমি $1 bonus পাব। কোড: ${referralCode} — Link: https://probashisheba.vercel.app`;
+  const shareMessage = `ভাই, প্রবাসী সেবা ব্যবহার করুন! আমার কোড দিয়ে register করলে আমি $1 bonus পাব। কোড: ${referralCode} — Link: ${window.location.origin || "https://probashisheba.vercel.app"}?ref=${referralCode}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
-  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent("https://probashisheba.vercel.app")}&quote=${encodeURIComponent(shareMessage)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin || "https://probashisheba.vercel.app")}&quote=${encodeURIComponent(shareMessage)}`;
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] pb-24 font-sans text-[#1A1A2E] antialiased">
@@ -190,14 +193,24 @@ export default function ReferralPage({ onBackToHome }: ReferralPageProps) {
             </div>
           </div>
 
-          <div className="bg-white/15 border border-white/25 rounded-xl p-3 flex items-center justify-between">
+          <div 
+            onClick={handleCopyCode}
+            className="bg-white/15 border border-white/25 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:bg-white/20 transition-all select-none"
+            title="ট্যাপ করে অটো-কানেক্ট রেফার লিঙ্ক কপি করুন"
+          >
             <div>
-              <p className="text-[11px] text-white/70 font-sans leading-none mb-1">আপনার রেফারেল কোড:</p>
+              <p className="text-[11px] text-white/70 font-sans leading-none mb-1 flex items-center gap-1.5">
+                <span>আপনার রেফারেল কোড:</span>
+                <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full text-white/90">ট্যাপ করুন</span>
+              </p>
               <p className="text-[22px] font-semibold tracking-[2px] font-sans leading-tight text-white">{referralCode}</p>
             </div>
             <button
               type="button"
-              onClick={handleCopyCode}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyCode();
+              }}
               className="px-4 py-2 bg-white text-[#1B4F72] rounded-lg text-xs font-semibold hover:bg-opacity-95 transition-all flex items-center space-x-1 cursor-pointer shadow-sm select-none"
             >
               {copiedCode ? (

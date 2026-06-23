@@ -636,6 +636,7 @@ export default function App() {
         }}
         lang={lang}
         exchangeRate={exchangeRate}
+        exchangeRateUnderTen={exchangeRateUnderTen}
       />
 
       {/* Main Routed Area body container */}
