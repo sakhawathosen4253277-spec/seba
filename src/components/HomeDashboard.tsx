@@ -11,11 +11,15 @@ import {
   AlertOctagon,
   ChevronRight,
   Loader2,
-  Gift
+  Gift,
+  Clock,
+  CheckCircle2,
+  RefreshCw,
+  X
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 
 interface HomeDashboardProps {
@@ -151,6 +155,133 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
     }
     loadData();
   }, []);
+
+  const [userTransactions, setUserTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState<boolean>(true);
+  const [selectedTx, setSelectedTx] = useState<any | null>(null);
+  const [txModalOpen, setTxModalOpen] = useState<boolean>(false);
+
+  // Fetch Live Deposit and Transfer Transactions
+  useEffect(() => {
+    if (!currentUser) {
+      setLoadingTransactions(false);
+      return;
+    }
+    async function fetchUserTransactions() {
+      try {
+        setLoadingTransactions(true);
+        const uid = currentUser?.uid;
+        const customerId = userDoc?.userId;
+
+        // Fetch transfers
+        const transfersRef = collection(db, "transferRequests");
+        const qTrans1 = query(transfersRef, where("userId", "==", uid));
+        const transSnap1 = await getDocs(qTrans1);
+        let txList: any[] = [];
+        
+        transSnap1.forEach((doc) => {
+          const data = doc.data();
+          txList.push({
+            id: doc.id,
+            type: "transfer",
+            amountUsd: Number(data.amount || data.totalDeducted || 0),
+            amountBdt: Number(data.calculatedBdt || data.bdtAmount || 110 * (data.amount || data.totalDeducted || 0)),
+            recipientName: data.recipientName || "",
+            recipientNumber: data.recipientPhone || "",
+            methodName: data.recipientMethodName || data.recipientMethod || "",
+            status: data.status || "pending",
+            createdAt: data.createdAt || "",
+            rejectReason: data.rejectReason || "",
+            proofImageUrl: data.proofImageUrl || "",
+          });
+        });
+
+        // Query using customerId if available
+        if (customerId && customerId !== uid) {
+          const qTrans2 = query(transfersRef, where("userId", "==", customerId));
+          const transSnap2 = await getDocs(qTrans2);
+          transSnap2.forEach((doc) => {
+            if (!txList.some(item => item.id === doc.id)) {
+              const data = doc.data();
+              txList.push({
+                id: doc.id,
+                type: "transfer",
+                amountUsd: Number(data.amount || data.totalDeducted || 0),
+                amountBdt: Number(data.calculatedBdt || data.bdtAmount || 110 * (data.amount || data.totalDeducted || 0)),
+                recipientName: data.recipientName || "",
+                recipientNumber: data.recipientPhone || "",
+                methodName: data.recipientMethodName || data.recipientMethod || "",
+                status: data.status || "pending",
+                createdAt: data.createdAt || "",
+                rejectReason: data.rejectReason || "",
+                proofImageUrl: data.proofImageUrl || "",
+              });
+            }
+          });
+        }
+
+        // Fetch deposits
+        const depositsRef = collection(db, "depositRequests");
+        const qDep1 = query(depositsRef, where("userId", "==", uid));
+        const depSnap1 = await getDocs(qDep1);
+        
+        depSnap1.forEach((doc) => {
+          const data = doc.data();
+          txList.push({
+            id: doc.id,
+            type: "deposit",
+            amountUsd: Number(data.amount || 0),
+            amountBdt: Number(data.calculatedBdt || 0),
+            recipientName: "",
+            recipientNumber: data.transactionId || "",
+            methodName: data.methodName || "",
+            status: data.status || "pending",
+            createdAt: data.createdAt || "",
+            rejectReason: data.rejectReason || "",
+            proofImageUrl: data.proofImageUrl || "",
+          });
+        });
+
+        if (customerId && customerId !== uid) {
+          const qDep2 = query(depositsRef, where("userId", "==", customerId));
+          const depSnap2 = await getDocs(qDep2);
+          depSnap2.forEach((doc) => {
+            if (!txList.some(item => item.id === doc.id)) {
+              const data = doc.data();
+              txList.push({
+                id: doc.id,
+                type: "deposit",
+                amountUsd: Number(data.amount || 0),
+                amountBdt: Number(data.calculatedBdt || 0),
+                recipientName: "",
+                recipientNumber: data.transactionId || "",
+                methodName: data.methodName || "",
+                status: data.status || "pending",
+                createdAt: data.createdAt || "",
+                rejectReason: data.rejectReason || "",
+                proofImageUrl: data.proofImageUrl || "",
+              });
+            }
+          });
+        }
+
+        // Sort by createdAt desc
+        txList.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        setUserTransactions(txList);
+      } catch (err) {
+        console.error("Error fetching user transactions:", err);
+      } finally {
+        setLoadingTransactions(false);
+      }
+    }
+
+    fetchUserTransactions();
+  }, [currentUser, userDoc?.userId]);
 
   const currentNewsList = newsList.length > 0 ? newsList : defaultNewsCards;
 
@@ -614,6 +745,121 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         </button>
       </div>
 
+      {/* 4.5 Your Transactions & Deposits Status Section */}
+      <div className="px-4 text-left">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-[14px] font-medium text-[#1A1A2E] font-sans">
+            আপনার লেনদেন ও ডিপোজিট স্ট্যাটাস
+          </h4>
+          <button 
+            onClick={() => onServiceSelect("profile")}
+            className="text-[11px] text-[#1B4F72] font-sans font-medium hover:underline"
+          >
+            সব দেখুন
+          </button>
+        </div>
+
+        <div className="bg-white border rounded-[16px] p-4 space-y-3" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+          {loadingTransactions ? (
+            <div className="py-4 flex flex-col items-center justify-center space-y-1.5">
+              <Loader2 className="w-5 h-5 text-[#1B4F72] animate-spin" />
+              <p className="text-[11px] text-[#6B7280]">অপেক্ষমান আপডেট লোড হচ্ছে ভাই...</p>
+            </div>
+          ) : userTransactions.length === 0 ? (
+            <div className="py-4 text-center">
+              <p className="text-[12px] text-[#6B7280] leading-relaxed">আপনার অ্যাকাউন্টে এখনও কোন ডিপোজিট বা টাকা পাঠানোর অনুরোধ নেই ভাই।</p>
+              <div className="flex gap-2.5 mt-3">
+                <button
+                  type="button"
+                  onClick={() => onServiceSelect("deposit" as any)}
+                  className="flex-1 py-2 text-[11px] bg-[#1B4F72] text-white rounded-lg hover:bg-opacity-90 transition-all font-medium cursor-pointer"
+                >
+                  ডিপোজিট করুন
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onServiceSelect("services" as any, "money")}
+                  className="flex-1 py-2 text-[11px] border border-[#1B4F72] text-[#1B4F72] rounded-lg hover:bg-gray-50 transition-all font-medium cursor-pointer"
+                >
+                  টাকা পাঠান
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {userTransactions.slice(0, 3).map((tx, idx) => {
+                const isDeposit = tx.type === "deposit";
+                
+                let statusLabel = "";
+                let statusColorClass = "";
+                
+                if (tx.status === "completed") {
+                  statusLabel = "সম্পন্ন";
+                  statusColorClass = "bg-emerald-50 text-[#1D9E75] border-emerald-100";
+                } else if (tx.status === "pending") {
+                  statusLabel = "অপেক্ষমান";
+                  statusColorClass = "bg-amber-50 text-amber-600 border-amber-100";
+                } else if (tx.status === "processing") {
+                  statusLabel = "প্রসেসিং";
+                  statusColorClass = "bg-blue-50 text-blue-600 border-blue-100";
+                } else if (tx.status === "sent") {
+                  statusLabel = "পাঠানো হচ্ছে";
+                  statusColorClass = "bg-indigo-50 text-indigo-600 border-indigo-100";
+                } else {
+                  statusLabel = "বাতিল";
+                  statusColorClass = "bg-[#FDEDEC] text-[#E74C3C] border-red-100";
+                }
+
+                return (
+                  <button
+                    key={tx.id}
+                    onClick={() => {
+                      setSelectedTx(tx);
+                      setTxModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between text-left cursor-pointer hover:bg-gray-50 transition-colors py-2.5 first:pt-0 last:pb-0 outline-none"
+                    style={{ border: "none" }}
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDeposit ? "bg-[#EBF5FB]" : "bg-[#E8F8F1]"}`}>
+                        {isDeposit ? (
+                          <CreditCard className="w-4 h-4 text-[#1B6CA8]" />
+                        ) : (
+                          <DollarSign className="w-4 h-4 text-[#0F6E56]" />
+                        )}
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-[13px] font-medium text-[#1A1A2E] leading-tight font-sans">
+                          {isDeposit ? "ডলার ডিপোজিট" : `টাকা পাঠানো (${tx.recipientName || "প্রবাসী"})`}
+                        </h4>
+                        <p className="text-[10px] text-[#6B7280] font-sans mt-0.5">
+                          {tx.methodName || "MFS"} • ID: <span className="font-mono">{tx.id}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex flex-col items-end">
+                      <span className="text-[13px] font-medium font-sans">
+                        ${tx.amountUsd.toFixed(2)} USD
+                      </span>
+                      {tx.amountBdt > 0 && (
+                        <span className="text-[10px] text-[#6B7280] font-sans">
+                          ≈ {tx.amountBdt.toLocaleString()} BDT
+                        </span>
+                      )}
+                      <span className={`text-[9px] font-semibold border px-1.5 py-0.5 rounded-lg mt-1 font-sans ${statusColorClass}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 5. Services Grid - 2 column grid of white cards, same style */}
       <div className="px-4 text-left">
         <div className="flex items-center justify-between mb-2 text-left">
@@ -785,6 +1031,166 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
                 fontSize: '14px'
               }}
               id="btn-close-urgent-popup-alert"
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Details Modal */}
+      {txModalOpen && selectedTx && (
+        <div id="txn-details-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity duration-300">
+          <div 
+            className="bg-white rounded-[16px] max-w-sm w-full border border-[#E5E7EB] p-5 text-left flex flex-col font-sans relative shadow-md transform transition-all scale-100"
+            style={{ borderWidth: '0.5px' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: "#E5E7EB", borderBottomWidth: "0.5px" }}>
+              <div className="flex items-center gap-2">
+                <span className="text-[15px]">{selectedTx.type === "deposit" ? "🏦" : "💸"}</span>
+                <span className="text-[13px] font-medium text-[#1B4F72] font-sans">
+                  {selectedTx.type === "deposit" ? "ডিপোজিট বিবরণী" : "টাকা পাঠানোর বিবরণী"}
+                </span>
+              </div>
+              <button 
+                onClick={() => setTxModalOpen(false)}
+                className="p-1 rounded-full text-gray-400 hover:text-black hover:bg-gray-100 transition-all cursor-pointer"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {/* Layout Box */}
+            <div className="space-y-3.5 mb-5 select-text text-left font-sans">
+              <div className="flex justify-between items-center bg-[#F7F8FA] p-3 rounded-xl border border-gray-100 text-[11px]">
+                <div>
+                  <p className="text-[10px] text-[#6B7280]">লেনদেন আইডি (ID):</p>
+                  <p className="font-semibold text-gray-800 font-mono mt-0.5">{selectedTx.id}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-[#6B7280]">সময় ও তারিখ:</p>
+                  <p className="font-semibold text-gray-800 mt-0.5">
+                    {selectedTx.createdAt ? new Date(selectedTx.createdAt).toLocaleString("bn-BD", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "আজ"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Section */}
+              <div className="border border-gray-100 bg-gray-50/50 p-3.5 rounded-xl text-[11px] space-y-2">
+                <p className="font-medium text-[#1B4F72]">বর্তমান অবস্থা (Status):</p>
+                
+                {selectedTx.status === "pending" && (
+                  <div className="flex items-start gap-2 text-[#7F5A00] bg-[#FEF9E7] p-2.5 rounded-lg border border-[#F9E79F]/60">
+                    <Clock className="w-5 h-5 shrink-0 animate-pulse text-[#D68910]" />
+                    <p className="leading-snug">
+                      <strong>অপেক্ষমান:</strong> আপনার পেমেন্টটি আমাদের টিম ৫-১৫ মিনিটের মধ্যে ম্যানুয়ালি ভেরিফাই করে অ্যাপ্রুভ করবে ভাই। দয়া করে অপেক্ষা করুন!
+                    </p>
+                  </div>
+                )}
+
+                {selectedTx.status === "processing" && (
+                  <div className="flex items-start gap-2 text-blue-900 bg-blue-50 p-2.5 rounded-lg border border-blue-100">
+                    <RefreshCw className="w-5 h-5 shrink-0 animate-spin text-blue-600" />
+                    <p className="leading-snug">
+                      <strong>প্রসেসিং:</strong> আপনার লেনদেনের তথ্য ইমিগ্রেশন ও ব্যাংক চ্যানেলে সাবমিট করা হয়েছে ভাই। খুব দ্রুত বাটন চাপলেই সম্পন্ন হবে।
+                    </p>
+                  </div>
+                )}
+
+                {selectedTx.status === "sent" && (
+                  <div className="flex items-start gap-2 text-[#1F3A52] bg-blue-50 p-2.5 rounded-lg border border-[#CFD8DC]">
+                    <DollarSign className="w-5 h-5 shrink-0 text-[#1B4F72]" />
+                    <p className="leading-snug text-xs">
+                      <strong>পাঠানো হচ্ছে:</strong> বাংলাদেশে বিকাশ/নগদ/রকেট মোবাইল নাম্বারে টাকা পৌঁছানোর প্রক্রিয়া সচল রয়েছে ভাই।
+                    </p>
+                  </div>
+                )}
+
+                {selectedTx.status === "completed" && (
+                  <div className="flex items-start gap-2 text-[#0F6E56] bg-[#E8F8F1] p-2.5 rounded-lg border border-[#1D9E75]/35">
+                    <CheckCircle2 className="w-5 h-5 shrink-0 text-[#1D9E75]" />
+                    <p className="leading-snug">
+                      <strong>সম্পন্ন হয়েছে:</strong> আলহামদুলিল্লাহ ভাই! লেনদেনটি সফলভাবে সম্পন্ন হয়েছে এবং ব্যালেন্স যোগ হয়েছে বা টাকা পৌঁছে গেছে।
+                    </p>
+                  </div>
+                )}
+
+                {(selectedTx.status === "cancelled" || selectedTx.status === "failed") && (
+                  <div className="flex items-start gap-2 text-[#922B21] bg-[#FDEDEC] p-2.5 rounded-lg border border-[#E74C3C]/35">
+                    <X className="w-5 h-5 shrink-0 text-[#E74C3C]" />
+                    <div className="leading-snug">
+                      <p><strong>লেনদেনটি বাতিল করা হয়েছে ভাই।</strong></p>
+                      {selectedTx.rejectReason && (
+                        <p className="mt-1 font-sans text-[11px] text-[#C0392B]"><strong>বাতিলের কারণ:</strong> {selectedTx.rejectReason}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sender & Recipient brief */}
+              <div className="bg-[#F8F9FA] rounded-xl p-3.5 border border-gray-100 font-sans text-[11px] space-y-1.5 text-gray-700">
+                <div className="flex justify-between">
+                  <span>লেনদেনের মাধ্যম:</span>
+                  <span className="font-semibold text-[#1A1A2E]">{selectedTx.methodName || "ওয়ালেট ব্যালেন্স"}</span>
+                </div>
+                
+                {selectedTx.type === "deposit" ? (
+                  <div className="flex justify-between font-sans">
+                    <span>Transaction ID:</span>
+                    <span className="font-semibold text-[#1A1A2E] font-mono">{selectedTx.recipientNumber}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between font-sans">
+                      <span>প্রাপকের নাম:</span>
+                      <span className="font-semibold text-[#1A1A2E]">{selectedTx.recipientName}</span>
+                    </div>
+                    <div className="flex justify-between font-sans">
+                      <span>প্রাপকের অ্যাকাউন্ট/নম্বর:</span>
+                      <span className="font-semibold text-[#1A1A2E] font-mono">{selectedTx.recipientNumber}</span>
+                    </div>
+                  </>
+                )}
+
+                <div className="border-t border-gray-200/60 my-2 pt-2 flex justify-between font-sans">
+                  <span className="font-medium text-[#1A1A2E]">ডলারের পরিমাণ:</span>
+                  <span className="font-bold text-[#1B4F72]">${selectedTx.amountUsd.toFixed(2)} USD</span>
+                </div>
+
+                {selectedTx.amountBdt > 0 && (
+                  <div className="flex justify-between text-[11px] font-semibold text-[#1D9E75] font-sans">
+                    <span>বাংলাদেশে প্রাপক পাবেন:</span>
+                    <span>৳ {selectedTx.amountBdt.toLocaleString()} BDT</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Receipt screenshot if uploaded/proof available */}
+              {selectedTx.proofImageUrl && (
+                <div className="space-y-1.5 text-[11px] font-sans">
+                  <span className="text-[11px] font-medium text-[#6B7280]">অফিসিয়াল ট্রানজেকশন প্রুফ:</span>
+                  <div className="border border-gray-200 rounded-xl p-1 bg-gray-50 flex items-center justify-center">
+                    <img 
+                      src={selectedTx.proofImageUrl} 
+                      alt="Transaction Proof" 
+                      className="max-h-[140px] rounded object-contain w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action button */}
+            <button
+              onClick={() => setTxModalOpen(false)}
+              className="w-full h-11 flex items-center justify-center text-white cursor-pointer select-none font-sans font-medium hover:bg-[#153e5a] active:scale-95 transition-all outline-none"
+              style={{
+                backgroundColor: '#1B4F72',
+                borderRadius: '12px',
+                fontSize: '13px'
+              }}
             >
               বন্ধ করুন
             </button>
