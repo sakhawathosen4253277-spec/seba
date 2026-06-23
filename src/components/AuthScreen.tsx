@@ -329,6 +329,21 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             totalTransfers: 0
           });
 
+          // Send notification on new user registration to Telegram
+          try {
+            await fetch("/api/user-registered", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: fullName.trim(),
+                email: generatedEmail,
+                userId: generatedUserId
+              })
+            });
+          } catch (err) {
+            console.error("Failed to send signup notification:", err);
+          }
+
           await auth.signOut();
           alert(lang === "BN" 
             ? "মোবাইল অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে ভাই! এখন আপনি আপনার মোবাইল নাম্বার এবং পাসওয়ার্ড দিয়ে লগইন করুন।" 
@@ -397,6 +412,21 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             totalTransfers: 0
           });
           
+          // Send notification on new user registration to Telegram
+          try {
+            await fetch("/api/user-registered", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: fullName.trim(),
+                email: email.trim().toLowerCase(),
+                userId: generatedUserId
+              })
+            });
+          } catch (err) {
+            console.error("Failed to send signup notification:", err);
+          }
+
           await auth.signOut();
           alert(lang === "BN"
             ? "রেজিস্ট্রেশন সম্পন্ন! আপনার ইমেইলে একটি যাচাইকরণ লিংক পাঠানো হয়েছে ভাই। ইনবক্স/স্প্যাম চেক করুন, লিংকে ক্লিক করে যাচাই করুন, তারপর লগইন করুন।"

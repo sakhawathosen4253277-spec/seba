@@ -85,25 +85,25 @@ const ai = new GoogleGenAI({
   }
 });
 
+const TELEGRAM_BOT_TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+const TELEGRAM_CHAT_ID = "8885859813";
+
 async function sendTelegramNotification(message: string) {
-  const TELEGRAM_TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
-  const CHAT_ID = "8885859813";
-  
   try {
     await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
-          chat_id: CHAT_ID,
+          chat_id: TELEGRAM_CHAT_ID,
           text: message,
           parse_mode: "HTML"
         })
       }
     );
   } catch (error) {
-    console.log("Telegram notification error:", error);
+    console.log("Telegram error:", error);
   }
 }
 
@@ -217,10 +217,32 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Enable JSON body parsing for standard API endpoints
+  app.use(express.json());
+
   let cachedNews: string[] | null = null;
   let cachedNewsTime = 0;
 
-  // STEP 1 — Create a context API endpoint
+  // POST /api/user-registered — notifies on Telegram about new user registration
+  app.post("/api/user-registered", async (req, res) => {
+    try {
+      const { name, email, userId } = req.body;
+      await sendTelegramNotification(
+`👋 <b>নতুন ইউজার রেজিস্ট্রেশন</b>
+
+👤 নাম: ${name}
+📧 Email: ${email}
+🆔 User ID: ${userId}
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}`
+      );
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.log("Telegram signup error:", err);
+      return res.status(500).json({ error: err.message || "Failed to send signup notification" });
+    }
+  });
+
+  // GET /api/ai-context
   app.get("/api/ai-context", async (req, res) => {
     try {
       const data = await getAIContextDataLocal();
@@ -615,15 +637,18 @@ Provide a natural, caring, human response in Bengali as ${name}:
       });
 
       // Send Telegram Notification
-      const currentTime = new Date().toLocaleString("bn-BD", { timeZone: "Asia/Dhaka" });
-      const message = `🔔 <b>নতুন ডিপোজিট অনুরোধ</b>
+      const paymentMethod = methodName || "";
+      await sendTelegramNotification(
+`🔔 <b>নতুন ডিপোজিট অনুরোধ</b>
+
 👤 ইউজার আইডি: ${userId}
 💵 পরিমাণ: $${amount} USD
-🏦 মাধ্যম: ${methodName}
+🏦 মাধ্যম: ${paymentMethod}
 🔑 Transaction ID: ${transactionId}
-⏰ সময়: ${currentTime}`;
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}
 
-      await sendTelegramNotification(message);
+👉 Admin Panel এ যাচাই করুন`
+      );
 
       return res.json({ success: true, id: reqId });
     } catch (err: any) {
@@ -679,16 +704,23 @@ Provide a natural, caring, human response in Bengali as ${name}:
       });
 
       // Send Telegram Notification
-      const currentTime = new Date().toLocaleString("bn-BD", { timeZone: "Asia/Dhaka" });
-      const message = `💸 <b>নতুন ট্রান্সফার অনুরোধ</b>
-👤 ইউজার আইডি: ${userId}
-💵 পরিমাণ: $${amount} USD → ${calculatedBdt} BDT
-📱 মাধ্যম: ${recipientMethod}
+      const userName = senderName || "ওয়ালেট ইউজার";
+      const totalAmount = totalDeducted || amount;
+      const bdtAmount = calculatedBdt || 0;
+      const method = recipientMethodName || recipientMethod || "";
+      await sendTelegramNotification(
+`💸 <b>নতুন ট্রান্সফার অনুরোধ</b>
+
+👤 ইউজার: ${userName}
+💵 পরিমাণ: $${totalAmount} USD
+📊 প্রাপক পাবেন: ${bdtAmount} BDT
+📱 মাধ্যম: ${method}
 👨 প্রাপক: ${recipientName}
 📞 নম্বর: ${recipientPhone}
-⏰ সময়: ${currentTime}`;
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}
 
-      await sendTelegramNotification(message);
+👉 Admin Panel এ process করুন`
+      );
 
       return res.json({ success: true, id: transferId });
     } catch (err: any) {
