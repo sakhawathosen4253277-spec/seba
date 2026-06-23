@@ -268,26 +268,48 @@ export default function DepositPage({ onBack, userEmail }: DepositPageProps) {
     const userName = userDoc?.name || currentUser?.displayName || userEmail || "প্রবাসী ইউজার";
 
     try {
-      const response = await fetch("/api/deposit-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: requestId,
-          userId: userId,
-          senderName: userName.trim(),
-          senderPhone: "",
-          amount: valAmt,
-          calculatedBdt: Number((valAmt * exchangeRate).toFixed(2)),
-          methodName: paymentMethodName,
-          transactionId: transactionId.trim(),
-          proofImageUrl: screenshotBase64,
-          status: "pending",
-          createdAt: new Date().toISOString()
-        })
-      });
+      const calculatedBdt = Number((valAmt * exchangeRate).toFixed(2));
+      const payload = {
+        id: requestId,
+        userId: userId,
+        senderName: userName.trim(),
+        senderPhone: "",
+        amount: valAmt,
+        calculatedBdt: calculatedBdt,
+        methodName: paymentMethodName,
+        transactionId: transactionId.trim(),
+        proofImageUrl: screenshotBase64,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      };
 
-      if (!response.ok) {
-        throw new Error("API request failed");
+      await setDoc(doc(db, "depositRequests", requestId), payload);
+
+      // Send Telegram notification directly from frontend
+      try {
+        const TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+        const CHAT_ID = "8885859813";
+        const message = `🔔 <b>নতুন ডিপোজিট অনুরোধ</b>
+
+👤 ইউজার আইডি: ${userId}
+💵 পরিমাণ: $${valAmt} USD
+🏦 মাধ্যম: ${paymentMethodName}
+🔑 Transaction ID: ${transactionId.trim()}
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}
+
+👉 Admin Panel এ যাচাই করুন`;
+
+        await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: message,
+            parse_mode: "HTML"
+          })
+        });
+      } catch (telegramErr) {
+        console.warn("Telegram notification failed on frontend:", telegramErr);
       }
 
       setSuccess(true);

@@ -331,13 +331,22 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
 
           // Send notification on new user registration to Telegram
           try {
-            await fetch("/api/user-registered", {
+            const TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+            const CHAT_ID = "8885859813";
+            const message = `👋 <b>নতুন ইউজার রেজিস্ট্রেশন</b>
+
+👤 নাম: ${fullName.trim()}
+📧 Email: ${generatedEmail}
+🆔 User ID: ${generatedUserId}
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}`;
+
+            await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                name: fullName.trim(),
-                email: generatedEmail,
-                userId: generatedUserId
+                chat_id: CHAT_ID,
+                text: message,
+                parse_mode: "HTML"
               })
             });
           } catch (err) {
@@ -414,13 +423,22 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           
           // Send notification on new user registration to Telegram
           try {
-            await fetch("/api/user-registered", {
+            const TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+            const CHAT_ID = "8885859813";
+            const message = `👋 <b>নতুন ইউজার রেজিস্ট্রেশন</b>
+
+👤 নাম: ${fullName.trim()}
+📧 Email: ${email.trim().toLowerCase()}
+🆔 User ID: ${generatedUserId}
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}`;
+
+            await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                name: fullName.trim(),
-                email: email.trim().toLowerCase(),
-                userId: generatedUserId
+                chat_id: CHAT_ID,
+                text: message,
+                parse_mode: "HTML"
               })
             });
           } catch (err) {

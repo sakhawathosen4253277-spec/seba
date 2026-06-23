@@ -189,35 +189,36 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
         senderPhone: ""
       });
 
-      // Try calling the backup Server API for Telegram notifications, but catch error so it never blocks the user (e.g. on Vercel)
+      // Send Telegram notification directly from frontend
       try {
-        await fetch("/api/transfer-request", {
+        const TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+        const CHAT_ID = "8885859813";
+        const userName = userDoc?.name || "ওয়ালেট ইউজার";
+        const method = recipientMethod || "";
+        const rPhone = isBank ? bankAccount.trim() : recipientPhone.trim();
+        const message = `💸 <b>নতুন ট্রান্সফার অনুরোধ</b>
+
+👤 ইউজার: ${userName}
+💵 পরিমাণ: $${totalAmount} USD
+📊 প্রাপক পাবেন: ${bdtAmount} BDT
+📱 মাধ্যম: ${method}
+👨 প্রাপক: ${recipientName.trim()}
+📞 নম্বর: ${rPhone}
+⏰ সময়: ${new Date().toLocaleString('bn-BD')}
+
+👉 Admin Panel এ process করুন`;
+
+        await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            id: transferId,
-            userId: currentUser?.uid || userEmail || "guest_user",
-            totalDeducted: totalAmount,
-            serviceCharge: serviceCharge,
-            recipientAmount: recipientGets,
-            bdtAmount: bdtAmount,
-            recipientName: recipientName.trim(),
-            recipientPhone: isBank ? bankAccount.trim() : recipientPhone.trim(),
-            recipientMethod: recipientMethod,
-            recipientBankName: isBank ? bankName.trim() : "",
-            recipientBankAccount: isBank ? bankAccount.trim() : "",
-            recipientMethodName: recipientMethod,
-            status: "pending",
-            createdAt: new Date().toISOString(),
-            // backward compatibility with server.ts
-            amount: recipientGets,
-            calculatedBdt: bdtAmount,
-            senderName: "ওয়ালেট ইউজার",
-            senderPhone: ""
+            chat_id: CHAT_ID,
+            text: message,
+            parse_mode: "HTML"
           })
         });
-      } catch (apiErr) {
-        console.warn("Server API failed or not found, request saved directly to Firestore.", apiErr);
+      } catch (telegramErr) {
+        console.warn("Telegram notification failed on frontend:", telegramErr);
       }
 
       setSuccess(true);
