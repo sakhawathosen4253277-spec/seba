@@ -59,8 +59,12 @@ export default function AdminPanel() {
   const [exchange, setExchange] = useState<any>({ bkash: 110.50, nagad: 110.60, bank: 110.80, usdRate: 110.80 });
   const [jobs, setJobs] = useState<any[]>([]);
   const [employers, setEmployers] = useState<any[]>([]);
+  const [employerDeposits, setEmployerDeposits] = useState<any[]>([]);
   const [jobApplications, setJobApplications] = useState<any[]>([]);
-  const [jobSubTab, setJobSubTab] = useState<"employers" | "jobs" | "applications">("employers");
+  const [jobSubTab, setJobSubTab] = useState<"verify_employers" | "employers" | "jobs" | "applications">("verify_employers");
+  const [actioningEmployerId, setActioningEmployerId] = useState<string | null>(null);
+  const [inlineActionType, setInlineActionType] = useState<"reject" | "forfeit" | null>(null);
+  const [inlineNoteText, setInlineNoteText] = useState<string>("");
   const [scams, setScams] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [emergency, setEmergency] = useState<any[]>([]);
@@ -366,6 +370,11 @@ export default function AdminPanel() {
         const snapshotEmp = await getDocs(qEmp);
         const listEmp = snapshotEmp.docs.map(d => ({ id: d.id, ...d.data() }));
         setEmployers(listEmp);
+
+        const qDep = collection(db, "employerDeposits");
+        const snapshotDep = await getDocs(qDep);
+        const listDep = snapshotDep.docs.map(d => ({ id: d.id, ...d.data() }));
+        setEmployerDeposits(listDep);
 
         const qApp = query(collection(db, "jobApplications"), orderBy("createdAt", "desc"));
         const snapshotApp = await getDocs(qApp);
@@ -888,6 +897,163 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       showStatusMsg("অপারেশন ব্যর্থ হয়েছে।", true);
+    }
+  };
+
+  const handleVerifyEmployerVerifySubTab = async (emp: any) => {
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "verified",
+        depositStatus: "verified"
+      });
+
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "verified"
+        });
+      }
+
+      showStatusMsg("নিয়োগকর্তা এবং জামানত সফলভাবে যাচাই করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("যাচাই করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleRejectEmployerVerifySubTab = async (emp: any, reason: string) => {
+    if (!reason.trim()) {
+      showStatusMsg("প্রত্যাখ্যানের কারণ লিখুন ভাই!", true);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "rejected"
+      });
+
+      await addDoc(collection(db, "notifications"), {
+        userId: emp.userId,
+        message: `আপনার নিয়োগকর্তা যাচাই অনুরোধটি প্রত্যাখ্যান করা হয়েছে। কারণ: ${reason.trim()}`,
+        type: "employer_verification_rejected",
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("নিয়োগকর্তা সফলভাবে প্রত্যাখ্যান করা হয়েছে এবং নোটিফিকেশন পাঠানো হয়েছে।");
+      setActioningEmployerId(null);
+      setInlineActionType(null);
+      setInlineNoteText("");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("প্রত্যাখ্যান করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleRefundEmployerVerifySubTab = async (emp: any) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে $20 জামানত ফেরত দিতে চান ভাই?")) return;
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        depositStatus: "refunded"
+      });
+
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "refunded",
+          refundReason: "প্রশাসন কর্তৃক জামানত ফেরত"
+        });
+      }
+
+      const userRef = doc(db, "users", emp.userId);
+      const userSnap = await getDoc(userRef);
+      let currentBalance = 0;
+      if (userSnap.exists()) {
+        const uData = userSnap.data();
+        if (uData.balance !== undefined) {
+          currentBalance = Number(uData.balance);
+        }
+      }
+      const newBalance = currentBalance + 20;
+      await setDoc(userRef, { balance: newBalance }, { merge: true });
+
+      await addDoc(collection(db, "notifications"), {
+        userId: emp.userId,
+        message: `আপনার নিয়োগকর্তা সিকিউরিটি জামানত $20 ফেরত দেওয়া হয়েছে এবং আপনার মূল ব্যালেন্সে যোগ করা হয়েছে ভাই!`,
+        type: "employer_deposit_refunded",
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("সিকিউরিটি জামানত সফলভাবে ফেরত দেওয়া হয়েছে এবং মূল ব্যালেন্সে যোগ করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("জামানত ফেরত দিতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleForfeitEmployerVerifySubTab = async (emp: any, note: string) => {
+    if (!note.trim()) {
+      showStatusMsg("বাজেয়াপ্ত করার কারণ উল্লেখ করুন ভাই!", true);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        depositStatus: "forfeited"
+      });
+
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "forfeited",
+          refundReason: note.trim()
+        });
+      }
+
+      await addDoc(collection(db, "notifications"), {
+        userId: emp.userId,
+        message: `প্রতারণার অভিযোগে আপনার নিয়োগকর্তা জামানত বাজেয়াপ্ত করা হয়েছে। কারণ: ${note.trim()}`,
+        type: "employer_deposit_forfeited",
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("জামানত সফলভাবে বাজেয়াপ্ত করা হয়েছে!");
+      setActioningEmployerId(null);
+      setInlineActionType(null);
+      setInlineNoteText("");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("জামানত বাজেয়াপ্ত করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleBlockEmployerVerifySubTab = async (emp: any) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই নিয়োগকর্তাকে ব্লক করতে চান ভাই?")) return;
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "blocked"
+      });
+
+      await addDoc(collection(db, "notifications"), {
+        userId: emp.userId,
+        message: `আপনার নিয়োগকর্তা অ্যাকাউন্টটি ব্লক করা হয়েছে।`,
+        type: "employer_blocked",
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("নিয়োগকর্তা সফলভাবে ব্লক করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("ব্লক করতে সমস্যা হয়েছে।", true);
     }
   };
 
@@ -1524,6 +1690,8 @@ export default function AdminPanel() {
             count = depositRequests.filter(r => r.status === "pending").length;
           } else if (tab.id === "transfer") {
             count = transferRequests.filter(r => r.status === "pending").length;
+          } else if (tab.id === "jobs") {
+            count = employers.filter(e => e.verificationStatus === "pending").length;
           }
 
           const isActive = activeTab === tab.id;
@@ -2377,8 +2545,9 @@ export default function AdminPanel() {
             {activeTab === "jobs" && (
               <div className="space-y-4">
                 {/* Job board administrative sub-tabs */}
-                <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 overflow-x-auto scrollbar-none gap-1">
                   {[
+                    { id: "verify_employers", label: "নিয়োগকর্তা যাচাই (" + employers.filter(e => e.verificationStatus === "pending").length + ")" },
                     { id: "employers", label: "নিয়োগকর্তা (" + employers.length + ")" },
                     { id: "jobs", label: "চাকরি (" + jobs.length + ")" },
                     { id: "applications", label: "আবেদন (" + jobApplications.length + ")" }
@@ -2386,7 +2555,7 @@ export default function AdminPanel() {
                     <button
                       key={sub.id}
                       onClick={() => setJobSubTab(sub.id as any)}
-                      className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all cursor-pointer outline-none ${
+                      className={`flex-1 min-w-[100px] py-2 text-[11px] font-medium rounded-lg transition-all cursor-pointer outline-none ${
                         jobSubTab === sub.id
                           ? "bg-[#1B4F72] text-white shadow-xs"
                           : "text-gray-500 hover:text-gray-800"
@@ -2396,6 +2565,238 @@ export default function AdminPanel() {
                     </button>
                   ))}
                 </div>
+
+                {/* Sub-tab 0: Employer Verification Queue */}
+                {jobSubTab === "verify_employers" && (
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-semibold text-[#6B7280] text-left">নিয়োগকর্তা ও জামানত যাচাই প্যানেল:</h3>
+                    {employers.length === 0 ? (
+                      <p className="text-xs text-[#6B7280] italic py-4 text-center bg-white rounded-xl border" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>কোনো নিয়োগকর্তা নিবন্ধন পাওয়া যায়নি ভাই।</p>
+                    ) : (
+                      employers.map((emp) => {
+                        const deposit = employerDeposits.find(d => d.employerId === emp.id);
+                        return (
+                          <div 
+                            key={emp.id} 
+                            className="bg-white border p-4 rounded-[14px] space-y-4 text-left font-sans"
+                            style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                          >
+                            <div className="flex justify-between items-start gap-2 border-b pb-2">
+                              <div>
+                                <h4 className="text-sm font-medium text-[#1A1A2E]">{emp.fullName} ({emp.phone})</h4>
+                                <p className="text-xs text-[#6B7280] mt-0.5">কোম্পানি: <span className="font-medium text-[#1A1A2E]">{emp.companyName}</span></p>
+                                <p className="text-[10px] text-gray-400 mt-1">রেজিস্ট্রেশন: {emp.createdAt ? new Date(emp.createdAt).toLocaleString('bn-BD') : "তারিখ পাওয়া যায়নি"}</p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-gray-400">ভেরিফিকেশন:</span>
+                                  <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                                    emp.verificationStatus === "verified" ? "bg-emerald-50 text-[#1D9E75] border border-emerald-100" :
+                                    emp.verificationStatus === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                                    emp.verificationStatus === "rejected" ? "bg-rose-50 text-[#E74C3C] border border-rose-100" :
+                                    "bg-red-100 text-red-700 border border-red-200"
+                                  }`} style={{ borderWidth: "0.5px" }}>
+                                    {emp.verificationStatus === "pending" && "অপেক্ষায়"}
+                                    {emp.verificationStatus === "verified" && "যাচাইকৃত"}
+                                    {emp.verificationStatus === "rejected" && "প্রত্যাখ্যাত"}
+                                    {emp.verificationStatus === "blocked" && "ব্লক"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-gray-400">জামানত:</span>
+                                  <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                                    emp.depositStatus === "verified" || emp.depositStatus === "paid" ? "bg-emerald-50 text-[#1D9E75] border border-emerald-100" :
+                                    emp.depositStatus === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                                    emp.depositStatus === "refunded" ? "bg-blue-50 text-[#1B4F72] border border-blue-100" :
+                                    "bg-rose-50 text-[#E74C3C] border border-rose-100"
+                                  }`} style={{ borderWidth: "0.5px" }}>
+                                    {(!emp.depositStatus || emp.depositStatus === "pending") && "যাচাই বাকি"}
+                                    {(emp.depositStatus === "verified" || emp.depositStatus === "paid") && "যাচাই হয়েছে"}
+                                    {emp.depositStatus === "refunded" && "ফেরত দেওয়া হয়েছে"}
+                                    {emp.depositStatus === "forfeited" && "বাজেয়াপ্ত"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 bg-gray-50 p-2.5 rounded-xl">
+                              <div>
+                                <span className="text-[11px] text-gray-500 block mb-1">ছবি (Selfie):</span>
+                                {emp.selfieUrl ? (
+                                  <img 
+                                    onClick={() => setViewingImage(emp.selfieUrl)}
+                                    src={emp.selfieUrl} 
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-90 bg-white"
+                                    alt="Selfie"
+                                  />
+                                ) : (
+                                  <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-[10px] text-gray-400 border border-dashed">ছবি নেই</div>
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-[11px] text-gray-500 block mb-1">পাসপোর্ট/NID স্ক্যান:</span>
+                                {emp.passportUrl ? (
+                                  <img 
+                                    onClick={() => setViewingImage(emp.passportUrl)}
+                                    src={emp.passportUrl} 
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-90 bg-white"
+                                    alt="Passport"
+                                  />
+                                ) : (
+                                  <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-[10px] text-gray-400 border border-dashed">ছবি নেই</div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="border border-gray-200 rounded-xl p-3 space-y-2.5 bg-white" style={{ borderWidth: "0.5px" }}>
+                              <h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">ডিপোজিট ট্রানজেকশন তথ্য:</h5>
+                              <div className="flex gap-4 items-start">
+                                {deposit?.screenshotUrl ? (
+                                  <div className="shrink-0">
+                                    <span className="text-[10px] text-gray-400 block mb-0.5">রিসিট স্ক্রিনশট:</span>
+                                    <img 
+                                      onClick={() => setViewingImage(deposit.screenshotUrl)}
+                                      src={deposit.screenshotUrl} 
+                                      className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-zoom-in hover:opacity-90 bg-gray-50"
+                                      alt="Deposit Screenshot"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="shrink-0">
+                                    <span className="text-[10px] text-gray-400 block mb-0.5">রিসিট স্ক্রিনশট:</span>
+                                    <div className="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-[9px] text-gray-400 border border-dashed">ছবি নেই</div>
+                                  </div>
+                                )}
+                                <div className="flex-1 space-y-1 text-xs">
+                                  <p className="text-gray-600">জামানত পরিমাণ: <span className="font-bold text-[#1A1A2E] font-sans">${deposit?.amount || emp.depositAmount || 20} USD</span></p>
+                                  <p className="text-gray-600">পেমেন্ট মেথড: <span className="font-semibold text-gray-850">{deposit?.paymentMethod || "বিকাশ/নগদ"}</span></p>
+                                  <p className="text-gray-600">ট্রানজেকশন আইডি: <span className="font-mono font-bold text-[#1B4F72] break-all">{deposit?.transactionId || "পাওয়া যায়নি"}</span></p>
+                                  {deposit?.refundReason && (
+                                    <p className="text-red-600 text-[11px] italic bg-red-50 px-2 py-1 rounded-md mt-1">মন্তব্য/কারণ: {deposit.refundReason}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {actioningEmployerId === emp.id && inlineActionType && (
+                              <div className="bg-[#F7F8FA] border border-gray-200 rounded-xl p-3 space-y-2 text-left" style={{ borderWidth: "0.5px" }}>
+                                <label className="text-[11px] font-semibold text-gray-600 block">
+                                  {inlineActionType === "reject" ? "প্রত্যাখ্যানের কারণ লিখুন (নিয়োগকর্তা নোটিফিকেশন পাবেন):" : "বাজেয়াপ্ত করার কারণ লিখুন (জামানত রিসিটে দেখা যাবে):"}
+                                </label>
+                                <textarea
+                                  value={inlineNoteText}
+                                  onChange={(e) => setInlineNoteText(e.target.value)}
+                                  placeholder={inlineActionType === "reject" ? "যেমন: পাসপোর্টের ছবি পরিষ্কার নয় বা ভুল তথ্য দেওয়া হয়েছে।" : "যেমন: ফেক ট্রানজেকশন রিসিট আপলোড বা প্রতারণার কারণে জামানত বাজেয়াপ্ত করা হলো।"}
+                                  rows={2}
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-xs outline-none font-sans resize-none"
+                                  style={{ borderWidth: "0.5px" }}
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button
+                                    onClick={() => {
+                                      setActioningEmployerId(null);
+                                      setInlineActionType(null);
+                                      setInlineNoteText("");
+                                    }}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-gray-500 hover:text-black bg-gray-100 rounded-lg cursor-pointer"
+                                  >
+                                    বাতিল
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (inlineActionType === "reject") {
+                                        handleRejectEmployerVerifySubTab(emp, inlineNoteText);
+                                      } else {
+                                        handleForfeitEmployerVerifySubTab(emp, inlineNoteText);
+                                      }
+                                    }}
+                                    className={`px-3 py-1 text-[11px] font-semibold text-white rounded-lg cursor-pointer ${
+                                      inlineActionType === "reject" ? "bg-[#E74C3C] hover:opacity-90" : "bg-amber-600 hover:opacity-90"
+                                    }`}
+                                  >
+                                    নিশ্চিত করুন
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="space-y-2 pt-2 border-t border-dashed font-sans">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleVerifyEmployerVerifySubTab(emp)}
+                                  disabled={emp.verificationStatus === "verified"}
+                                  className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                                    emp.verificationStatus === "verified"
+                                      ? "bg-emerald-100 text-[#1D9E75] opacity-60 cursor-not-allowed"
+                                      : "bg-[#1D9E75] text-white hover:opacity-90 shadow-sm"
+                                  }`}
+                                >
+                                  ✓ যাচাই করুন
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActioningEmployerId(emp.id);
+                                    setInlineActionType("reject");
+                                    setInlineNoteText("");
+                                  }}
+                                  disabled={emp.verificationStatus === "rejected"}
+                                  className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                                    emp.verificationStatus === "rejected"
+                                      ? "bg-rose-100 text-[#E74C3C] opacity-60 cursor-not-allowed"
+                                      : "bg-[#E74C3C] text-white hover:opacity-90 shadow-sm"
+                                  }`}
+                                >
+                                  ✗ প্রত্যাখ্যান
+                                </button>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleRefundEmployerVerifySubTab(emp)}
+                                  disabled={emp.depositStatus === "refunded"}
+                                  className={`flex-1 py-2 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-0.5 cursor-pointer transition-all ${
+                                    emp.depositStatus === "refunded"
+                                      ? "bg-blue-100 text-[#1B4F72] opacity-60 cursor-not-allowed"
+                                      : "bg-[#1B4F72] text-white hover:opacity-90 shadow-sm"
+                                  }`}
+                                >
+                                  💰 জামানত ফেরত
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActioningEmployerId(emp.id);
+                                    setInlineActionType("forfeit");
+                                    setInlineNoteText("");
+                                  }}
+                                  disabled={emp.depositStatus === "forfeited"}
+                                  className={`flex-1 py-2 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-0.5 cursor-pointer transition-all ${
+                                    emp.depositStatus === "forfeited"
+                                      ? "bg-amber-100 text-amber-700 opacity-60 cursor-not-allowed"
+                                      : "bg-amber-500 text-white hover:opacity-90 shadow-sm"
+                                  }`}
+                                >
+                                  🚫 বাজেয়াপ্ত
+                                </button>
+                                <button
+                                  onClick={() => handleBlockEmployerVerifySubTab(emp)}
+                                  disabled={emp.verificationStatus === "blocked"}
+                                  className={`flex-1 py-2 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-0.5 cursor-pointer transition-all ${
+                                    emp.verificationStatus === "blocked"
+                                      ? "bg-red-200 text-red-800 opacity-60 cursor-not-allowed"
+                                      : "bg-red-800 text-white hover:opacity-90 shadow-sm"
+                                  }`}
+                                >
+                                  🔒 ব্লক
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
 
                 {/* Sub-tab 1: Employers Management */}
                 {jobSubTab === "employers" && (
