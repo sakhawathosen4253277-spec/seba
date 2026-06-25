@@ -58,6 +58,63 @@ export interface Job {
   isVerified: boolean;
   contactNumber?: string;
   description: string;
+  // Extended fields
+  employerId?: string;
+  employerName?: string;
+  isVerifiedEmployer?: boolean;
+  jobType?: 'full-time' | 'part-time' | 'contract';
+  requirements?: string;
+  whatsapp?: string;
+  isActive?: boolean;
+  applicantsCount?: number;
+  createdAt?: string;
+}
+
+export interface Employer {
+  userId: string;
+  fullName: string;
+  phone: string;
+  phoneVerified: boolean;
+  companyName: string;
+  companyAddress: string;
+  selfieUrl: string;
+  passportUrl: string;
+  depositAmount: number;
+  depositStatus: 'pending' | 'paid' | 'refunded' | 'forfeited';
+  verificationStatus: 'pending' | 'verified' | 'rejected' | 'blocked';
+  totalJobsPosted: number;
+  totalBonusGiven: number;
+  createdAt: string;
+}
+
+export interface JobApplication {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  companyName: string;
+  employerId: string;
+  applicantUserId: string;
+  applicantName: string;
+  applicantPhone: string;
+  currentLocation: string;
+  whyApply: string;
+  status: 'pending' | 'hired' | 'rejected';
+  workerFeedback: string;
+  workerConfirmed: boolean;
+  employerBonusGiven: boolean;
+  createdAt: string;
+}
+
+export interface EmployerDeposit {
+  id: string;
+  employerId: string;
+  amount: number;
+  paymentMethod: string;
+  transactionId: string;
+  screenshotUrl: string;
+  status: 'pending' | 'verified' | 'refunded' | 'forfeited';
+  refundReason?: string;
+  createdAt: string;
 }
 
 export interface ScamReport {

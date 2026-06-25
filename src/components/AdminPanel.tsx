@@ -58,6 +58,9 @@ export default function AdminPanel() {
   const [ticker, setTicker] = useState<any[]>([]);
   const [exchange, setExchange] = useState<any>({ bkash: 110.50, nagad: 110.60, bank: 110.80, usdRate: 110.80 });
   const [jobs, setJobs] = useState<any[]>([]);
+  const [employers, setEmployers] = useState<any[]>([]);
+  const [jobApplications, setJobApplications] = useState<any[]>([]);
+  const [jobSubTab, setJobSubTab] = useState<"employers" | "jobs" | "applications">("employers");
   const [scams, setScams] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [emergency, setEmergency] = useState<any[]>([]);
@@ -358,6 +361,16 @@ export default function AdminPanel() {
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setJobs(list);
+
+        const qEmp = query(collection(db, "employers"), orderBy("createdAt", "desc"));
+        const snapshotEmp = await getDocs(qEmp);
+        const listEmp = snapshotEmp.docs.map(d => ({ id: d.id, ...d.data() }));
+        setEmployers(listEmp);
+
+        const qApp = query(collection(db, "jobApplications"), orderBy("createdAt", "desc"));
+        const snapshotApp = await getDocs(qApp);
+        const listApp = snapshotApp.docs.map(d => ({ id: d.id, ...d.data() }));
+        setJobApplications(listApp);
       } else if (tab === "scams") {
         const q = query(collection(db, "scamReports"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
@@ -802,6 +815,130 @@ export default function AdminPanel() {
       fetchTabData("jobs");
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
+  // EMPLOYERS & APPLICATIONS ADMIN HANDLERS
+  const handleVerifyEmployer = async (emp: any) => {
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "verified",
+        depositStatus: "paid"
+      });
+
+      // Also find corresponding deposit and verify it
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "verified"
+        });
+      }
+
+      showStatusMsg("নিয়োগকর্তা এবং জামানত সফলভাবে ভেরিফাই করা হয়েছে ভাই!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("ভেরিফাই করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleRejectEmployer = async (emp: any) => {
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "rejected",
+        depositStatus: "refunded"
+      });
+
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "refunded",
+          refundReason: "প্রশাসন কর্তৃক বাতিলকৃত"
+        });
+      }
+
+      showStatusMsg("নিয়োগকর্তা নিবন্ধন রিজেক্ট ও জামানত রিফান্ড স্ট্যাটাস দেওয়া হয়েছে।");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("অপারেশন ব্যর্থ হয়েছে।", true);
+    }
+  };
+
+  const handleBlockEmployer = async (emp: any) => {
+    try {
+      await updateDoc(doc(db, "employers", emp.id), {
+        verificationStatus: "blocked",
+        depositStatus: "forfeited"
+      });
+
+      const q = query(collection(db, "employerDeposits"), where("employerId", "==", emp.id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await updateDoc(doc(db, "employerDeposits", d.id), {
+          status: "forfeited",
+          refundReason: "প্রতারণার কারণে জামানত বাজেয়াপ্ত"
+        });
+      }
+
+      showStatusMsg("নিয়োগকর্তা ব্লক এবং জামানত সফলভাবে বাজেয়াপ্ত করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("অপারেশন ব্যর্থ হয়েছে।", true);
+    }
+  };
+
+  const handleHireApplicant = async (app: any) => {
+    try {
+      // 1. Mark application status as hired
+      await updateDoc(doc(db, "jobApplications", app.id), {
+        status: "hired"
+      });
+
+      // 2. Increment totalBonusGiven on the employer document
+      if (app.employerId) {
+        const empRef = doc(db, "employers", app.employerId);
+        const empSnap = await getDoc(empRef);
+        if (empSnap.exists()) {
+          const empData = empSnap.data();
+          await updateDoc(empRef, {
+            totalBonusGiven: (empData.totalBonusGiven || 0) + 10,
+            depositStatus: "refunded"
+          });
+        }
+
+        // Also mark corresponding deposit as refunded
+        const q = query(collection(db, "employerDeposits"), where("employerId", "==", app.employerId));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(doc(db, "employerDeposits", d.id), {
+            status: "refunded",
+            refundReason: "কর্মী নিয়োগ নিশ্চিত হওয়ায় ফেরত"
+          });
+        }
+      }
+
+      showStatusMsg("কর্মী নিয়োগ নিশ্চিত হয়েছে! নিয়োগকর্তা $20 ফেরত ও $10 বোনাস পাবেন।");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("অপারেশন ব্যর্থ হয়েছে।", true);
+    }
+  };
+
+  const handleRejectApplicant = async (app: any) => {
+    try {
+      await updateDoc(doc(db, "jobApplications", app.id), {
+        status: "rejected"
+      });
+      showStatusMsg("আবেদনটি বাতিল করা হয়েছে ভাই।");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("অপারেশন ব্যর্থ হয়েছে।", true);
     }
   };
 
@@ -2133,68 +2270,58 @@ export default function AdminPanel() {
 
                           <div className="col-span-2">
                             <span className="text-[#6B7280] text-[10px] block">Cambodia Reference/Tx ID:</span>
-                            <span className="font-mono font-bold text-gray-700">{item.transactionId || "N/A"}</span>
+                            <p className="font-mono text-gray-900 font-bold select-all bg-gray-100 p-1 rounded inline-block text-xs">{item.transactionId || "N/A"}</p>
                           </div>
 
-                          {item.createdAt && (
-                            <div className="col-span-2 text-[10px] text-gray-500 pt-1 flex flex-col space-y-0.5 font-sans">
-                              <span>অনুরোধ সময়: {new Date(item.createdAt).toLocaleString("bn-BD")}</span>
-                              {item.completedAt && <span className="text-[#1D9E75] font-semibold">সম্পন্ন তারিখ: {new Date(item.completedAt).toLocaleString("bn-BD")}</span>}
+                          {item.screenshotUrl && (
+                            <div className="col-span-2">
+                              <span className="text-[#6B7280] text-[10px] block mb-1">ইউজার আপলোডকৃত স্ক্রিনশট:</span>
+                              <img 
+                                src={item.screenshotUrl} 
+                                alt="screenshot" 
+                                onClick={() => setViewingImage(item.screenshotUrl)}
+                                className="w-full max-h-[140px] object-contain rounded border bg-gray-100 cursor-zoom-in hover:opacity-90 transition-all"
+                              />
+                            </div>
+                          )}
+
+                          {item.rejectReason && (
+                            <div className="col-span-2 p-2.5 bg-red-50 text-red-700 border border-red-100 rounded-lg text-[10px] leading-relaxed">
+                              ❌ <strong>বাতিল করার কারণ:</strong> {item.rejectReason}
+                            </div>
+                          )}
+
+                          {item.proofSentImageUrl && (
+                            <div className="col-span-2">
+                              <span className="text-[#1D9E75] text-[10px] block font-bold mb-1">🏦 প্রেরিত টাকা পাঠানোর প্রমাণ (স্ক্রিনশট):</span>
+                              <img 
+                                src={item.proofSentImageUrl} 
+                                alt="proof screenshot" 
+                                onClick={() => setViewingImage(item.proofSentImageUrl)}
+                                className="w-full max-h-[140px] object-contain rounded border bg-emerald-50/50 cursor-zoom-in hover:opacity-90 transition-all border-emerald-100"
+                              />
+                              {item.durationMinutes && (
+                                <p className="text-[10px] text-gray-400 mt-1">সম্পন্ন করতে সময় লেগেছে: {item.durationMinutes} মিনিট</p>
+                              )}
                             </div>
                           )}
                         </div>
 
-                        {/* Note if submitted */}
-                        {item.note && (
-                          <p className="text-[11px] text-[#6B7280] bg-orange-50/50 p-2 rounded-lg border border-orange-100/30">
-                            💡 <strong>ইউজার নোট:</strong> {item.note}
-                          </p>
-                        )}
-
-                        {/* Rejection reason display if cancelled */}
-                        {item.status === "failed" && item.rejectReason && (
-                          <p className="text-[11px] text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-100 font-sans">
-                            ⚠️ <strong>বাতিল কারণ:</strong> {item.rejectReason}
-                          </p>
-                        )}
-
-                        {/* User's uploaded screenshot of initial payment */}
-                        {item.proofImageUrl && item.status !== "completed" && (
-                          <div className="border border-gray-100 rounded-xl p-2 bg-gray-50 text-center font-sans">
-                            <p className="text-[10px] text-gray-400 mb-1">গ্রাহকের পেমেন্ট স্ক্রিনশট (বড় করতে ট্যাপ করুন):</p>
-                            <img 
-                              src={item.proofImageUrl} 
-                              alt="Customer Payment Receipt" 
-                              onClick={() => setViewingImage(item.proofImageUrl)}
-                              className="max-h-[160px] max-w-full object-contain rounded-lg border border-gray-100 mx-auto cursor-pointer"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                        )}
-
-                        {/* Admin's uploaded proof of transfer to bKash (If completed) */}
-                        {item.status === "completed" && item.proofImageUrl && (
-                          <div className="border border-gray-100 rounded-xl p-2 bg-emerald-50/20 text-center font-sans">
-                            <p className="text-[10px] text-[#1D9E75] mb-1 font-semibold">অফিসিয়াল ট্রান্সফার রিসিট প্রুফ (বড় করতে ট্যাপ করুন):</p>
-                            <img 
-                              src={item.proofImageUrl} 
-                              alt="Official Receipt proof" 
-                              onClick={() => setViewingImage(item.proofImageUrl)}
-                              className="max-h-[160px] max-w-full object-contain rounded-lg border border-gray-100 mx-auto cursor-pointer"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                        )}
-
-                        {/* Action buttons following precise styling parameters */}
-                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 flex-wrap">
+                        {/* Action Buttons for transfer requests based on status */}
+                        <div className="flex gap-2 pt-1">
                           {item.status === "pending" && (
                             <>
                               <button
                                 onClick={() => handleStartProcessingTransfer(item.id)}
-                                className="bg-[#1B4F72] text-white text-[13px] font-semibold px-4 py-2 rounded-[10px] select-none cursor-pointer hover:opacity-95"
+                                className="bg-[#1B4F72] text-white text-[13px] font-semibold flex-1 py-2 rounded-[10px] select-none cursor-pointer hover:bg-opacity-95"
                               >
-                                প্রক্রিয়া শুরু
+                                প্রসেসিং করুন
+                              </button>
+                              <button
+                                onClick={() => handleStartSentTransfer(item.id)}
+                                className="bg-[#1B6CA8] text-white text-[13px] font-semibold flex-1 py-2 rounded-[10px] select-none cursor-pointer hover:bg-opacity-95"
+                              >
+                                সেন্ড করুন
                               </button>
                               <button
                                 onClick={() => setSelectedRejectTransfer(item)}
@@ -2209,15 +2336,9 @@ export default function AdminPanel() {
                             <>
                               <button
                                 onClick={() => handleStartSentTransfer(item.id)}
-                                className="bg-[#1B4F72] text-white text-[13px] font-semibold px-4 py-2 rounded-[10px] select-none cursor-pointer hover:opacity-95"
+                                className="bg-[#1B6CA8] text-white text-[13px] font-semibold flex-1 py-2 rounded-[10px] select-none cursor-pointer hover:bg-opacity-95"
                               >
-                                টাকা পাঠানো হচ্ছে
-                              </button>
-                              <button
-                                onClick={() => setSelectedCompletedTransfer(item)}
-                                className="bg-[#1D9E75] text-white text-[13px] font-semibold px-4 py-2 rounded-[10px] select-none cursor-pointer hover:opacity-95"
-                              >
-                                সম্পন্ন
+                                সেন্ড করুন (Mark Sent)
                               </button>
                               <button
                                 onClick={() => setSelectedRejectTransfer(item)}
@@ -2249,6 +2370,289 @@ export default function AdminPanel() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ==== JOBS TAB ==== */}
+            {activeTab === "jobs" && (
+              <div className="space-y-4">
+                {/* Job board administrative sub-tabs */}
+                <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                  {[
+                    { id: "employers", label: "নিয়োগকর্তা (" + employers.length + ")" },
+                    { id: "jobs", label: "চাকরি (" + jobs.length + ")" },
+                    { id: "applications", label: "আবেদন (" + jobApplications.length + ")" }
+                  ].map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => setJobSubTab(sub.id as any)}
+                      className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all cursor-pointer outline-none ${
+                        jobSubTab === sub.id
+                          ? "bg-[#1B4F72] text-white shadow-xs"
+                          : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-tab 1: Employers Management */}
+                {jobSubTab === "employers" && (
+                  <div className="space-y-3.5">
+                    <h3 className="text-xs font-semibold text-[#6B7280] text-left">নিবন্ধিত নিয়োগকর্তা তালিকা:</h3>
+                    {employers.length === 0 ? (
+                      <p className="text-xs text-[#6B7280] italic py-4 text-center bg-white rounded-xl border" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>কোনো নিয়োগকর্তা নিবন্ধন পাওয়া যায়নি ভাই।</p>
+                    ) : (
+                      employers.map((emp) => (
+                        <div 
+                          key={emp.id} 
+                          className="bg-white border p-4 rounded-[14px] space-y-3 text-left font-sans"
+                          style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                        >
+                          <div className="flex justify-between items-start gap-2 border-b pb-2">
+                            <div>
+                              <h4 className="text-xs font-bold text-[#1A1A2E]">{emp.fullName}</h4>
+                              <p className="text-[10px] text-[#6B7280] font-sans">UserId: {emp.userId}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{emp.createdAt ? new Date(emp.createdAt).toLocaleString('bn-BD') : ""}</p>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <span className={`inline-block text-[9px] px-2 py-0.5 rounded font-bold ${
+                                emp.verificationStatus === "verified" ? "bg-emerald-50 text-[#1D9E75] border border-emerald-100" :
+                                emp.verificationStatus === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                                "bg-red-50 text-red-600 border border-red-100"
+                              }`}>
+                                {emp.verificationStatus === "verified" && "ভেরিফাইড"}
+                                {emp.verificationStatus === "pending" && "পেন্ডিং রিভিউ"}
+                                {emp.verificationStatus === "rejected" && "রিজেক্টেড"}
+                                {emp.verificationStatus === "blocked" && "ব্লকড"}
+                              </span>
+                              <div className="text-[9px] text-gray-500">
+                                ডিপোজিট: <span className="font-bold font-sans">${emp.depositAmount || 20}</span> ({emp.depositStatus === "paid" ? "পেইড" : emp.depositStatus === "pending" ? "পেন্ডিং" : emp.depositStatus === "refunded" ? "ফেরত" : "বাজেয়াপ্ত"})
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 text-[11px] text-gray-700 font-sans">
+                            <div>
+                              <span className="text-[#6B7280] block text-[10px]">কোম্পানি নাম:</span>
+                              <span className="font-semibold text-gray-950">{emp.companyName}</span>
+                            </div>
+                            <div>
+                              <span className="text-[#6B7280] block text-[10px]">যোগাযোগ ফোন:</span>
+                              <span className="font-semibold text-gray-950 font-mono">{emp.phone}</span>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-[#6B7280] block text-[10px]">কোম্পানি ঠিকানা:</span>
+                              <span className="text-gray-950">{emp.companyAddress}</span>
+                            </div>
+                          </div>
+
+                          {/* Image Attachments */}
+                          <div className="grid grid-cols-2 gap-2.5 pt-1">
+                            <div>
+                              <span className="text-[10px] text-gray-400 block mb-1">ছবি (Selfie):</span>
+                              {emp.selfieUrl ? (
+                                <img 
+                                  onClick={() => setViewingImage(emp.selfieUrl)}
+                                  src={emp.selfieUrl} 
+                                  className="w-full h-20 object-cover rounded-lg border border-gray-100 cursor-zoom-in hover:opacity-90"
+                                  alt="Selfie"
+                                />
+                              ) : (
+                                <div className="w-full h-20 bg-gray-50 rounded-lg flex items-center justify-center text-[10px] text-gray-400">ছবি নেই</div>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 block mb-1">পাসপোর্ট/NID স্ক্যান:</span>
+                              {emp.passportUrl ? (
+                                <img 
+                                  onClick={() => setViewingImage(emp.passportUrl)}
+                                  src={emp.passportUrl} 
+                                  className="w-full h-20 object-cover rounded-lg border border-gray-100 cursor-zoom-in hover:opacity-90"
+                                  alt="Passport"
+                                />
+                              ) : (
+                                <div className="w-full h-20 bg-gray-50 rounded-lg flex items-center justify-center text-[10px] text-gray-400">ছবি নেই</div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Verification Actions */}
+                          {emp.verificationStatus === "pending" && (
+                            <div className="flex gap-2 pt-2.5 border-t border-dashed">
+                              <button
+                                onClick={() => handleVerifyEmployer(emp)}
+                                className="flex-1 py-2 bg-[#1D9E75] text-white text-xs font-semibold rounded-lg hover:opacity-90 cursor-pointer text-center"
+                              >
+                                অনুমোদন ও ভেরিফাই
+                              </button>
+                              <button
+                                onClick={() => handleRejectEmployer(emp)}
+                                className="py-2 px-3 bg-amber-500 text-white text-xs font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                              >
+                                রিজেক্ট ও ফেরত
+                              </button>
+                              <button
+                                onClick={() => handleBlockEmployer(emp)}
+                                className="py-2 px-3 bg-[#E74C3C] text-white text-xs font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                              >
+                                ব্লক ও বাজেয়াপ্ত
+                              </button>
+                            </div>
+                          )}
+
+                          {emp.verificationStatus === "verified" && (
+                            <div className="flex justify-end pt-2 border-t border-dashed">
+                              <button
+                                onClick={() => handleBlockEmployer(emp)}
+                                className="py-1.5 px-3 bg-red-50 text-[#E74C3C] border border-red-100 text-[10px] font-bold rounded-lg hover:bg-red-100 transition-all cursor-pointer"
+                              >
+                                স্থগিত করুন (Block)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-tab 2: Jobs Management */}
+                {jobSubTab === "jobs" && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-[#6B7280] text-left">কর্মসংস্থান ও চাকরি পোস্টসমূহ:</h3>
+                    {jobs.length === 0 ? (
+                      <p className="text-xs text-[#6B7280] italic py-2 text-left bg-white rounded-xl p-4 border" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>কোনো চাকরি পাওয়া যায়নি। ইউজার রিকোয়েস্ট তৈরি হলে এখানে আসবে ভাই।</p>
+                    ) : (
+                      jobs.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="bg-white border p-4 rounded-[14px] flex justify-between items-start space-x-2 text-left"
+                          style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                        >
+                          <div className="flex-1 space-y-1">
+                            <h4 className="text-xs font-medium text-[#1A1A2E]">{item.title}</h4>
+                            <p className="text-[11px] text-[#6B7280] font-sans">{item.company} • {item.location}</p>
+                            <p className="text-[11px] font-medium text-[#1D9E75]">{item.salaryRange || item.salary}</p>
+                            <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 font-sans">{item.description}</p>
+                            
+                            <div className="flex space-x-1.5 items-center mt-2 flex-wrap gap-1 font-sans">
+                              <span className={`text-[9px] px-2 py-0.5 rounded font-medium ${
+                                item.isVerified ? "bg-[#E9F7EF] text-[#1D9E75]" : "bg-gray-100 text-[#6B7280]"
+                              }`}>
+                                {item.isVerified ? "ভেরিফাইড" : "আনভেরিফাইড"}
+                              </span>
+                              <span className={`text-[9px] px-2 py-0.5 rounded font-medium ${
+                                item.isActive !== false ? "bg-blue-50 text-[#1B4F72]" : "bg-red-50 text-[#E74C3C]"
+                              }`}>
+                                {item.isActive !== false ? "সক্রিয়" : "বন্ধ"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col space-y-1.5 shrink-0">
+                            {/* Verify/Unverify Toggle */}
+                            <button
+                              onClick={() => handleToggleJobVerified(item)}
+                              className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                              title="ভেরিফাইড টগল করুন"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleJobActive(item)}
+                              className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                              title="অ্যাক্টিভ টগল করুন"
+                            >
+                              {item.isActive !== false ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteJob(item.id)}
+                              className="bg-[#E74C3C] text-white p-1.5 rounded-lg hover:opacity-90 flex items-center justify-center cursor-pointer"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-tab 3: Applications Management */}
+                {jobSubTab === "applications" && (
+                  <div className="space-y-3.5">
+                    <h3 className="text-xs font-semibold text-[#6B7280] text-left">চাকরির আবেদনসমূহ:</h3>
+                    {jobApplications.length === 0 ? (
+                      <p className="text-xs text-[#6B7280] italic py-4 text-center bg-white rounded-xl border" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>কোনো চাকরির আবেদন পাওয়া যায়নি ভাই।</p>
+                    ) : (
+                      jobApplications.map((app) => (
+                        <div 
+                          key={app.id} 
+                          className="bg-white border p-4 rounded-[14px] space-y-2.5 text-left font-sans"
+                          style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                        >
+                          <div className="flex justify-between items-start border-b pb-2">
+                            <div>
+                              <span className="text-[10px] text-gray-400 block">আবেদন আইডি: {app.id}</span>
+                              <h4 className="text-xs font-bold text-[#1B4F72]">{app.jobTitle}</h4>
+                              <p className="text-[10px] text-gray-500 font-sans">{app.companyName}</p>
+                            </div>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-bold ${
+                              app.status === "hired" ? "bg-emerald-50 text-[#1D9E75] border border-emerald-100" :
+                              app.status === "pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                              "bg-red-50 text-red-600 border border-red-100"
+                            }`}>
+                              {app.status === "hired" && "নিযুক্ত (Hired)"}
+                              {app.status === "pending" && "পেন্ডিং রিভিউ"}
+                              {app.status === "rejected" && "বাতিলকৃত"}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-gray-700 space-y-1 bg-slate-50 p-2.5 rounded-lg border border-gray-100 font-sans">
+                            <p>👤 <strong>আবেদনকারী:</strong> {app.applicantName}</p>
+                            <p>📞 <strong>যোগাযোগ:</strong> {app.applicantPhone}</p>
+                            <p>📍 <strong>ঠিকানা:</strong> {app.currentLocation}</p>
+                            {app.whyApply && (
+                              <p className="mt-1 pt-1 border-t border-gray-200/50 text-gray-500 italic">
+                                "{app.whyApply}"
+                              </p>
+                            )}
+                          </div>
+
+                          {app.status === "pending" && (
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("আপনি কি নিশ্চিতভাবে এই কর্মী নিয়োগ নিশ্চিত করতে চান? এটি নিয়োগকর্তাকে $20 রিফান্ড এবং $10 অতিরিক্ত বোনাস প্রদান করবে ভাই!")) {
+                                    handleHireApplicant(app);
+                                  }
+                                }}
+                                className="flex-1 py-1.5 bg-[#1D9E75] text-white text-[11px] font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                              >
+                                নিয়োগ নিশ্চিত করুন (Hired)
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("আপনি কি এই আবেদনটি রিজেক্ট করতে চান?")) {
+                                    handleRejectApplicant(app);
+                                  }
+                                }}
+                                className="py-1.5 px-3.5 bg-[#E74C3C] text-white text-[11px] font-semibold rounded-lg hover:opacity-90 cursor-pointer"
+                              >
+                                বাতিল
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
