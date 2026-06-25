@@ -1546,10 +1546,6 @@ export default function AdminPanel() {
       showStatusMsg("দয়া করে bKash নম্বরের শেষ ৪ সংখ্যা লিখুন ভাই!", true);
       return;
     }
-    if (!proofSentImageCode) {
-      showStatusMsg("দয়া করে পেমেন্ট সম্পন্ন করার একটি প্রুফ স্ক্রিনশট আপলোড করুন ভাই!", true);
-      return;
-    }
 
     try {
       const transferId = selectedCompletedTransfer.id;
@@ -1560,7 +1556,7 @@ export default function AdminPanel() {
       // Update transfer request in Firestore
       await updateDoc(doc(db, "transferRequests", transferId), {
         status: "completed",
-        proofImageUrl: proofSentImageCode,
+        proofImageUrl: proofSentImageCode || "",
         completedAt: new Date().toISOString(),
         confirmationDigits: confirmationDigits.trim()
       });
@@ -4624,26 +4620,6 @@ export default function AdminPanel() {
                   className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-2.5 py-1.5 text-xs outline-none font-sans font-bold"
                   style={{ borderWidth: "0.5px" }}
                 />
-              </div>
-
-              <div className="flex flex-col space-y-1 text-left">
-                <label className="text-[10px] text-gray-600 font-semibold font-sans">বিকাশ/নগদ পেমেন্ট রিসিট (প্রুফ স্ক্রিনশট):</label>
-                <label className="border border-dashed border-[#E5E7EB] bg-[#F7F8FA] hover:bg-gray-100 p-3 rounded-xl text-center flex flex-col items-center justify-center gap-1 cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleProofImageChange}
-                    className="hidden"
-                  />
-                  {proofSentImageCode ? (
-                    <span className="text-[11px] text-[#1D9E75] font-semibold truncate max-w-[200px]">{proofSentImageName || "স্ক্রিনশট যুক্ত হয়েছে"}</span>
-                  ) : (
-                    <>
-                      <ImageIcon className="w-4 h-4 text-gray-400" />
-                      <span className="text-[11px] text-gray-500 font-sans">ফাইল নির্বাচন করুন</span>
-                    </>
-                  )}
-                </label>
               </div>
             </div>
 

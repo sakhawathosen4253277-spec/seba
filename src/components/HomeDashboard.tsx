@@ -597,7 +597,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
               <span className="text-[12px] ml-1.5 font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>USD</span>
             </h3>
             <div className="mt-2.5 text-[11px] font-sans flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
-              <span>⭐ 4.8/5 • {statsCount}+ সফল ট্রান্সফার</span>
+              <span>{statsCount}+ সফল ট্রান্সফার</span>
             </div>
           </div>
 
