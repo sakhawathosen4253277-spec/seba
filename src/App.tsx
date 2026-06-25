@@ -94,48 +94,7 @@ export default function App() {
   };
   
   // Unified Jobs State for Real-Time Sync
-  const [jobs, setJobs] = useState<Job[]>([
-    {
-      id: "job-1",
-      title: "গার্মেন্টস সেলাই অপারেটর",
-      company: "Phnom Penh Apparels Ltd.",
-      location: "Veng Sreng Road, Phnom Penh",
-      salaryRange: "$৩৫০ - $৪২০ / প্রতি মাস",
-      category: "factory",
-      isVerified: true,
-      description: "বাংলাদেশি ভাইদের জন্য দুর্দান্ত সুযোগ। ফুড ও বাসস্থান সম্পূর্ণ ফ্রি। ওভারটাইম করার সুযোগ থাকবে। কাজের সময় প্রতিদিন ৮ ঘণ্টা।"
-    },
-    {
-      id: "job-2",
-      title: "হোটেল সহকারী বাবুর্চি (Chef)",
-      company: "Dhaka Spice Restaurant",
-      location: "BKK1, Phnom Penh",
-      salaryRange: "$৩০০ - $৩৮০ / প্রতি মাস",
-      category: "restaurant",
-      isVerified: true,
-      description: "বাংলাদেশি স্পাইসি খাবার তৈরিতে পারদর্শী হতে হবে। বাংলা ভাষায় কথা বলার সহকারী আছে। টিপস এর সুবিধা আছে।"
-    },
-    {
-      id: "job-3",
-      title: "কনস্ট্রাকশন সাইট ফোরম্যান",
-      company: "Sihanoukville Port Construction",
-      location: "Sihanoukville",
-      salaryRange: "$৫০০ - $৬৫০ / প্রতি মাস",
-      category: "construction",
-      isVerified: false,
-      description: "কংক্রিট মিক্সিং ও শ্রমিক পরিচালনার কাজে ৩ বছরের কাজের অভিজ্ঞতা জরুরি। দয়া করে কোনো দালাল বা এজেন্টকে টাকা দেবেন না।"
-    },
-    {
-      id: "job-4",
-      title: "গৃহস্থালি ও পরিষ্কারকর্মী",
-      company: "Sen Sok Residentials",
-      location: "Sen Sok, Phnom Penh",
-      salaryRange: "$২৫০ - $৩০০ / প্রতি মাস",
-      category: "household",
-      isVerified: true,
-      description: "ভাড়া বাসার রুম ও কিচেন পরিষ্কার করার হালকা কাজ। সপ্তাহে একদিন ছুটি থকবে।"
-    }
-  ]);
+  const [jobs, setJobs] = useState<Job[]>([]);
 
   // Unified Scam Reports State
   const [scamReports, setScamReports] = useState<ScamReportType[]>([
@@ -888,7 +847,7 @@ export default function App() {
                   <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
                   <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
                 </div>
-                <EmergencyCenter />
+                <EmergencyCenter onNavigateToChat={() => handleServiceSelect("chat")} />
               </div>
             )}
 

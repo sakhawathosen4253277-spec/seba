@@ -13,7 +13,8 @@ import {
   Briefcase,
   Compass,
   AlertTriangle,
-  Users
+  Users,
+  ChevronRight
 } from "lucide-react";
 import { db } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -27,7 +28,11 @@ interface EmergencyContact {
   order?: number;
 }
 
-export default function EmergencyCenter() {
+interface EmergencyCenterProps {
+  onNavigateToChat: () => void;
+}
+
+export default function EmergencyCenter({ onNavigateToChat }: EmergencyCenterProps) {
   const [expandedSituation, setExpandedSituation] = useState<number | null>(null);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -174,6 +179,39 @@ export default function EmergencyCenter() {
       </div>
 
       <div className="px-4 py-5 space-y-6">
+
+        {/* 'আমাদের AI কে মেসেজ করুন' Card */}
+        <div 
+          onClick={onNavigateToChat}
+          className="bg-white border text-left flex flex-col cursor-pointer hover:border-[#1B4F72]/30 active:scale-[0.99] transition-all"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px',
+            padding: '16px'
+          }}
+          id="ai-helper-emergency-card"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-3.5">
+              <div 
+                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                style={{ backgroundColor: "#EBF5FB", color: "#1B4F72" }}
+              >
+                <MessageSquare className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="text-left flex-1">
+                <h3 className="text-[15px] font-medium text-[#1A1A2E] leading-tight font-sans">
+                  আমাদের AI কে মেসেজ করুন
+                </h3>
+                <p className="text-[12px] text-[#6B7280] mt-1 font-sans leading-relaxed">
+                  কম্বোডিয়ার ভিসা, চাকরি, ওভারস্টে জরিমানা ও প্রবাসী সেবার যেকোনো তথ্য জানতে আমাদের স্বয়ংক্রিয় এআই-কে জিজ্ঞেস করুন ভাই।
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-[#6B7280] self-center ml-2 shrink-0" />
+          </div>
+        </div>
 
         {/* 1. Emergency Call Cards */}
         <div className="space-y-4" id="emergency-call-cards-section">

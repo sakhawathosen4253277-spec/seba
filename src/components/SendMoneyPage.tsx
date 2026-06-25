@@ -37,6 +37,21 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
   });
   const [loadingFees, setLoadingFees] = useState<boolean>(true);
   const [isFirstTransfer, setIsFirstTransfer] = useState<boolean>(false);
+  const [timeDisplay, setTimeDisplay] = useState<string>("৫ মিনিট থেকে ২ ঘণ্টার মধ্যে");
+
+  useEffect(() => {
+    const fetchTime = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'transfer'));
+        if (snap.exists()) {
+          setTimeDisplay(snap.data().timeDisplay || "৫ মিনিট থেকে ২ ঘণ্টার মধ্যে");
+        }
+      } catch (err) {
+        console.error("Error fetching transfer time:", err);
+      }
+    };
+    fetchTime();
+  }, []);
 
   // Load exchange rate from DB
   useEffect(() => {
@@ -236,8 +251,14 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
         <div className="bg-white border border-[#E5E7EB] rounded-[24px] p-8 max-w-sm w-full flex flex-col items-center space-y-4">
           <span className="text-[48px] leading-none text-[#1D9E75]">✅</span>
           <h2 className="text-base font-semibold text-[#0F6E56]">অনুরোধ পাওয়া গেছে!</h2>
-          <p className="text-[13px] leading-relaxed text-[#6B7280]">
-            আমরা ৫ মিনিট থেকে ২ ঘণ্টার মধ্যে পাঠিয়ে দেব ইনশাআল্লাহ 🤲
+          <p className="text-[14px] font-medium text-[#1A1A2E] leading-relaxed">
+            আমরা যাচাই করে {timeDisplay} পাঠিয়ে দেব ইনশাআল্লাহ 🤲
+          </p>
+          <div className="bg-[#F7F8FA] px-4 py-1.5 rounded-full border border-[#E5E7EB]">
+            <span className="text-xs font-medium text-[#1B4F72]">Status: অপেক্ষায়...</span>
+          </div>
+          <p className="text-[11px] text-[#6B7280]">
+            পাঠানো নিশ্চিত হলে আপনাকে জানানো হবে
           </p>
           <button
             onClick={() => {

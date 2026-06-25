@@ -163,8 +163,12 @@ export function downloadReceiptImage(tx: any) {
 
   // 3. TRANSACTION INFO CARD
   ctx.save();
+  const hasDigits = !!tx.confirmationDigits;
+  const cardHeight = hasDigits ? 82 : 62;
+  const offset = hasDigits ? 20 : 0;
+
   ctx.fillStyle = "#F7F8FA";
-  drawRoundRect(ctx, 45, 248, 510, 62, 12);
+  drawRoundRect(ctx, 45, 248, 510, cardHeight, 12);
   ctx.fill();
 
   // Left side
@@ -175,7 +179,17 @@ export function downloadReceiptImage(tx: any) {
   
   ctx.fillStyle = "#1B4F72";
   ctx.font = "500 13px 'Inter', Arial, sans-serif";
-  ctx.fillText(`TXN-${tx.id || "PENDING"}`, 60, 290);
+  ctx.fillText(`TXN-${tx.id || "PENDING"}`, 60, 288);
+
+  if (hasDigits) {
+    ctx.fillStyle = "#6B7280";
+    ctx.font = "11px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
+    ctx.fillText("নিশ্চিতকরণ কোড", 60, 312);
+
+    ctx.fillStyle = "#1B4F72";
+    ctx.font = "500 13px 'Inter', Arial, sans-serif";
+    ctx.fillText(String(tx.confirmationDigits), 165, 312);
+  }
 
   // Right side
   ctx.textAlign = "right";
@@ -197,15 +211,15 @@ export function downloadReceiptImage(tx: any) {
   ctx.fillStyle = "#1B4F72";
   ctx.font = "500 13px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("প্রাপকের তথ্য", 45, 340);
+  ctx.fillText("প্রাপকের তথ্য", 45, 340 + offset);
 
   // Card box
   ctx.fillStyle = "#FFFFFF";
   ctx.strokeStyle = "#E5E7EB";
   ctx.lineWidth = 0.5;
-  drawRoundRect(ctx, 45, 350, 510, 130, 14);
+  drawRoundRect(ctx, 45, 350 + offset, 510, 130, 14);
   ctx.fill();
-  drawRoundRect(ctx, 45, 350, 510, 130, 14);
+  drawRoundRect(ctx, 45, 350 + offset, 510, 130, 14);
   ctx.stroke();
 
   // Rows helper inside Card
@@ -233,9 +247,9 @@ export function downloadReceiptImage(tx: any) {
     }
   };
 
-  drawCardRow(385, "👤 নাম", recipientName);
-  drawCardRow(422, "📱 নম্বর", recipientPhone);
-  drawCardRow(459, "💼 মাধ্যম", methodLabel, true);
+  drawCardRow(385 + offset, "👤 নাম", recipientName);
+  drawCardRow(422 + offset, "📱 নম্বর", recipientPhone);
+  drawCardRow(459 + offset, "💼 মাধ্যম", methodLabel, true);
   ctx.restore();
 
   // 5. TRANSACTION DETAILS SECTION
@@ -243,15 +257,15 @@ export function downloadReceiptImage(tx: any) {
   ctx.fillStyle = "#1B4F72";
   ctx.font = "500 13px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("লেনদেনের বিবরণ", 45, 510);
+  ctx.fillText("লেনদেনের বিবরণ", 45, 510 + offset);
 
   // Card Box
   ctx.fillStyle = "#FFFFFF";
   ctx.strokeStyle = "#E5E7EB";
   ctx.lineWidth = 0.5;
-  drawRoundRect(ctx, 45, 520, 510, 205, 14);
+  drawRoundRect(ctx, 45, 520 + offset, 510, 205, 14);
   ctx.fill();
-  drawRoundRect(ctx, 45, 520, 510, 205, 14);
+  drawRoundRect(ctx, 45, 520 + offset, 510, 205, 14);
   ctx.stroke();
 
   // Inner Rows
@@ -267,10 +281,10 @@ export function downloadReceiptImage(tx: any) {
     ctx.fillText(value, 540, y);
   };
 
-  drawDetailsRow(552, "প্রেরিত পরিমাণ", `$${recipientAmount.toFixed(2)} USD`, "#1A1A2E", "600 13px 'Inter'");
-  drawDetailsRow(584, "এক্সচেঞ্জ রেট", exchangeRateStr, "#1A1A2E", "500 12px 'Inter'");
-  drawDetailsRow(616, "সার্ভিস চার্জ (2%)", `$${serviceCharge.toFixed(2)} USD`, "#E74C3C", "500 12px 'Inter'");
-  drawDetailsRow(648, "প্রাপক পাবেন", `৳ ${bdtAmount.toLocaleString("bn-BD")} BDT`, "#0F6E56", "bold 14px 'Inter', 'Noto Sans Bengali', Arial, sans-serif");
+  drawDetailsRow(552 + offset, "প্রেরিত পরিমাণ", `$${recipientAmount.toFixed(2)} USD`, "#1A1A2E", "600 13px 'Inter'");
+  drawDetailsRow(584 + offset, "এক্সচেঞ্জ রেট", exchangeRateStr, "#1A1A2E", "500 12px 'Inter'");
+  drawDetailsRow(616 + offset, "সার্ভিস চার্জ (2%)", `$${serviceCharge.toFixed(2)} USD`, "#E74C3C", "500 12px 'Inter'");
+  drawDetailsRow(648 + offset, "প্রাপক পাবেন", `৳ ${bdtAmount.toLocaleString("bn-BD")} BDT`, "#0F6E56", "bold 14px 'Inter', 'Noto Sans Bengali', Arial, sans-serif");
 
   // Dashed lines divider
   ctx.save();
@@ -278,29 +292,29 @@ export function downloadReceiptImage(tx: any) {
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.moveTo(60, 670);
-  ctx.lineTo(540, 670);
+  ctx.moveTo(60, 670 + offset);
+  ctx.lineTo(540, 670 + offset);
   ctx.stroke();
   ctx.restore();
 
   // Grand Total
-  drawDetailsRow(700, "মোট ব্যালেন্স কাটা", `$${totalDeducted.toFixed(2)} USD`, "#1B4F72", "500 20px 'Inter'");
+  drawDetailsRow(700 + offset, "মোট ব্যালেন্স কাটা", `$${totalDeducted.toFixed(2)} USD`, "#1B4F72", "500 20px 'Inter'");
   ctx.restore();
 
   // 6. SECURITY BADGE
   ctx.save();
   ctx.fillStyle = "#EBF5FB";
-  drawRoundRect(ctx, 45, 745, 510, 52, 12);
+  drawRoundRect(ctx, 45, 745 + offset, 510, 52, 12);
   ctx.fill();
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#1B4F72";
   ctx.font = "500 12px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
-  ctx.fillText("🛡️ যাচাইকৃত ও নিরাপদ লেনদেন", 65, 767);
+  ctx.fillText("🛡️ যাচাইকৃত ও নিরাপদ লেনদেন", 65, 767 + offset);
 
   ctx.fillStyle = "#2E86C1";
   ctx.font = "11px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
-  ctx.fillText("Probashi Sheba কর্তৃক প্রক্রিয়াকৃত", 65, 785);
+  ctx.fillText("Probashi Sheba কর্তৃক প্রক্রিয়াকৃত", 65, 785 + offset);
   ctx.restore();
 
   // 7. FOOTER text
@@ -308,15 +322,15 @@ export function downloadReceiptImage(tx: any) {
   ctx.textAlign = "center";
   ctx.fillStyle = "#6B7280";
   ctx.font = "10px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
-  ctx.fillText("এটি একটি স্বয়ংক্রিয়ভাবে তৈরি রশিদ", 300, 825);
-  ctx.fillText("This is a computer-generated receipt.", 300, 840);
+  ctx.fillText("এটি একটি স্বয়ংক্রিয়ভাবে তৈরি রশিদ", 300, 825 + offset);
+  ctx.fillText("This is a computer-generated receipt.", 300, 840 + offset);
 
   ctx.fillStyle = "#1B4F72";
   ctx.font = "500 10px 'Inter', Arial, sans-serif";
-  ctx.fillText("probashisheba.vercel.app", 300, 858);
+  ctx.fillText("probashisheba.vercel.app", 300, 858 + offset);
 
   ctx.font = "11px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
-  ctx.fillText("🇧🇩 Bangladesh • 🇰🇭 Cambodia", 300, 878);
+  ctx.fillText("🇧🇩 Bangladesh • 🇰🇭 Cambodia", 300, 878 + offset);
   ctx.restore();
 
   // Download Trigger

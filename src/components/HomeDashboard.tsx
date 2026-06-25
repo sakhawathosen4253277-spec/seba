@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where, limit, orderBy } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 
 interface HomeDashboardProps {
@@ -44,6 +44,31 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   const [currentAlertIndex, setCurrentAlertIndex] = useState<number>(0);
   const [activeAlert, setActiveAlert] = useState<any | null>(null);
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
+
+  // Reviews and Trust Stats States
+  const [reviewsList, setReviewsList] = useState<any[]>([]);
+  const [statsCount, setStatsCount] = useState<number>(120);
+
+  const formatDaysAgo = (dateStr: any) => {
+    if (!dateStr) return "১ দিন আগে";
+    try {
+      const past = new Date(dateStr);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - past.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      const toBengaliNum = (num: number) => {
+        const bnDigits = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
+        return String(num).split("").map(d => bnDigits[Number(d)] || d).join("");
+      };
+
+      if (diffDays <= 1) return "আজ";
+      if (diffDays === 2) return "গতকাল";
+      return `${toBengaliNum(diffDays)} দিন আগে`;
+    } catch (e) {
+      return "১ দিন আগে";
+    }
+  };
 
   const defaultNewsCards = [
     {
@@ -137,6 +162,52 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             }
           ]);
         }
+
+        // 4. Fetch Reviews
+        try {
+          const reviewsRef = collection(db, "reviews");
+          const reviewsSnap = await getDocs(reviewsRef);
+          let fetchedReviews: any[] = [];
+          if (!reviewsSnap.empty) {
+            fetchedReviews = reviewsSnap.docs.map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null
+              };
+            });
+            // Client side filter and sort to prevent index errors
+            fetchedReviews = fetchedReviews.filter(r => r.rating >= 4 && r.published !== false);
+            fetchedReviews.sort((a, b) => {
+              const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return timeB - timeA;
+            });
+            fetchedReviews = fetchedReviews.slice(0, 5);
+          }
+          setReviewsList(fetchedReviews);
+        } catch (err) {
+          console.error("Error loading reviews:", err);
+        }
+
+        // 5. Fetch trust statistics count
+        let publicTxCount = 0;
+        let reviewCountVal = 0;
+        try {
+          const pubSnap = await getDocs(collection(db, "publicTransactions"));
+          publicTxCount = pubSnap.size;
+        } catch (e) {
+          console.warn("Error loading public transactions size:", e);
+        }
+        try {
+          const revSnap = await getDocs(collection(db, "reviews"));
+          reviewCountVal = revSnap.size;
+        } catch (e) {
+          console.warn("Error loading reviews size:", e);
+        }
+        setStatsCount(120 + publicTxCount + reviewCountVal);
+
       } catch (err) {
         const errMessage = err instanceof Error ? err.message : String(err);
         const isOffline = errMessage.toLowerCase().includes("offline") || 
@@ -525,6 +596,9 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
               ${walletBalance.toFixed(2)}
               <span className="text-[12px] ml-1.5 font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>USD</span>
             </h3>
+            <div className="mt-2.5 text-[11px] font-sans flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              <span>⭐ 4.8/5 • {statsCount}+ সফল ট্রান্সফার</span>
+            </div>
           </div>
 
           {/* Quick Action buttons */}
@@ -924,6 +998,72 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
                   {service.label}
                 </span>
               </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 5.5 "ব্যবহারকারীদের মতামত" Section */}
+      <div className="px-4 text-left">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-[13px] font-medium text-[#1A1A2E] font-sans">
+            তারা আমাদের বিশ্বাস করেন
+          </h4>
+        </div>
+        
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
+          {(reviewsList.length > 0 ? reviewsList : [
+            {id: "p1", rating: 5, reviewText: "খুব দ্রুত টাকা পাঠিয়েছে, মাত্র ১০ মিনিটে বাড়িতে পৌঁছে গেছে!", userName: "মো***", amount: 50, method: "bkash", createdAt: null},
+            {id: "p2", rating: 5, reviewText: "প্রথমে ভয় পেয়েছিলাম কিন্তু সার্ভিস অনেক ভালো। বিশ্বাসযোগ্য।", userName: "সা***", amount: 100, method: "nagad", createdAt: null},
+            {id: "p3", rating: 4, reviewText: "ভালো সার্ভিস, দাম একটু বেশি কিন্তু নিরাপদ।", userName: "রা***", amount: 75, method: "bkash", createdAt: null}
+          ]).map((rev) => {
+            const displayMethod = String(rev.method || "bkash").toLowerCase();
+            return (
+              <div 
+                key={rev.id}
+                className="bg-white border p-3.5 shrink-0 snap-align-start flex flex-col justify-between"
+                style={{
+                  borderRadius: '14px',
+                  borderColor: '#E5E7EB',
+                  borderWidth: '0.5px',
+                  minWidth: '220px',
+                  maxWidth: '220px',
+                }}
+              >
+                <div>
+                  {/* Rating Stars */}
+                  <div className="flex items-center gap-0.5 text-xs mb-1.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <span key={i} style={{ color: i < rev.rating ? "#F5A623" : "#E5E7EB" }}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Comment */}
+                  <p className="text-[12px] text-[#1A1A2E] leading-normal font-sans font-normal line-clamp-2 h-9 overflow-hidden mb-2">
+                    {rev.reviewText || "কোনো মন্তব্য নেই ভাই"}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-gray-50">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="font-semibold text-[#1A1A2E] font-mono">${rev.amount} পাঠিয়েছেন</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                      displayMethod === "bkash" ? "bg-pink-50 text-pink-600 border border-pink-100" :
+                      displayMethod === "nagad" ? "bg-orange-50 text-orange-600 border border-orange-100" :
+                      "bg-blue-50 text-blue-600 border border-blue-100"
+                    }`}>
+                      {displayMethod.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px] text-[#9CA3AF] font-sans">
+                    <span>{rev.userName}</span>
+                    <span>{formatDaysAgo(rev.createdAt)}</span>
+                  </div>
+                </div>
+              </div>
             );
           })}
         </div>

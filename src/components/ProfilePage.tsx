@@ -297,7 +297,8 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
                   amountBdt: Number(displayBdt),
                   feeUsd: Number(tx.serviceCharge || 0),
                   date: displayDate,
-                  status: tx.status || "pending"
+                  status: tx.status || "pending",
+                  confirmationDigits: tx.confirmationDigits || ""
                 };
 
                 return (
@@ -310,35 +311,46 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
                         </span>
                       </div>
                       <p className="text-[11px] text-[#6B7280] mt-0.5">{displayDate} • {displayNum}</p>
-                      <button
-                        onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
-                        className="mt-2 text-[10px] text-[#1B4F72] font-semibold flex items-center space-x-1 bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
-                        style={{ borderRadius: '6px', borderWidth: '0.5px' }}
-                      >
-                        <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
-                        <span>রশিদ ডাউনলোড করুন</span>
-                      </button>
+                      {tx.status === "completed" && (
+                        <button
+                          onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
+                          className="mt-2 text-[10px] text-[#1B4F72] font-semibold flex items-center space-x-1 bg-[#1B4F72]/5 hover:bg-[#1B4F72]/10 border border-[#1B4F72]/10 px-2 py-1.5 rounded transition-all cursor-pointer select-none inline-flex"
+                          style={{ borderRadius: '6px', borderWidth: '0.5px' }}
+                        >
+                          <Download className="w-3 h-3 text-[#1B4F72] shrink-0 mr-1" />
+                          <span>রশিদ ডাউনলোড করুন</span>
+                        </button>
+                      )}
                     </div>
                     <div className="text-right ml-2 shrink-0">
                       <p className="text-[13px] font-bold text-[#1D9E75] font-mono">৳ {displayBdt.toLocaleString("bn-BD")} BDT</p>
                       <p className="text-[10px] text-[#6B7280] font-mono mt-0.5">${displayUsd} USD</p>
                       <div className="mt-1 flex justify-end">
                         {tx.status === "completed" && (
-                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 px-1.5 py-0.25 rounded-md border border-[#1D9E75]/20">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>সম্পন্ন</span>
+                          <button
+                            onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
+                            className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 hover:bg-[#1D9E75]/20 px-1.5 py-0.5 rounded-md border border-[#1D9E75]/20 transition-all cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3 h-3 shrink-0" />
+                            <span>✅ সম্পন্ন — রশিদ দেখুন</span>
+                          </button>
+                        )}
+                        {tx.status === "pending" && (
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>⏳ অপেক্ষায়</span>
                           </span>
                         )}
-                        {(tx.status === "pending" || tx.status === "processing" || tx.status === "sent") && (
-                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.25 rounded-md border border-amber-500/20 animate-pulse">
-                            <Clock className="w-3 h-3" />
-                            <span>অপেক্ষারত</span>
+                        {(tx.status === "processing" || tx.status === "sent") && (
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1B4F72] bg-[#1B4F72]/10 px-1.5 py-0.5 rounded-md border border-[#1B4F72]/20">
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>🔄 প্রক্রিয়াধীন</span>
                           </span>
                         )}
                         {(tx.status === "cancelled" || tx.status === "failed") && (
-                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#E74C3C] bg-[#E74C3C]/10 px-1.5 py-0.25 rounded-md border border-[#E74C3C]/20">
-                            <XCircle className="w-3 h-3" />
-                            <span>বাতিল</span>
+                          <span className="flex items-center space-x-0.5 text-[9px] font-bold text-[#E74C3C] bg-[#E74C3C]/10 px-1.5 py-0.5 rounded-md border border-[#E74C3C]/20">
+                            <XCircle className="w-3 h-3 shrink-0" />
+                            <span>❌ ব্যর্থ</span>
                           </span>
                         )}
                       </div>

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Job, Employer, JobApplication } from "../types";
 import { db } from "../lib/firebase";
-import { collection, getDocs, setDoc, doc, getDoc, updateDoc, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, setDoc, doc, getDoc, updateDoc, query, where, orderBy, onSnapshot, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 import EmployerRegister from "./EmployerRegister";
 
@@ -65,49 +65,24 @@ export default function JobBoard({ jobs: propsJobs, onUpdateJobs }: JobBoardProp
   const [whyApply, setWhyApply] = useState("");
   const [applyingLoading, setApplyingLoading] = useState(false);
 
-  // Static Fallback Jobs
-  const staticJobs: Job[] = [
-    {
-      id: "job-1",
-      title: "গার্মেন্টস সেলাই অপারেটর",
-      company: "Phnom Penh Apparels Ltd.",
-      location: "Veng Sreng Road, Phnom Penh",
-      salaryRange: "$৩৫০ - $৪২০ / প্রতি মাস",
-      category: "factory",
-      isVerified: true,
-      description: "বাংলাদেশি ভাইদের জন্য দুর্দান্ত সুযোগ। ফুড ও বাসস্থান সম্পূর্ণ ফ্রি। ওভারটাইম করার সুযোগ থাকবে। কাজের সময় প্রতিদিন ৮ ঘণ্টা।"
-    },
-    {
-      id: "job-2",
-      title: "হোটেল সহকারী বাবুর্চি (Chef)",
-      company: "Dhaka Spice Restaurant",
-      location: "BKK1, Phnom Penh",
-      salaryRange: "$৩০০ - $৩৮০ / প্রতি মাস",
-      category: "restaurant",
-      isVerified: true,
-      description: "বাংলাদেশি স্পাইসি খাবার তৈরিতে পারদর্শী হতে হবে। বাংলা ভাষায় কথা বলার সহকারী আছে। টিপস এর সুবিধা আছে।"
-    },
-    {
-      id: "job-3",
-      title: "কনস্ট্রাকশন সাইট ফোরম্যান",
-      company: "Sihanoukville Port Construction",
-      location: "Sihanoukville",
-      salaryRange: "$৫০০ - $৬৫০ / প্রতি মাস",
-      category: "construction",
-      isVerified: false,
-      description: "কংক্রিট মিক্সিং ও শ্রমিক পরিচালনার কাজে ৩ বছরের কাজের অভিজ্ঞতা জরুরি। দয়া করে কোনো দালাল বা এজেন্টকে টাকা দেবেন না।"
-    },
-    {
-      id: "job-4",
-      title: "গৃহস্থালি ও পরিষ্কারকর্মী",
-      company: "Sen Sok Residentials",
-      location: "Sen Sok, Phnom Penh",
-      salaryRange: "$২৫০ - $৩০০ / প্রতি মাস",
-      category: "household",
-      isVerified: true,
-      description: "ভাড়া বাসার রুম ও কিচেন পরিষ্কার করার হালকা কাজ। সপ্তাহে একদিন ছুটি থকবে।"
+  // One-time cleanup code that runs once for clearing existing demo jobs
+  useEffect(() => {
+    const cleanDemoJobs = async () => {
+      try {
+        const jobsRef = collection(db, 'jobs');
+        const snap = await getDocs(jobsRef);
+        const deletePromises = snap.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        localStorage.setItem('jobsCleaned', 'true');
+      } catch (err) {
+        console.error("Error clearing demo jobs from Firestore:", err);
+      }
+    };
+
+    if (!localStorage.getItem('jobsCleaned')) {
+      cleanDemoJobs();
     }
-  ];
+  }, []);
 
   // Load Employer Status
   const checkEmployerStatus = async () => {
@@ -162,24 +137,20 @@ export default function JobBoard({ jobs: propsJobs, onUpdateJobs }: JobBoardProp
         }
       });
 
-      if (fetched.length > 0) {
-        setDbJobs(fetched);
-        if (onUpdateJobs) onUpdateJobs(fetched);
-      } else {
-        setDbJobs(staticJobs);
-        if (onUpdateJobs) onUpdateJobs(staticJobs);
-      }
+      setDbJobs(fetched);
+      if (onUpdateJobs) onUpdateJobs(fetched);
       setLoadingJobs(false);
     }, (err) => {
       console.error("Error listening to jobs:", err);
-      setDbJobs(staticJobs);
+      setDbJobs([]);
+      if (onUpdateJobs) onUpdateJobs([]);
       setLoadingJobs(false);
     });
 
     return () => unsub();
   }, [currentUser]);
 
-  const jobs = dbJobs.length > 0 ? dbJobs : (propsJobs || staticJobs);
+  const jobs = dbJobs.length > 0 ? dbJobs : (propsJobs || []);
   const filteredJobs = filter === "all" ? jobs : jobs.filter(j => j.category === filter);
 
   // Post a Job Handler (Verified Employers Only)
@@ -563,8 +534,10 @@ export default function JobBoard({ jobs: propsJobs, onUpdateJobs }: JobBoardProp
           ))}
 
           {filteredJobs.length === 0 && (
-            <div className="text-center py-10 bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm">
-              <p className="text-xs text-[#6B7280]">এই ক্যাটাগরিতে কোনো চাকরি পাওয়া যায়নি ভাই।</p>
+            <div className="text-center py-12 bg-white rounded-[16px] border border-[#E5E7EB] shadow-sm flex flex-col items-center justify-center space-y-2">
+              <Briefcase className="w-12 h-12 text-[#9CA3AF]" />
+              <p className="text-[14px] text-[#6B7280] font-sans">এখনো কোনো চাকরি নেই</p>
+              <p className="text-[12px] text-[#9CA3AF] font-sans">শীঘ্রই নতুন চাকরি আসবে ইনশাআল্লাহ</p>
             </div>
           )}
         </div>

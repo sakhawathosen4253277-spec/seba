@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { ArrowLeft, Search, Loader2, CheckCircle2, Clock, Hourglass, RefreshCw, X, AlertTriangle, AlertCircle, FileText } from "lucide-react";
+import { downloadReceiptImage } from "../lib/receipt";
 
 interface TransferRequest {
   id: string;
@@ -23,6 +24,15 @@ interface TransferRequest {
   note?: string;
   createdAt: string;
   rejectReason?: string;
+  userId?: string;
+  serviceFeePercent?: number;
+  serviceFeeFixed?: number;
+  recipientMethodName?: string;
+  calculatedBdt?: number;
+  serviceCharge?: number;
+  rating?: number;
+  reviewText?: string;
+  reviewSubmitted?: boolean;
 }
 
 interface TransferStatusProps {
@@ -35,6 +45,22 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
   const [loading, setLoading] = useState<boolean>(false);
   const [requestData, setRequestData] = useState<TransferRequest | null>(null);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
+
+  // Review & Rating States
+  const [rating, setRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [reviewText, setReviewText] = useState<string>("");
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [reviewError, setReviewError] = useState<string>("");
+  const [reviewSuccess, setReviewSuccess] = useState<boolean>(false);
+
+  const ratingLabels: Record<number, string> = {
+    1: "খুব খারাপ",
+    2: "খারাপ",
+    3: "ঠিক আছে",
+    4: "ভালো",
+    5: "অসাধারণ!"
+  };
 
   // Trigger search automatically if prefilledTxId is supplied
   useEffect(() => {
@@ -330,6 +356,202 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
                   referrerPolicy="no-referrer"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Download Receipt Button (If completed) */}
+          {requestData.status === "completed" && (
+            <div 
+              className="bg-white rounded-2xl p-4 border text-left space-y-2.5"
+              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+            >
+              <h4 className="text-xs font-bold text-[#1B4F72] uppercase tracking-wider pb-1 border-b border-gray-100 flex items-center gap-1">
+                <FileText className="w-4 h-4 text-[#1B4F72]" />
+                <span>ট্রান্সফার রশিদ (Official Receipt)</span>
+              </h4>
+              <p className="text-[11px] text-gray-500">আপনার লেনদেনের অফিশিয়াল রশিদটি ডাউনলোড করতে নিচের বোতামে চাপ দিন ভাই:</p>
+              
+              <button
+                onClick={() => {
+                  const displayDate = requestData.completedAt ? new Date(requestData.completedAt).toLocaleDateString("bn-BD", {day: "numeric", month: "long", year: "numeric"}) : "আজ";
+                  const displayNum = requestData.recipientPhone || "";
+                  const displayBdt = requestData.amount * 110.8;
+                  const displayUsd = requestData.amount;
+                  downloadReceiptImage({
+                    id: requestData.id,
+                    senderName: requestData.senderName || "ওয়ালেট ইউজার",
+                    recipientName: requestData.recipientName,
+                    recipientMethod: requestData.recipientMethod || "Bank",
+                    recipientNumber: displayNum,
+                    amountUsd: Number(displayUsd),
+                    amountBdt: Number(displayBdt),
+                    feeUsd: Number(requestData.serviceFee || 0),
+                    date: displayDate,
+                    status: "completed",
+                    confirmationDigits: (requestData as any).confirmationDigits || ""
+                  });
+                }}
+                className="w-full mt-2 text-xs text-white font-semibold flex items-center justify-center space-x-1.5 bg-[#1B4F72] hover:bg-opacity-95 p-3 rounded-xl transition-all cursor-pointer select-none"
+              >
+                <FileText className="w-4 h-4" />
+                <span>রশিদ ডাউনলোড করুন</span>
+              </button>
+            </div>
+          )}
+
+          {/* Star Rating & Review Prompt */}
+          {requestData.status === "completed" && (
+            <div 
+              className="bg-white rounded-2xl p-4 border text-left space-y-3"
+              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+            >
+              <div className="flex flex-col">
+                <h4 className="text-[14px] font-medium text-[#1A1A2E] font-sans">আপনার অভিজ্ঞতা শেয়ার করুন</h4>
+                <p className="text-[12px] text-[#6B7280] font-sans">অন্য ভাইদের জানতে সাহায্য করুন</p>
+              </div>
+
+              {(requestData.reviewSubmitted || reviewSuccess) ? (
+                <div className="bg-[#E9F7EF] border border-[#D4EFDF] text-[#1D9E75] p-4 rounded-xl text-center font-medium text-xs font-sans">
+                  ধন্যবাদ! আপনার রিভিউ সংরক্ষিত হয়েছে 🙏
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Star Selection */}
+                  <div className="flex flex-col items-center space-y-1 py-2 bg-gray-50/50 rounded-xl border border-gray-100">
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          className="text-[32px] focus:outline-none transition-transform active:scale-110 cursor-pointer"
+                          style={{
+                            color: (hoverRating || rating) >= star ? "#F5A623" : "#E5E7EB",
+                          }}
+                        >
+                          {(hoverRating || rating) >= star ? "⭐" : "☆"}
+                        </button>
+                      ))}
+                    </div>
+                    {rating > 0 && (
+                      <span className="text-xs font-medium text-[#1B4F72] animate-fade-in font-sans">
+                        {ratingLabels[rating]}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Comment Box */}
+                  <div className="space-y-1">
+                    <textarea
+                      maxLength={200}
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder="আপনার অভিজ্ঞতা লিখুন (ঐচ্ছিক)"
+                      className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] p-3 text-xs outline-none focus:border-[#1B4F72] transition-colors font-sans resize-none h-20"
+                      style={{ borderWidth: "0.5px" }}
+                    />
+                    <div className="flex justify-between items-center text-[10px] text-[#6B7280] font-sans px-1">
+                      <span>সর্বোচ্চ ২০০ অক্ষর</span>
+                      <span>{reviewText.length}/200</span>
+                    </div>
+                  </div>
+
+                  {reviewError && (
+                    <p className="text-[11px] text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 font-sans">
+                      {reviewError}
+                    </p>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      if (rating === 0) {
+                        setReviewError("দয়া করে একটি স্টার রেটিং নির্বাচন করুন ভাই!");
+                        return;
+                      }
+                      setReviewError("");
+                      setSubmittingReview(true);
+                      try {
+                        const transferId = requestData.id;
+                        const userId = requestData.userId || "";
+                        const originalName = requestData.senderName || "ওয়ালেট ইউজার";
+                        
+                        const maskName = (name: string) => {
+                          if (!name) return "ইউ***";
+                          const str = String(name);
+                          if (str.length <= 2) return str + "***";
+                          return str.substring(0, 2) + "***";
+                        };
+                        const maskedName = maskName(originalName);
+
+                        // 1. Update transferRequest in Firestore
+                        await updateDoc(doc(db, "transferRequests", transferId), {
+                          rating: rating,
+                          reviewText: reviewText,
+                          reviewSubmitted: true,
+                          reviewedAt: serverTimestamp()
+                        });
+
+                        const method = requestData.recipientMethod || "bkash";
+                        const amount = requestData.amount || 0;
+
+                        // 2. Save to reviews collection
+                        await addDoc(collection(db, "reviews"), {
+                          transferId,
+                          userId,
+                          userName: maskedName,
+                          rating,
+                          reviewText,
+                          amount,
+                          method,
+                          published: true,
+                          createdAt: serverTimestamp()
+                        });
+
+                        // 3. Send Telegram notification via API/bot call
+                        try {
+                          const TOKEN = "8835452864:AAFRES1PPt4o4ZkuwMsJvxtPiqjOM0SLEuA";
+                          const CHAT_ID = "8885859813";
+                          const telegramMsg = `⭐ <b>নতুন রিভিউ</b>
+
+রেটিং: ${'⭐'.repeat(rating)}
+পরিমাণ: $${amount}
+মন্তব্য: ${reviewText || 'কোনো মন্তব্য নেই'}
+মাধ্যম: ${method}`;
+
+                          await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              chat_id: CHAT_ID,
+                              text: telegramMsg,
+                              parse_mode: "HTML"
+                            })
+                          });
+                        } catch (telErr) {
+                          console.warn("Telegram notification failed for review:", telErr);
+                        }
+
+                        setReviewSuccess(true);
+                      } catch (err) {
+                        console.error("Error submitting review:", err);
+                        setReviewError("রিভিউ জমা দিতে সমস্যা হয়েছে, অনুগ্রহ করে আবার চেষ্টা করুন ভাই।");
+                      } finally {
+                        setSubmittingReview(false);
+                      }
+                    }}
+                    disabled={submittingReview}
+                    className="w-full bg-[#1B4F72] text-white font-semibold text-xs h-[48px] rounded-xl flex items-center justify-center hover:bg-opacity-95 active:scale-[0.99] transition-all cursor-pointer font-sans select-none disabled:opacity-50"
+                  >
+                    {submittingReview ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <span>রিভিউ দিন</span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

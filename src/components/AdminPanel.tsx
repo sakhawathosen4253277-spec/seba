@@ -84,12 +84,17 @@ export default function AdminPanel() {
   const [proofSentImageCode, setProofSentImageCode] = useState<string>("");
   const [proofSentImageName, setProofSentImageName] = useState<string>("");
   const [minutesDuration, setMinutesDuration] = useState<string>("10");
+  const [confirmationDigits, setConfirmationDigits] = useState<string>("");
 
   const [selectedRejectTransfer, setSelectedRejectTransfer] = useState<any | null>(null);
   const [rejectReasonText, setRejectReasonText] = useState<string>("");
 
   // Viewing screenshots big modal
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  // Reviews management
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState<boolean>(false);
 
   // Form states for deposit and payment methods
   const [newMethodName, setNewMethodName] = useState("");
@@ -127,6 +132,13 @@ export default function AdminPanel() {
     referralBonusAmount: 1,
     referralMinTransfer: 50,
     prizeAnnouncement: "এই মাসের সেরা ৩ রেফারার পাবেন আকর্ষণীয় পুরস্কার! 🎁"
+  });
+
+  // Transfer time settings state
+  const [transferSettings, setTransferSettings] = useState<any>({
+    minTime: 5,
+    maxTime: 120,
+    timeDisplay: "৫ মিনিট থেকে ২ ঘণ্টার মধ্যে"
   });
 
   // Home Alerts states
@@ -336,6 +348,32 @@ export default function AdminPanel() {
     }
   };
 
+  const handleTogglePublishReview = async (reviewId: string, currentPublished: boolean) => {
+    try {
+      const reviewRef = doc(db, "reviews", reviewId);
+      await updateDoc(reviewRef, {
+        published: !currentPublished
+      });
+      showStatusMsg("রিভিউ স্ট্যাটাস সফলভাবে পরিবর্তন করা হয়েছে ভাই!");
+      fetchTabData("reviews");
+    } catch (err) {
+      console.error("Error toggling review publish:", err);
+      showStatusMsg("স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই রিভিউটি মুছে ফেলতে চান ভাই?")) return;
+    try {
+      await deleteDoc(doc(db, "reviews", reviewId));
+      showStatusMsg("রিভিউটি সফলভাবে মুছে ফেলা হয়েছে ভাই!");
+      fetchTabData("reviews");
+    } catch (err) {
+      console.error("Error deleting review:", err);
+      showStatusMsg("রিভিউ মুছতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
   const showStatusMsg = (text: string, isError: boolean = false) => {
     setMessage({ text, isError });
     setTimeout(() => setMessage(null), 4000);
@@ -432,6 +470,11 @@ export default function AdminPanel() {
         if (docSnap.exists()) {
           setFeeSettings(docSnap.data());
         }
+        const transRef = doc(db, "settings", "transfer");
+        const transSnap = await getDoc(transRef);
+        if (transSnap.exists()) {
+          setTransferSettings(transSnap.data());
+        }
       } else if (tab === "alerts") {
         const q = query(collection(db, "homeAlerts"));
         const snapshot = await getDocs(q);
@@ -448,6 +491,16 @@ export default function AdminPanel() {
         if (docSnap.exists()) {
           setReferralSettings(docSnap.data());
         }
+      } else if (tab === "reviews") {
+        const q = query(collection(db, "reviews"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => {
+          const dateA = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()) : 0;
+          const dateB = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()) : 0;
+          return dateB - dateA;
+        });
+        setReviews(list);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -723,6 +776,26 @@ export default function AdminPanel() {
     }
   };
 
+  const handleUpdateTransferTime = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const path = "settings/transfer";
+    const transferData = {
+      minTime: Number(transferSettings.minTime || 5),
+      maxTime: Number(transferSettings.maxTime || 120),
+      timeDisplay: (transferSettings.timeDisplay || "").trim() || "৫ মিনিট থেকে ২ ঘণ্টার মধ্যে"
+    };
+
+    try {
+      await setDoc(doc(db, "settings", "transfer"), transferData, { merge: true });
+      showStatusMsg("ট্রান্সফার সময় সেটিংস সফলভাবে আপডেট করা হয়েছে ভাই!");
+      fetchTabData("fees");
+    } catch (err) {
+      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, path);
+      showStatusMsg("ট্রান্সফার সময় সেটিংস আপডেট করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
   // HOME POPUP ALERTS TAB
   const handleCreateHomeAlert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -812,6 +885,64 @@ export default function AdminPanel() {
       fetchTabData("jobs");
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, path);
+    }
+  };
+
+  const handleApproveJob = async (job: any) => {
+    try {
+      await updateDoc(doc(db, "jobs", job.id), {
+        isVerified: true,
+        isActive: true,
+        isRejected: false
+      });
+
+      let empUserId = job.employerId;
+      if (empUserId && empUserId.startsWith("employer-")) {
+        empUserId = empUserId.replace("employer-", "");
+      }
+
+      await addDoc(collection(db, "notifications"), {
+        userId: empUserId,
+        message: "আপনার চাকরির পোস্ট প্রকাশিত হয়েছে! ✅ পদ: " + job.title,
+        type: 'job_approved',
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("চাকরি পোস্টটি সফলভাবে প্রকাশ করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("চাকরি প্রকাশ করতে সমস্যা হয়েছে।", true);
+    }
+  };
+
+  const handleRejectJob = async (job: any) => {
+    try {
+      await updateDoc(doc(db, "jobs", job.id), {
+        isVerified: false,
+        isActive: false,
+        isRejected: true
+      });
+
+      let empUserId = job.employerId;
+      if (empUserId && empUserId.startsWith("employer-")) {
+        empUserId = empUserId.replace("employer-", "");
+      }
+
+      await addDoc(collection(db, "notifications"), {
+        userId: empUserId,
+        message: "আপনার চাকরির পোস্ট প্রত্যাখ্যাত হয়েছে। সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।",
+        type: 'job_rejected',
+        isRead: false,
+        createdAt: serverTimestamp()
+      });
+
+      showStatusMsg("চাকরি পোস্টটি প্রত্যাখ্যান করা হয়েছে!");
+      fetchTabData("jobs");
+    } catch (err) {
+      console.error(err);
+      showStatusMsg("চাকরি প্রত্যাখ্যান করতে সমস্যা হয়েছে।", true);
     }
   };
 
@@ -1411,6 +1542,10 @@ export default function AdminPanel() {
 
   const handleCompleteTransferSubmit = async () => {
     if (!selectedCompletedTransfer) return;
+    if (!confirmationDigits.trim()) {
+      showStatusMsg("দয়া করে bKash নম্বরের শেষ ৪ সংখ্যা লিখুন ভাই!", true);
+      return;
+    }
     if (!proofSentImageCode) {
       showStatusMsg("দয়া করে পেমেন্ট সম্পন্ন করার একটি প্রুফ স্ক্রিনশট আপলোড করুন ভাই!", true);
       return;
@@ -1426,8 +1561,21 @@ export default function AdminPanel() {
       await updateDoc(doc(db, "transferRequests", transferId), {
         status: "completed",
         proofImageUrl: proofSentImageCode,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        confirmationDigits: confirmationDigits.trim()
       });
+
+      // Save notification to user
+      if (selectedCompletedTransfer.userId) {
+        await addDoc(collection(db, "notifications"), {
+          userId: selectedCompletedTransfer.userId,
+          type: 'transfer_completed',
+          message: "আপনার ট্রান্সফার সম্পন্ন হয়েছে! রশিদ ডাউনলোড করুন।",
+          transferId: transferId,
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
+      }
 
       // Add an anonymized trust record to Public Transactions
       const pubId = `pub_${Date.now()}`;
@@ -1509,6 +1657,7 @@ export default function AdminPanel() {
       setProofSentImageCode("");
       setProofSentImageName("");
       setMinutesDuration("10");
+      setConfirmationDigits("");
       fetchTabData("transfer");
     } catch (err) {
       console.error("Error completing transfer:", err);
@@ -1677,6 +1826,7 @@ export default function AdminPanel() {
           { id: "referral", name: "রেফারেল" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
+          { id: "reviews", name: "রিভিউসমূহ" },
           { id: "jobs", name: "চাকরি" },
           { id: "scams", name: "স্ক্যাম" },
           { id: "tickets", name: "টিকেট" },
@@ -2929,53 +3079,72 @@ export default function AdminPanel() {
                       jobs.map((item) => (
                         <div 
                           key={item.id} 
-                          className="bg-white border p-4 rounded-[14px] flex justify-between items-start space-x-2 text-left"
+                          className="bg-white border p-4 rounded-[14px] flex flex-col space-y-3 text-left"
                           style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
                         >
-                          <div className="flex-1 space-y-1">
-                            <h4 className="text-xs font-medium text-[#1A1A2E]">{item.title}</h4>
-                            <p className="text-[11px] text-[#6B7280] font-sans">{item.company} • {item.location}</p>
-                            <p className="text-[11px] font-medium text-[#1D9E75]">{item.salaryRange || item.salary}</p>
-                            <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 font-sans">{item.description}</p>
-                            
-                            <div className="flex space-x-1.5 items-center mt-2 flex-wrap gap-1 font-sans">
-                              <span className={`text-[9px] px-2 py-0.5 rounded font-medium ${
-                                item.isVerified ? "bg-[#E9F7EF] text-[#1D9E75]" : "bg-gray-100 text-[#6B7280]"
-                              }`}>
-                                {item.isVerified ? "ভেরিফাইড" : "আনভেরিফাইড"}
-                              </span>
-                              <span className={`text-[9px] px-2 py-0.5 rounded font-medium ${
-                                item.isActive !== false ? "bg-blue-50 text-[#1B4F72]" : "bg-red-50 text-[#E74C3C]"
-                              }`}>
-                                {item.isActive !== false ? "সক্রিয়" : "বন্ধ"}
-                              </span>
+                          <div className="flex justify-between items-start space-x-2">
+                            <div className="flex-1 space-y-1">
+                              <h4 className="text-xs font-medium text-[#1A1A2E]">{item.title}</h4>
+                              <p className="text-[11px] text-[#6B7280] font-sans">{item.company} • {item.location}</p>
+                              <p className="text-[11px] font-medium text-[#1D9E75]">{item.salaryRange || item.salary}</p>
+                              <p className="text-[11px] text-gray-500 line-clamp-2 mt-1 font-sans">{item.description}</p>
+                              
+                              <div className="flex space-x-1.5 items-center mt-2 flex-wrap gap-1 font-sans">
+                                {(!item.isVerified && item.isActive === false && !item.isRejected) && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[#FEF3CD] text-[#7D5000]">⏳ যাচাই হচ্ছে</span>
+                                )}
+                                {(item.isVerified && item.isActive === true) && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[#E8F8F1] text-[#0F6E56]">✅ প্রকাশিত</span>
+                                )}
+                                {(item.isActive === false && item.isRejected === true) && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[#FDEDEC] text-[#C0392B]">❌ প্রত্যাখ্যাত</span>
+                                )}
+                                {(item.isActive === false && item.isVerified === true) && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[#F0F3F4] text-[#444441]">⏸️ স্থগিত</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col space-y-1.5 shrink-0">
+                              {/* Verify/Unverify Toggle */}
+                              <button
+                                onClick={() => handleToggleJobVerified(item)}
+                                className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                                style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                title="ভেরিফাইড টগল করুন"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleToggleJobActive(item)}
+                                className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                                style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                title="অ্যাক্টিভ টগল করুন"
+                              >
+                                {item.isActive !== false ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteJob(item.id)}
+                                className="bg-[#E74C3C] text-white p-1.5 rounded-lg hover:opacity-90 flex items-center justify-center cursor-pointer"
+                                title="মুছে ফেলুন"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
 
-                          <div className="flex flex-col space-y-1.5 shrink-0">
-                            {/* Verify/Unverify Toggle */}
+                          <div className="flex gap-2 justify-end pt-2 border-t border-dashed border-gray-100 font-sans">
                             <button
-                              onClick={() => handleToggleJobVerified(item)}
-                              className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
-                              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
-                              title="ভেরিফাইড টগল করুন"
+                              onClick={() => handleApproveJob(item)}
+                              className="px-3 py-1.5 text-[11px] font-semibold text-white bg-[#1D9E75] hover:opacity-90 rounded-lg cursor-pointer transition-all flex items-center gap-1"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              ✓ প্রকাশ করুন
                             </button>
                             <button
-                              onClick={() => handleToggleJobActive(item)}
-                              className="bg-white border p-1.5 rounded-lg text-xs font-medium text-[#1B4F72] hover:bg-gray-50 flex items-center justify-center cursor-pointer"
-                              style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
-                              title="অ্যাক্টিভ টগল করুন"
+                              onClick={() => handleRejectJob(item)}
+                              className="px-3 py-1.5 text-[11px] font-semibold text-white bg-[#E74C3C] hover:opacity-90 rounded-lg cursor-pointer transition-all flex items-center gap-1"
                             >
-                              {item.isActive !== false ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                            <button
-                              onClick={() => handleDeleteJob(item.id)}
-                              className="bg-[#E74C3C] text-white p-1.5 rounded-lg hover:opacity-90 flex items-center justify-center cursor-pointer"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              ✗ প্রত্যাখ্যান
                             </button>
                           </div>
                         </div>
@@ -3768,6 +3937,88 @@ export default function AdminPanel() {
               </div>
             )}
 
+            {activeTab === "reviews" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">ব্যবহারকারীদের রিভিউসমূহ</h2>
+                    <p className="text-[11px] opacity-90 font-sans">লেনদেন সম্পন্ন হওয়ার পর দেওয়া রিভিউ ও রেটিং কন্ট্রোল করুন</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("reviews")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {reviews.length === 0 ? (
+                  <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 text-center text-gray-500 text-xs" style={{ borderWidth: "0.5px" }}>
+                    এখনও কোনো রিভিউ দেওয়া হয়নি ভাই।
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {reviews.map((rev) => {
+                      const isPublished = rev.published !== false;
+                      const dateText = rev.createdAt ? (rev.createdAt.toDate ? rev.createdAt.toDate().toLocaleString("bn-BD") : new Date(rev.createdAt).toLocaleString("bn-BD")) : "আজ";
+                      return (
+                        <div 
+                          key={rev.id}
+                          className="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col justify-between space-y-3"
+                          style={{ borderWidth: "0.5px" }}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-xs font-semibold text-[#1A1A2E]">{rev.userName || "ওয়ালেট ইউজার"}</h4>
+                                <p className="text-[10px] text-gray-400 mt-0.5 font-mono">{dateText}</p>
+                              </div>
+                              <div className="flex items-center gap-0.5 text-xs text-yellow-500">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <span key={i}>
+                                    {i < rev.rating ? "★" : "☆"}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-[#1A1A2E] leading-relaxed bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                              {rev.reviewText || <em className="text-gray-400">কোনো মন্তব্য লিখেননি ভাই</em>}
+                            </p>
+
+                            <div className="flex items-center justify-between text-[11px] pt-1">
+                              <span className="font-medium text-[#1B4F72]">পরিমাণ: ${rev.amount} USD</span>
+                              <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase">{rev.method}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2.5 pt-2 border-t border-gray-100">
+                            <button
+                              onClick={() => handleTogglePublishReview(rev.id, isPublished)}
+                              className={`flex-1 text-xs py-2 rounded-xl font-medium transition-all cursor-pointer text-center select-none ${
+                                isPublished 
+                                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200" 
+                                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                              }`}
+                            >
+                              {isPublished ? "🟢 প্রকাশিত (লুকান)" : "🟡 লুকানো (প্রকাশ করুন)"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReview(rev.id)}
+                              className="px-3 bg-red-50 hover:bg-red-100 text-[#E74C3C] rounded-xl border border-red-200 transition-all cursor-pointer flex items-center justify-center"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === "fees" && (
               <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
                 <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
@@ -3878,6 +4129,79 @@ export default function AdminPanel() {
                     >
                       {feeSettings.firstTransferFree ? "চালু (ON)" : "বন্ধ (OFF)"}
                     </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm"
+                  >
+                    আপডেট করুন
+                  </button>
+                </form>
+
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center mt-6">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">ট্রান্সফার সময় সেটিংস</h2>
+                    <p className="text-[11px] opacity-90 font-sans">লেনদেন সম্পন্ন করার সর্বনিম্ন ও সর্বোচ্চ সময় নির্ধারণ করুন</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleUpdateTransferTime} className="bg-white border border-[#E5E7EB] rounded-[16px] p-5 space-y-5 text-left" style={{ borderWidth: "0.5px" }}>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সর্বনিম্ন সময়</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        min="1"
+                        value={transferSettings.minTime !== undefined ? transferSettings.minTime : ""}
+                        onChange={(e) => setTransferSettings((prev: any) => ({
+                          ...prev,
+                          minTime: e.target.value !== "" ? Number(e.target.value) : ""
+                        }))}
+                        placeholder="যেমন: ৫"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl pl-3 pr-16 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                      <span className="absolute right-3 text-xs text-[#6B7280] font-sans">মিনিট</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">সর্বোচ্চ সময়</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        min="1"
+                        value={transferSettings.maxTime !== undefined ? transferSettings.maxTime : ""}
+                        onChange={(e) => setTransferSettings((prev: any) => ({
+                          ...prev,
+                          maxTime: e.target.value !== "" ? Number(e.target.value) : ""
+                        }))}
+                        placeholder="যেমন: ১২০"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl pl-3 pr-24 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                      <span className="absolute right-3 text-xs text-[#6B7280] font-sans">মিনিট/ঘণ্টা</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">প্রদর্শন টেক্সট</label>
+                    <input
+                      type="text"
+                      value={transferSettings.timeDisplay !== undefined ? transferSettings.timeDisplay : ""}
+                      onChange={(e) => setTransferSettings((prev: any) => ({
+                        ...prev,
+                        timeDisplay: e.target.value
+                      }))}
+                      placeholder="যেমন: ৫ মিনিট থেকে ২ ঘণ্টার মধ্যে"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">এই টেক্সটটি user দের দেখানো হবে</p>
                   </div>
 
                   <button
@@ -4253,7 +4577,7 @@ export default function AdminPanel() {
             </button>
 
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-[#1D9E75]">ট্রান্সফার সম্পন্ন নিশ্চিত করুন</h3>
+              <h3 className="text-sm font-bold text-[#1B4F72]">ট্রান্সফার নিশ্চিত করুন</h3>
               <p className="text-[11px] text-gray-500 font-mono leading-none">আইডি: {selectedCompletedTransfer.id}</p>
             </div>
 
@@ -4276,6 +4600,20 @@ export default function AdminPanel() {
             </div>
 
             <div className="space-y-3">
+              <div className="flex flex-col space-y-1 text-left">
+                <label className="text-[10px] text-gray-600 font-semibold font-sans">আপনার bKash নম্বরের শেষ ৪ সংখ্যা:</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={confirmationDigits}
+                  onChange={(e) => setConfirmationDigits(e.target.value)}
+                  placeholder="যেমন: 6602"
+                  className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-2.5 py-1.5 text-xs outline-none font-sans font-bold"
+                  style={{ borderWidth: "0.5px" }}
+                />
+                <span className="text-[9px] text-[#6B7280]">যে নম্বর থেকে পাঠিয়েছেন তার শেষ ৪ সংখ্যা</span>
+              </div>
+
               <div className="flex flex-col space-y-1 text-left">
                 <label className="text-[10px] text-gray-600 font-semibold font-sans">কত মিনিট লেগেছে সম্পন্ন করতে (ট্রাস্ট ফিডের জন্য):</label>
                 <input
@@ -4312,9 +4650,9 @@ export default function AdminPanel() {
             <button
               type="button"
               onClick={handleCompleteTransferSubmit}
-              className="w-full py-3 bg-[#1D9E75] hover:bg-opacity-95 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer font-sans"
+              className="w-full py-3 bg-[#1B4F72] hover:bg-opacity-95 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer font-sans"
             >
-              সম্পন্ন নিশ্চিত করুন (Complete)
+              নিশ্চিত করুন
             </button>
           </div>
         </div>
