@@ -240,22 +240,24 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           console.error("Error loading reviews:", err);
         }
 
-        // 5. Fetch trust statistics count
-        let publicTxCount = 0;
-        let reviewCountVal = 0;
+        // 5. Fetch trust statistics count (based on real completed transfers and deposits)
+        let realCompletedTransfers = 0;
+        let realCompletedDeposits = 0;
         try {
-          const pubSnap = await getDocs(collection(db, "publicTransactions"));
-          publicTxCount = pubSnap.size;
+          const qCompletedTrans = query(collection(db, "transferRequests"), where("status", "==", "completed"));
+          const compSnap = await getDocs(qCompletedTrans);
+          realCompletedTransfers = compSnap.size;
         } catch (e) {
-          console.warn("Error loading public transactions size:", e);
+          console.warn("Error loading completed transfers size:", e);
         }
         try {
-          const revSnap = await getDocs(collection(db, "reviews"));
-          reviewCountVal = revSnap.size;
+          const qCompletedDeps = query(collection(db, "depositRequests"), where("status", "==", "completed"));
+          const depSnap = await getDocs(qCompletedDeps);
+          realCompletedDeposits = depSnap.size;
         } catch (e) {
-          console.warn("Error loading reviews size:", e);
+          console.warn("Error loading completed deposits size:", e);
         }
-        setStatsCount(120 + publicTxCount + reviewCountVal);
+        setStatsCount(160 + realCompletedTransfers + realCompletedDeposits);
 
       } catch (err) {
         const errMessage = err instanceof Error ? err.message : String(err);

@@ -413,8 +413,8 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
               style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
             >
               <div className="flex flex-col">
-                <h4 className="text-[14px] font-medium text-[#1A1A2E] font-sans">আপনার অভিজ্ঞতা শেয়ার করুন</h4>
-                <p className="text-[12px] text-[#6B7280] font-sans">অন্য ভাইদের জানতে সাহায্য করুন</p>
+                <h4 className="text-[14px] font-medium text-[#1A1A2E] font-sans">আমাদের সার্ভিস কেমন লেগেছে আমাদের জানান</h4>
+                <p className="text-[12px] text-[#6B7280] font-sans">আপনার মূল্যবান মতামত ও রেটিং দিন ভাই</p>
               </div>
 
               {(requestData.reviewSubmitted || reviewSuccess) ? (

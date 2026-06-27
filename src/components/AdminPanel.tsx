@@ -53,6 +53,12 @@ export default function AdminPanel() {
   const [editingUserBalanceId, setEditingUserBalanceId] = useState<string | null>(null);
   const [editingUserBalanceValue, setEditingUserBalanceValue] = useState<string>("");
 
+  // User history view states
+  const [viewingUserHistory, setViewingUserHistory] = useState<any | null>(null);
+  const [userHistoryDeposits, setUserHistoryDeposits] = useState<any[]>([]);
+  const [userHistoryTransfers, setUserHistoryTransfers] = useState<any[]>([]);
+  const [loadingUserHistory, setLoadingUserHistory] = useState(false);
+
   // Collections Data States
   const [news, setNews] = useState<any[]>([]);
   const [ticker, setTicker] = useState<any[]>([]);
@@ -130,8 +136,11 @@ export default function AdminPanel() {
   const [referralSettings, setReferralSettings] = useState<any>({
     referralSystemEnabled: true,
     referralBonusAmount: 1,
-    referralMinTransfer: 50,
-    prizeAnnouncement: "এই মাসের সেরা ৩ রেফারার পাবেন আকর্ষণীয় পুরস্কার! 🎁"
+    referralMinTransfer: 100, // Updated default to 100
+    prizeAnnouncement: "এই মাসের সেরা ৩ রেফারার পাবেন আকর্ষণীয় পুরস্কার! 🎁",
+    signupBonusAmount: 2,
+    noCodeBonusEnabled: true,
+    noCodeBonusAmount: 2
   });
 
   // Transfer time settings state
@@ -1414,6 +1423,63 @@ export default function AdminPanel() {
     }
   };
 
+  const handleViewUserHistory = async (user: any) => {
+    setViewingUserHistory(user);
+    setLoadingUserHistory(true);
+    setUserHistoryDeposits([]);
+    setUserHistoryTransfers([]);
+    try {
+      // 1. Fetch deposit requests
+      const depQuery = query(
+        collection(db, "depositRequests"),
+        where("userId", "==", user.userId)
+      );
+      const depSnap = await getDocs(depQuery);
+      const depList = depSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      depList.sort((a: any, b: any) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setUserHistoryDeposits(depList);
+
+      // 2. Fetch transfer requests
+      const transQuery1 = query(
+        collection(db, "transferRequests"),
+        where("userId", "==", user.uid)
+      );
+      const transSnap1 = await getDocs(transQuery1);
+      let transList = transSnap1.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (user.email) {
+        const transQuery2 = query(
+          collection(db, "transferRequests"),
+          where("userId", "==", user.email)
+        );
+        const transSnap2 = await getDocs(transQuery2);
+        const transList2 = transSnap2.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        const existingIds = new Set(transList.map(t => t.id));
+        for (const t of transList2) {
+          if (!existingIds.has(t.id)) {
+            transList.push(t);
+          }
+        }
+      }
+
+      transList.sort((a: any, b: any) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      setUserHistoryTransfers(transList);
+    } catch (err) {
+      console.error("Error loading user history:", err);
+    } finally {
+      setLoadingUserHistory(false);
+    }
+  };
+
   // DEPOSIT SYSTEM HANDLERS
   const startVerifyDeposit = (request: any) => {
     setVerifyingDeposit(request);
@@ -1634,11 +1700,12 @@ export default function AdminPanel() {
         createdAt: new Date().toISOString()
       });
 
-      // Auto transfer referral bonus to main balance if requirements are met
+      // Progressive cumulative referral bonus unlocking when user hits cumulative completed transfers target (e.g. $100)
       if (selectedCompletedTransfer.userId) {
         let referralEnabled = true;
         let referralBonus = 1;
-        let referralMin = 50;
+        let referralMin = 100;
+        let signupBonusAmount = 2;
         
         try {
           const configSnap = await getDoc(doc(db, "settings", "referral"));
@@ -1653,17 +1720,47 @@ export default function AdminPanel() {
             if (configData.referralMinTransfer !== undefined) {
               referralMin = Number(configData.referralMinTransfer);
             }
+            if (configData.signupBonusAmount !== undefined) {
+              signupBonusAmount = Number(configData.signupBonusAmount);
+            }
           }
         } catch (confErr) {
-          console.error("Error loading referral custom settings, using defaults:", confErr);
+          console.error("Error loading referral settings, using defaults:", confErr);
         }
 
-        if (referralEnabled && amount >= referralMin) {
-          const referredUserRef = doc(db, "users", selectedCompletedTransfer.userId);
-          const referredUserSnap = await getDoc(referredUserRef);
-          if (referredUserSnap.exists()) {
-            const referredUserData = referredUserSnap.data();
-            if (referredUserData.referredBy && !referredUserData.referralCompleted) {
+        const referredUserRef = doc(db, "users", selectedCompletedTransfer.userId);
+        const referredUserSnap = await getDoc(referredUserRef);
+        if (referredUserSnap.exists()) {
+          const referredUserData = referredUserSnap.data();
+          const currentTotalCompletedAmount = (referredUserData.totalCompletedTransfersAmount || 0) + amount;
+          
+          // Always save totalCompletedTransfersAmount in user document
+          await updateDoc(referredUserRef, {
+            totalCompletedTransfersAmount: currentTotalCompletedAmount
+          });
+
+          // Check if user has not completed the referral bonus unlock yet, and their total successful transfers reaches the target (e.g. $100)
+          if (!referredUserData.referralCompleted && currentTotalCompletedAmount >= referralMin) {
+            const pendingBonusToUnlock = referredUserData.pendingBonus !== undefined ? Number(referredUserData.pendingBonus) : signupBonusAmount;
+            
+            // 1. Credit the pending bonus to the new user's main wallet balance (balance)
+            await updateDoc(referredUserRef, {
+              balance: increment(pendingBonusToUnlock),
+              pendingBonus: 0,
+              referralCompleted: true
+            });
+
+            // Send notification to the user
+            await addDoc(collection(db, "notifications"), {
+              userId: selectedCompletedTransfer.userId,
+              message: `অভিনন্দন ভাই! আপনার টোটাল ট্রান্সফার $${referralMin} পূর্ণ হয়েছে। আপনার $${pendingBonusToUnlock} সাইন-আপ বোনাস মেইন ওয়ালেটে যোগ করা হয়েছে 🎉`,
+              type: "signup_bonus_unlocked",
+              isRead: false,
+              createdAt: serverTimestamp()
+            });
+
+            // 2. If referred by a friend and referral system is enabled, reward the friend as well
+            if (referralEnabled && referredUserData.referredBy) {
               const refCode = referredUserData.referredBy;
               const referrerQuery = query(collection(db, "users"), where("referralCode", "==", refCode));
               const referrerQuerySnap = await getDocs(referrerQuery);
@@ -1672,25 +1769,18 @@ export default function AdminPanel() {
                 const referrerDoc = referrerQuerySnap.docs[0];
                 const referrerRef = referrerDoc.ref;
                 
-                // Move referralBonus from referrer's referralBalance to balance:
                 await updateDoc(referrerRef, {
-                  referralBalance: increment(-referralBonus),
                   balance: increment(referralBonus),
-                  referralEarnings: increment(referralBonus)
+                  referralEarnings: increment(referralBonus),
+                  totalReferrals: increment(1)
                 });
                 
-                // Send notification to referrer:
                 await addDoc(collection(db, "notifications"), {
                   userId: referrerDoc.id,
-                  message: `আপনার রেফার করা বন্ধু $${referralMin}+ পাঠিয়েছেন! $${referralBonus} বোনাস মেইন ব্যালেন্সে যোগ হয়েছে 🎉`,
+                  message: `আপনার রেফার করা বন্ধু $${referralMin}+ পাঠিয়েছেন! $${referralBonus} রেফারেল বোনাস মেইন ব্যালেন্সে যোগ হয়েছে 🎉`,
                   type: "referral_bonus_completed",
                   isRead: false,
                   createdAt: serverTimestamp()
-                });
-                
-                // Mark this referral as completed in user document:
-                await updateDoc(referredUserRef, {
-                  referralCompleted: true
                 });
               }
             }
@@ -3713,9 +3803,29 @@ export default function AdminPanel() {
                                 <p className="font-semibold text-[10px] text-[#9CA3AF]">ইমেইল এড্রেস:</p>
                                 <p className="font-semibold text-[#1B4F72] font-sans break-all">{u.email || "N/A"}</p>
                               </div>
-                              <div className="col-span-2 pt-1 border-t border-dashed border-gray-200 mt-1">
-                                <p className="font-semibold text-[10px] text-[#9CA3AF]">নিবন্ধনের তারিখ:</p>
-                                <p className="text-[#1A1A2E] font-mono">{u.createdAt ? new Date(u.createdAt).toLocaleString("bn-BD") : "N/A"}</p>
+                              <div>
+                                <p className="font-semibold text-[10px] text-[#9CA3AF]">পাসওয়ার্ড (Password):</p>
+                                <p className="font-semibold text-[#E74C3C] font-mono break-all">{u.password || "N/A"}</p>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-[10px] text-[#9CA3AF]">রেফারেল কোড:</p>
+                                <p className="font-semibold text-[#1B4F72] font-mono break-all">{u.referralCode || "N/A"}</p>
+                              </div>
+                              {u.referredBy && (
+                                <div className="col-span-2 border-t border-gray-200/50 pt-1">
+                                  <p className="font-semibold text-[10px] text-[#9CA3AF]">আমন্ত্রিত (Referred By):</p>
+                                  <p className="font-semibold text-[#1A1A2E] font-sans">{u.referredBy} (পেন্ডিং বোনাস: ${u.pendingBonus !== undefined ? u.pendingBonus : 2})</p>
+                                </div>
+                              )}
+                              <div className="col-span-2 border-t border-dashed border-gray-200 pt-1 mt-1 flex justify-between">
+                                <div>
+                                  <p className="font-semibold text-[10px] text-[#9CA3AF]">মোট সফল ট্রান্সফার:</p>
+                                  <p className="font-bold text-[#1D9E75] font-sans">${u.totalCompletedTransfersAmount || 0} USD</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-[10px] text-[#9CA3AF]">নিবন্ধনের তারিখ:</p>
+                                  <p className="text-[#1A1A2E] font-mono">{u.createdAt ? new Date(u.createdAt).toLocaleString("bn-BD") : "N/A"}</p>
+                                </div>
                               </div>
                             </div>
 
@@ -3764,7 +3874,13 @@ export default function AdminPanel() {
                                 )}
                               </div>
 
-                              <div className="flex space-x-2">
+                              <div className="flex space-x-1.5">
+                                <button
+                                  onClick={() => handleViewUserHistory(u)}
+                                  className="text-[10px] font-semibold px-2 py-1 bg-amber-500 text-white rounded-lg cursor-pointer hover:bg-amber-600 transition-all"
+                                >
+                                  ইতিহাস
+                                </button>
                                 <button
                                   onClick={() => handleToggleUserPremium(u.id, !!u.isPremium)}
                                   className={`text-[10px] font-semibold px-2 py-1 rounded-lg cursor-pointer ${
@@ -4339,7 +4455,7 @@ export default function AdminPanel() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">আনলকের জন্য সর্বনিম্ন প্রথম ট্রান্সফার ($)</label>
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">আনলকের জন্য সর্বনিম্ন মোট ট্রান্সফার ($)</label>
                     <input
                       type="number"
                       min="0"
@@ -4349,12 +4465,72 @@ export default function AdminPanel() {
                         ...prev,
                         referralMinTransfer: e.target.value !== "" ? Number(e.target.value) : ""
                       }))}
-                      placeholder="যেমন: ৫০"
+                      placeholder="যেমন: ১০০"
                       className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
                       style={{ borderWidth: "0.5px" }}
                       required
                     />
-                    <p className="text-[11px] text-[#6B7280] font-sans">আমন্ত্রিত বন্ধু সর্বনিম্ন কত ডলার পাঠালে বোনাস মূল ব্যালেন্সে যাবে (ডিফল্ট: $৫০)</p>
+                    <p className="text-[11px] text-[#6B7280] font-sans">আমন্ত্রিত বা নতুন ইউজার মোট কত ডলার সফলভাবে পাঠালে বোনাস মূল ব্যালেন্সে যুক্ত হবে (ডিফল্ট: $১০০)</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">রেফার কোড সহ সাইন-আপ বোনাস পরিমাণ ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={referralSettings.signupBonusAmount !== undefined ? referralSettings.signupBonusAmount : ""}
+                      onChange={(e) => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        signupBonusAmount: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ২"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">রেফার কোড ব্যবহার করে অ্যাকাউন্ট খুললে কত ডলার পেন্ডিং বোনাস পাবে (ডিফল্ট: $২)</p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 font-sans">
+                    <div>
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">রেফার কোড ছাড়া সাইন-আপ বোনাস</label>
+                      <p className="text-[11px] text-[#6B7280] font-sans">কোনো কোড ছাড়া সাইন-আপ করলেও বোনাস পাবে কি না (ON/OFF)</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        noCodeBonusEnabled: !prev.noCodeBonusEnabled
+                      }))}
+                      className={`px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        referralSettings.noCodeBonusEnabled 
+                          ? "bg-[#1D9E75] text-white" 
+                          : "bg-gray-100 text-[#6B7280]"
+                      }`}
+                    >
+                      {referralSettings.noCodeBonusEnabled ? "সক্রিয় (ON)" : "নিষ্ক্রিয় (OFF)"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">রেফার কোড ছাড়া সাইন-আপ বোনাস পরিমাণ ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={referralSettings.noCodeBonusAmount !== undefined ? referralSettings.noCodeBonusAmount : ""}
+                      onChange={(e) => setReferralSettings((prev: any) => ({
+                        ...prev,
+                        noCodeBonusAmount: e.target.value !== "" ? Number(e.target.value) : ""
+                      }))}
+                      placeholder="যেমন: ২"
+                      className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                      style={{ borderWidth: "0.5px" }}
+                      required={referralSettings.noCodeBonusEnabled}
+                      disabled={!referralSettings.noCodeBonusEnabled}
+                    />
+                    <p className="text-[11px] text-[#6B7280] font-sans">রেফার কোড ছাড়া অ্যাকাউন্ট খুললে কত ডলার পেন্ডিং বোনাস পাবে (ডিফল্ট: $২)</p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -4858,6 +5034,122 @@ export default function AdminPanel() {
             >
               অনুরোধ বাতিল করুন (Reject Request)
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==== MODAL: VIEW USER HISTORY OVERLAY ==== */}
+      {viewingUserHistory && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#F7F8FA] w-full max-w-lg rounded-[16px] overflow-hidden shadow-xl border border-[#E5E7EB] flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="bg-[#1B4F72] text-white p-4 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-sm font-semibold font-sans">{viewingUserHistory.name} - এর ইতিহাস</h3>
+                <p className="text-[10px] opacity-90 font-sans">ইউজার আইডি: {viewingUserHistory.userId}</p>
+              </div>
+              <button
+                onClick={() => setViewingUserHistory(null)}
+                className="p-1 hover:bg-white/10 rounded-full transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content container */}
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              {loadingUserHistory ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1B4F72] mx-auto mb-2"></div>
+                  <p className="text-xs text-[#6B7280]">ইতিহাস লোড হচ্ছে ভাই...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Deposits Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-[#1B4F72] flex items-center justify-between border-b pb-1">
+                      <span>📥 ডিপোজিট ইতিহাস (মোট: {userHistoryDeposits.length})</span>
+                    </h4>
+                    {userHistoryDeposits.length === 0 ? (
+                      <p className="text-[11px] text-[#6B7280] bg-white p-3 rounded-xl border border-dashed border-gray-200 text-center">কোনো ডিপোজিট রেকর্ড পাওয়া যায়নি ভাই।</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {userHistoryDeposits.map((dep) => (
+                          <div key={dep.id} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-start text-xs" style={{ borderWidth: '0.5px' }}>
+                            <div className="space-y-0.5 text-left">
+                              <p className="font-bold text-[#1A1A2E] font-sans">{dep.id}</p>
+                              <p className="text-[10px] text-[#6B7280]">{dep.methodName} - ট্রানজেকশন: {dep.transactionId}</p>
+                              <p className="text-[10px] text-gray-400">{dep.createdAt ? new Date(dep.createdAt).toLocaleString("bn-BD") : "N/A"}</p>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <p className="font-bold text-[#1D9E75] font-sans">${dep.amount} USD</p>
+                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${
+                                dep.status === "completed" || dep.status === "approved" || dep.status === "verified"
+                                  ? "bg-[#1D9E75]/10 text-[#1D9E75]"
+                                  : dep.status === "pending"
+                                  ? "bg-amber-500/10 text-amber-500"
+                                  : "bg-[#E74C3C]/10 text-[#E74C3C]"
+                              }`}>
+                                {dep.status === "completed" || dep.status === "approved" || dep.status === "verified" ? "সফল" : dep.status === "pending" ? "পেন্ডিং" : "বাতিল"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transfers Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-[#1B4F72] flex items-center justify-between border-b pb-1">
+                      <span>💸 টাকা পাঠানোর ইতিহাস (মোট: {userHistoryTransfers.length})</span>
+                    </h4>
+                    {userHistoryTransfers.length === 0 ? (
+                      <p className="text-[11px] text-[#6B7280] bg-white p-3 rounded-xl border border-dashed border-gray-200 text-center">কোনো ট্র্যান্সফার রেকর্ড পাওয়া যায়নি ভাই।</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {userHistoryTransfers.map((trans) => (
+                          <div key={trans.id} className="bg-white p-3 rounded-xl border border-gray-100 space-y-1.5 text-xs text-left" style={{ borderWidth: '0.5px' }}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-bold text-[#1A1A2E] font-sans">{trans.id}</p>
+                                <p className="text-[10px] text-[#6B7280]">প্রাপক: {trans.recipientName} ({trans.recipientPhone})</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-[#1B4F72] font-sans">${trans.totalDeducted || trans.amount} USD</p>
+                                <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${
+                                  trans.status === "completed"
+                                    ? "bg-[#1D9E75]/10 text-[#1D9E75]"
+                                    : trans.status === "pending" || trans.status === "processing"
+                                    ? "bg-amber-500/10 text-amber-500"
+                                    : "bg-[#E74C3C]/10 text-[#E74C3C]"
+                                }`}>
+                                  {trans.status === "completed" ? "সফল" : (trans.status === "pending" || trans.status === "processing") ? "পেন্ডিং" : "বাতিল"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-gray-400 border-t border-gray-50 pt-1 mt-1">
+                              <span>মাধ্যম: {trans.recipientMethod}</span>
+                              <span>{trans.createdAt ? new Date(trans.createdAt).toLocaleString("bn-BD") : "N/A"}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-white border-t border-[#E5E7EB] shrink-0 text-right">
+              <button
+                onClick={() => setViewingUserHistory(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-[#1A1A2E] rounded-xl text-xs font-semibold cursor-pointer transition-all"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
           </div>
         </div>
       )}

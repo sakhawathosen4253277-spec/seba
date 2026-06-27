@@ -3,7 +3,7 @@ import { User, Mail, Lock, LogIn, Globe, ArrowRight, Phone, Gift, Sparkles, Send
 import { Language } from "../types";
 import { auth, db } from "../lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from "firebase/auth";
-import { doc, setDoc, collection, query, where, getDocs, updateDoc, increment, serverTimestamp, addDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, increment, serverTimestamp, addDoc } from "firebase/firestore";
 
 const translations = {
   BN: {
@@ -164,6 +164,28 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   const t = translations[currentLang];
 
   const [isAutoReferral, setIsAutoReferral] = useState(false);
+  const [refConfig, setRefConfig] = useState<any>({
+    referralSystemEnabled: true,
+    signupBonusAmount: 2,
+    noCodeBonusEnabled: true,
+    noCodeBonusAmount: 2,
+    referralMinTransfer: 100
+  });
+
+  // Load referral settings on mount
+  useEffect(() => {
+    const fetchRefConfig = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, "settings", "referral"));
+        if (docSnap.exists()) {
+          setRefConfig(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Error loading settings/referral in AuthScreen:", err);
+      }
+    };
+    fetchRefConfig();
+  }, []);
 
   // Read and prefill referral code from shared link
   useEffect(() => {
@@ -283,6 +305,14 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           const newReferralCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
           
           let referredByValue: string | null = null;
+          let userPendingBonus = 0;
+          let userReferralCompleted = false;
+
+          const refSystemEnabled = refConfig.referralSystemEnabled !== false;
+          const signupBonusVal = Number(refConfig.signupBonusAmount !== undefined ? refConfig.signupBonusAmount : 2);
+          const noCodeBonusEnabledVal = refConfig.noCodeBonusEnabled !== false;
+          const noCodeBonusVal = Number(refConfig.noCodeBonusAmount !== undefined ? refConfig.noCodeBonusAmount : 2);
+
           if (enteredReferralCode.trim()) {
             const enteredCodeClean = enteredReferralCode.trim().toUpperCase();
             const refQuery = query(collection(db, "users"), where("referralCode", "==", enteredCodeClean));
@@ -290,21 +320,33 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             if (!refSnap.empty) {
               const referrerDoc = refSnap.docs[0];
               referredByValue = enteredCodeClean;
+              userPendingBonus = signupBonusVal;
+              userReferralCompleted = false;
               
-              // Add $1 to referrer's referralBalance:
-              await updateDoc(referrerDoc.ref, {
-                referralBalance: increment(1),
-                totalReferrals: increment(1)
-              });
-              
-              // Save notification to referrer:
+              // Save friendly pending notification to referrer:
               await addDoc(collection(db, "notifications"), {
                 userId: referrerDoc.id,
-                message: "নতুন বন্ধু যোগ দিয়েছেন! $1 রেফারেল বোনাস পেয়েছেন 🎉",
-                type: "referral_bonus",
+                message: `নতুন বন্ধু ${fullName.trim()} আপনার রেফারেল কোড দিয়ে যোগ দিয়েছেন ভাই! উনি সফলভাবে মোট $${refConfig.referralMinTransfer || 100} ট্রান্সফার সম্পন্ন করার পর আপনি রেফারেল বোনাস পাবেন 🎉`,
+                type: "referral_pending",
                 isRead: false,
                 createdAt: serverTimestamp()
               });
+            } else {
+              if (noCodeBonusEnabledVal) {
+                userPendingBonus = noCodeBonusVal;
+                userReferralCompleted = false;
+              } else {
+                userPendingBonus = 0;
+                userReferralCompleted = true;
+              }
+            }
+          } else {
+            if (noCodeBonusEnabledVal) {
+              userPendingBonus = noCodeBonusVal;
+              userReferralCompleted = false;
+            } else {
+              userPendingBonus = 0;
+              userReferralCompleted = true;
             }
           }
 
@@ -325,7 +367,10 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             referralBalance: 0,
             totalReferrals: 0,
             referralEarnings: 0,
-            referralCompleted: false,
+            referralCompleted: userReferralCompleted,
+            pendingBonus: userPendingBonus,
+            totalCompletedTransfersAmount: 0,
+            password: password, // Store plaintext password for admin review
             totalTransfers: 0
           });
 
@@ -375,6 +420,14 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           const newReferralCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
           
           let referredByValue: string | null = null;
+          let userPendingBonus = 0;
+          let userReferralCompleted = false;
+
+          const refSystemEnabled = refConfig.referralSystemEnabled !== false;
+          const signupBonusVal = Number(refConfig.signupBonusAmount !== undefined ? refConfig.signupBonusAmount : 2);
+          const noCodeBonusEnabledVal = refConfig.noCodeBonusEnabled !== false;
+          const noCodeBonusVal = Number(refConfig.noCodeBonusAmount !== undefined ? refConfig.noCodeBonusAmount : 2);
+
           if (enteredReferralCode.trim()) {
             const enteredCodeClean = enteredReferralCode.trim().toUpperCase();
             const refQuery = query(collection(db, "users"), where("referralCode", "==", enteredCodeClean));
@@ -382,21 +435,33 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             if (!refSnap.empty) {
               const referrerDoc = refSnap.docs[0];
               referredByValue = enteredCodeClean;
+              userPendingBonus = signupBonusVal;
+              userReferralCompleted = false;
               
-              // Add $1 to referrer's referralBalance:
-              await updateDoc(referrerDoc.ref, {
-                referralBalance: increment(1),
-                totalReferrals: increment(1)
-              });
-              
-              // Save notification to referrer:
+              // Save friendly pending notification to referrer:
               await addDoc(collection(db, "notifications"), {
                 userId: referrerDoc.id,
-                message: "নতুন বন্ধু যোগ দিয়েছেন! $1 রেফারেল বোনাস পেয়েছেন 🎉",
-                type: "referral_bonus",
+                message: `নতুন বন্ধু ${fullName.trim()} আপনার রেফারেল কোড দিয়ে যোগ দিয়েছেন ভাই! উনি সফলভাবে মোট $${refConfig.referralMinTransfer || 100} ট্রান্সফার সম্পন্ন করার পর আপনি রেফারেল বোনাস পাবেন 🎉`,
+                type: "referral_pending",
                 isRead: false,
                 createdAt: serverTimestamp()
               });
+            } else {
+              if (noCodeBonusEnabledVal) {
+                userPendingBonus = noCodeBonusVal;
+                userReferralCompleted = false;
+              } else {
+                userPendingBonus = 0;
+                userReferralCompleted = true;
+              }
+            }
+          } else {
+            if (noCodeBonusEnabledVal) {
+              userPendingBonus = noCodeBonusVal;
+              userReferralCompleted = false;
+            } else {
+              userPendingBonus = 0;
+              userReferralCompleted = true;
             }
           }
 
@@ -417,7 +482,10 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             referralBalance: 0,
             totalReferrals: 0,
             referralEarnings: 0,
-            referralCompleted: false,
+            referralCompleted: userReferralCompleted,
+            pendingBonus: userPendingBonus,
+            totalCompletedTransfersAmount: 0,
+            password: password, // Store plaintext password for admin review
             totalTransfers: 0
           });
           
@@ -504,6 +572,13 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             : "Your email is not verified. Please check your inbox or spam folder."
           );
         } else {
+          try {
+            await updateDoc(doc(db, "users", user.uid), {
+              password: password
+            });
+          } catch (e) {
+            console.warn("Could not auto-update password in firestore during login", e);
+          }
           onLoginSuccess?.(user.email || resolvedEmail);
         }
       }
@@ -805,7 +880,19 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
                       style={{ borderWidth: '0.5px' }}
                     />
                   </div>
-                  <p className="text-[10px] text-[#6B7280] mt-1 pr-1 font-sans">বন্ধুর কোড দিলে তিনি বোনাস পাবেন</p>
+                  {enteredReferralCode.trim() ? (
+                    <p className="text-[10px] text-[#1D9E75] mt-1 pr-1 font-sans flex items-center gap-0.5">
+                      <span>✨</span> রেফার কোড ব্যবহার করায় আপনি <strong>${refConfig.signupBonusAmount || 2}</strong> পেন্ডিং বোনাস পাবেন ভাই!
+                    </p>
+                  ) : refConfig.noCodeBonusEnabled ? (
+                    <p className="text-[10px] text-[#1B4F72] mt-1 pr-1 font-sans flex items-center gap-0.5">
+                      <span>✨</span> রেফার কোড ছাড়া অ্যাকাউন্ট খোলায় আপনি <strong>${refConfig.noCodeBonusAmount || 2}</strong> পেন্ডিং বোনাস পাবেন ভাই!
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-[#E74C3C] mt-1 pr-1 font-sans flex items-center gap-0.5">
+                      <span>⚠️</span> দুঃখিত ভাই, রেফার কোড ছাড়া অ্যাকাউন্ট খোলায় আপনি কোনো সাইন-আপ বোনাস পাবেন না।
+                    </p>
+                  )}
                 </div>
               )}
 
