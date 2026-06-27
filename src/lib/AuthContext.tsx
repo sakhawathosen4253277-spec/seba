@@ -26,6 +26,7 @@ export interface UserDoc {
   referralCompleted: boolean;
   totalTransfers: number;
   lastDailyClaim?: string;
+  profilePhoto?: string;
 }
 
 interface AuthContextType {
@@ -103,7 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           referralEarnings: Number(existingData.referralEarnings) || 0,
           referralCompleted: !!existingData.referralCompleted,
           totalTransfers: Number(existingData.totalTransfers) || 0,
-          lastDailyClaim: existingData.lastDailyClaim || ""
+          lastDailyClaim: existingData.lastDailyClaim || "",
+          profilePhoto: existingData.profilePhoto || ""
         });
       } else {
         setUserDoc(null);

@@ -13,7 +13,6 @@ import {
 import Header from "./components/Header";
 import BottomNav from "./components/BottomNav";
 import HomeDashboard from "./components/HomeDashboard";
-import AIChat from "./components/AIChat";
 import MoneyTransfer from "./components/MoneyTransfer";
 import VisaInformation from "./components/VisaInformation";
 import AirTicket from "./components/AirTicket";
@@ -29,6 +28,7 @@ import TransferStatus from "./components/TransferStatus";
 import AdminDashboard, { SupportTicket } from "./components/AdminDashboard";
 import AdminPanel from "./components/AdminPanel";
 import ProfilePage from "./components/ProfilePage";
+import AdBannerModal from "./components/AdBannerModal";
 import ReferralPage from "./components/ReferralPage";
 import { useAuth } from "./lib/AuthContext";
 import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
@@ -54,7 +54,7 @@ import {
   Sparkles
 } from "lucide-react";
 
-const SUPPORT_NAMES = ["হাসান", "রহিম", "ইমরান", "সোহেল"];
+const SUPPORT_NAMES = ["জেমিনি এআই (Gemini AI)"];
 
 export default function App() {
   const { currentUser, userDoc, loading } = useAuth();
@@ -356,7 +356,7 @@ export default function App() {
       {
         id: "init-msg",
         sender: "agent",
-        text: `আস-সালামু আলাইকুম ভাই, আমি ${agentName} বলছি। কম্বোডিয়ায় আপনার যেকোনো সমস্যা বা দরকারে আমি সাহায্য করব। আপনার কী সমস্যা সেটি আমাদের নিচের বক্সে বাংলায় লিখে বলুন, আমরা চমৎকার সমাধান দেব!`,
+        text: `আস-সালামু আলাইকুম ভাই, আমি প্রবাসী সেবা জেমিনি এআই (Gemini AI) বলছি। কম্বোডিয়ায় আপনার যেকোনো সমস্যা বা দরকারে আমি সরাসরি সাহায্য করতে প্রস্তুত ভাই। আপনার কী সমস্যা সেটি নিচে বাংলায় লিখে বলুন, আমরা চমৎকার সমাধান দেব!`,
         timestamp: new Date().toLocaleTimeString("bn-BD", { hour: "2-digit", minute: "2-digit" })
       }
     ]);
@@ -515,6 +515,9 @@ export default function App() {
     setTab(tab);
     if (tab === "services") {
       setSubView(sub);
+    } else if (tab === "transferStatus") {
+      setPrefilledTxId(sub === "none" ? "" : sub);
+      setSubView("none");
     } else {
       setSubView("none");
     }
@@ -610,12 +613,15 @@ export default function App() {
           <>
             {/* TAB: HOME */}
             {currentTab === "home" && (
-              <HomeDashboard 
-                onServiceSelect={handleServiceSelect} 
-                walletBalance={walletBalance}
-                exchangeRate={exchangeRate}
-                userName={userDoc?.name}
-              />
+              <>
+                <HomeDashboard 
+                  onServiceSelect={handleServiceSelect} 
+                  walletBalance={walletBalance}
+                  exchangeRate={exchangeRate}
+                  userName={userDoc?.name}
+                />
+                <AdBannerModal userId={currentUser.uid} />
+              </>
             )}
 
             {/* TAB: DEPOSIT */}
@@ -623,16 +629,6 @@ export default function App() {
               <DepositPage 
                 onBack={() => setTab("home")} 
                 userEmail={userEmail}
-              />
-            )}
-
-            {/* TAB: CHAT SUPPORT */}
-            {currentTab === "chat" && (
-              <AIChat 
-                messages={messages} 
-                onSendMessage={handleSendMessage} 
-                isTyping={isTyping} 
-                agentName={agentName}
               />
             )}
 
@@ -847,7 +843,7 @@ export default function App() {
                   <i className="ti ti-arrow-left" style={{color:'#1B4F72', fontSize:'18px'}}></i>
                   <span style={{color:'#1B4F72', fontSize:'14px', fontWeight:'500'}}>ফিরে যান</span>
                 </div>
-                <EmergencyCenter onNavigateToChat={() => handleServiceSelect("chat")} />
+                <EmergencyCenter onNavigateToChat={() => {}} />
               </div>
             )}
 

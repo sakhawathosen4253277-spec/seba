@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Lock, LogIn, Globe, ArrowRight, Phone, Gift } from "lucide-react";
+import { User, Mail, Lock, LogIn, Globe, ArrowRight, Phone, Gift, Sparkles, Send, X } from "lucide-react";
 import { Language } from "../types";
 import { auth, db } from "../lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from "firebase/auth";
@@ -540,7 +540,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   };
 
   return (
-    <div className="flex flex-col space-y-5 pb-20 px-5 pt-6 font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E]">
+    <div className="flex flex-col space-y-5 pb-20 px-5 pt-6 font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E] relative">
       
       {/* Brand Profile Center banner */}
       <div className="text-center space-y-2 mt-4 select-none">
@@ -861,6 +861,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       <div className="text-center text-[11px] text-[#6B7280] font-sans max-w-[325px] mx-auto leading-relaxed select-none pt-2 font-normal">
         {t.disclaimer}
       </div>
+
     </div>
   );
 }

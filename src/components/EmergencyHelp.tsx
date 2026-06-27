@@ -245,14 +245,6 @@ export default function EmergencyHelp({ onSwitchTab, onSendMessageToChat }: Emer
                   <li key={index}>{step}</li>
                 ))}
               </ul>
-
-              <button
-                onClick={() => handleSupportConnect(cat.title)}
-                className="w-full py-2.5 bg-red-600/10 border border-red-500/30 hover:bg-red-600/20 text-red-400 text-xs font-bold rounded-xl flex items-center justify-center space-x-2 transition-all outline-none"
-              >
-                <MessageSquare className="w-4 h-4 text-red-400" />
-                <span>আমাদের সাপোর্ট এজেন্টকে তাত্ক্ষণিক এটি পাঠান</span>
-              </button>
             </div>
           );
         })}

@@ -389,7 +389,6 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
               <option value="Nagad (পার্সোনাল)">Nagad (পার্সোনাল)</option>
               <option value="Nagad (এজেন্ট)">Nagad (এজেন্ট)</option>
               <option value="Rocket">Rocket</option>
-              <option value="ব্যাংক ট্রান্সফার">ব্যাংক ট্রান্সফার</option>
             </select>
           </div>
 
@@ -403,50 +402,22 @@ export default function SendMoneyPage({ onBack, userEmail, walletBalance }: Send
               onChange={(e) => {
                 setRecipientName(e.target.value);
               }}
-              placeholder="মোবাইল বা ব্যাংক অ্যাকাউন্টের সম্পূর্ণ নাম"
+              placeholder="মোবাইল অ্যাকাউন্টের সম্পূর্ণ নাম"
               className="bg-[#F7F8FA] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-1 focus:ring-[#1B4F72]"
             />
           </div>
 
-          {/* Conditional Input based on Bank Selection */}
-          {isBank ? (
-            <div className="space-y-3.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-gray-500 font-semibold">ব্যাংকের নাম:</label>
-                <input
-                  type="text"
-                  required
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  placeholder="যেমন: ডাচ-বাংলা ব্যাংক পিএলসি"
-                  className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-xs outline-none"
-                />
-              </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-[10px] text-gray-500 font-semibold">ব্যাংক অ্যাকাউন্ট নম্বর:</label>
-                <input
-                  type="text"
-                  required
-                  value={bankAccount}
-                  onChange={(e) => setBankAccount(e.target.value)}
-                  placeholder="যেমন: ১২৩.৪৫৬.৭৮৯"
-                  className="bg-white border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 text-xs outline-none font-mono"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col space-y-1">
-              <label className="text-[11px] text-[#6B7280] font-medium">প্রাপকের নম্বর:</label>
-              <input
-                type="tel"
-                required
-                value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
-                placeholder="যেমন: ০১৭XXXXXXXX"
-                className="bg-[#F7F8FA] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-1 focus:ring-[#1B4F72] font-mono"
-              />
-            </div>
-          )}
+          <div className="flex flex-col space-y-1">
+            <label className="text-[11px] text-[#6B7280] font-medium">প্রাপকের নম্বর:</label>
+            <input
+              type="tel"
+              required
+              value={recipientPhone}
+              onChange={(e) => setRecipientPhone(e.target.value)}
+              placeholder="যেমন: ০১৭XXXXXXXX"
+              className="bg-[#F7F8FA] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-1 focus:ring-[#1B4F72] font-mono"
+            />
+          </div>
 
           {/* Submit transfer request */}
           <button

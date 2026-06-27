@@ -334,6 +334,7 @@ export default function AdminDashboard({
                     usdRate: parsed,
                     bkash: parsed,
                     nagad: parsed,
+                    rocket: parsed,
                     bank: parsed,
                     updatedAt: new Date().toISOString()
                   };

@@ -21,12 +21,15 @@ import {
   Clock,
   XCircle,
   CheckCircle2,
-  X
+  X,
+  Camera,
+  Calculator,
+  ArrowRight
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { signOut, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { Transaction } from "../types";
 import { downloadReceiptImage } from "../lib/receipt";
 
@@ -41,6 +44,72 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   const [copied, setCopied] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   
+  // Calculator States & Logic
+  const [dbRates, setDbRates] = useState({
+    bkash: 110.50,
+    nagad: 110.60,
+    rocket: 110.70,
+    bank: 110.80
+  });
+  const [calcUsd, setCalcUsd] = useState<string>("");
+  const [calcBdt, setCalcBdt] = useState<string>("");
+  const [selectedRateType, setSelectedRateType] = useState<string>("bkash");
+
+  useEffect(() => {
+    // Listen to exchange rates live in ProfilePage too!
+    const unsubscribeRates = onSnapshot(doc(db, "exchangeRates", "current"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setDbRates({
+          bkash: Number(data.bkash) || 110.50,
+          nagad: Number(data.nagad) || 110.60,
+          rocket: Number(data.rocket) || 110.70,
+          bank: Number(data.bank) || 110.80
+        });
+      }
+    });
+    return () => unsubscribeRates();
+  }, []);
+
+  const getActiveRate = () => {
+    if (selectedRateType === "bkash") return dbRates.bkash;
+    if (selectedRateType === "nagad") return dbRates.nagad;
+    if (selectedRateType === "rocket") return dbRates.rocket;
+    return dbRates.bank;
+  };
+
+  const handleUsdChange = (val: string, rate: number) => {
+    setCalcUsd(val);
+    if (!val || isNaN(Number(val))) {
+      setCalcBdt("");
+    } else {
+      setCalcBdt((parseFloat(val) * rate).toFixed(0));
+    }
+  };
+
+  const handleBdtChange = (val: string, rate: number) => {
+    setCalcBdt(val);
+    if (!val || isNaN(Number(val))) {
+      setCalcUsd("");
+    } else {
+      setCalcUsd((parseFloat(val) / rate).toFixed(2));
+    }
+  };
+
+  const handleRateSelect = (type: string) => {
+    setSelectedRateType(type);
+    let rate = dbRates.bkash;
+    if (type === "nagad") rate = dbRates.nagad;
+    else if (type === "rocket") rate = dbRates.rocket;
+    else if (type === "bank") rate = dbRates.bank;
+
+    if (calcUsd) {
+      setCalcBdt((parseFloat(calcUsd) * rate).toFixed(0));
+    } else if (calcBdt) {
+      setCalcUsd((parseFloat(calcBdt) / rate).toFixed(2));
+    }
+  };
+  
   // Settings & Modal system states
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [txAlerts, setTxAlerts] = useState(() => localStorage.getItem("txAlerts") !== "false");
@@ -48,6 +117,39 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem("selectedLanguage") || "বাংলা");
   const [pwResetLoading, setPwResetLoading] = useState(false);
   const [pwResetMsg, setPwResetMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("দয়া করে ২ এমবি (2MB) এর চেয়ে ছোট ছবি সিলেক্ট করুন ভাই!");
+        return;
+      }
+      setPhotoUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        try {
+          if (currentUser) {
+            await updateDoc(doc(db, "users", currentUser.uid), {
+              profilePhoto: base64String
+            });
+          }
+        } catch (err) {
+          console.error("Error saving profile photo:", err);
+          alert("ছবি পরিবর্তন করতে সমস্যা হয়েছে ভাই!");
+        } finally {
+          setPhotoUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        alert("ফাইল পড়তে সমস্যা হয়েছে ভাই!");
+        setPhotoUploading(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const toggleTxAlerts = () => {
     const newVal = !txAlerts;
@@ -155,20 +257,46 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
         className="bg-[#1B4F72] text-white text-center select-none"
         style={{ padding: '28px 20px 48px' }}
       >
-        <div className="relative inline-block">
+        <div className="relative inline-block group">
           {/* Avatar 72px */}
-          <div 
-            className="w-[72px] h-[72px] bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white mx-auto"
+          <label 
+            htmlFor="profile-photo-input"
+            className="block w-[72px] h-[72px] bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white mx-auto overflow-hidden relative cursor-pointer"
             style={{ borderWidth: '0.5px' }}
           >
-            <User className="w-9 h-9" />
-          </div>
+            {userDoc?.profilePhoto ? (
+              <img 
+                src={userDoc.profilePhoto} 
+                alt="Profile" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <User className="w-9 h-9" />
+            )}
+            {photoUploading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <span className="text-[10px] text-white">...</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+              <Camera className="w-4 h-4 text-white" />
+            </div>
+          </label>
+          <input 
+            type="file" 
+            accept="image/*" 
+            id="profile-photo-input" 
+            onChange={handlePhotoUpload} 
+            className="hidden" 
+          />
           {isPremium && (
             <span className="absolute bottom-0 right-0 bg-[#E74C3C] text-white p-1 rounded-full border border-[#1B4F72]" style={{ borderWidth: '0.5px' }}>
               <Award className="w-3.5 h-3.5 text-white fill-current" />
             </span>
           )}
         </div>
+        <p className="text-[10px] text-white/50 mt-1 font-sans">ছবি পরিবর্তন করতে উপরে ক্লিক করুন</p>
 
         <div className="mt-3">
           <h3 className="text-[18px] font-medium text-white font-sans">{name}</h3>
@@ -267,6 +395,129 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
         </div>
       </div>
 
+      {/* 3.5. Live Calculator Card */}
+      <div className="px-4 mt-4">
+        <div 
+          className="bg-white border text-left p-4 space-y-4"
+          style={{
+            borderColor: '#E5E7EB',
+            borderWidth: '0.5px',
+            borderRadius: '16px'
+          }}
+        >
+          {/* Header Area */}
+          <div className="flex items-center justify-between">
+            <div className="text-left font-sans">
+              <h3 className="text-[13px] font-medium text-[#1A1A2E] leading-tight flex items-center gap-1.5">
+                <span>💱</span> লাইভ ক্যালকুলেটর
+              </h3>
+              <p className="text-[11px] font-normal text-[#6B7280] mt-0.5">
+                আজকের রেট অনুযায়ী হিসাব করুন ভাই
+              </p>
+            </div>
+          </div>
+
+          {/* Inputs Section */}
+          <div className="space-y-3">
+            {/* USD to BDT Row */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-[#6B7280] font-sans">USD থেকে BDT:</label>
+              <div className="flex items-center space-x-2.5">
+                <div className="flex-1 relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-[#6B7280] font-sans">$</span>
+                  <input
+                    type="number"
+                    value={calcUsd}
+                    onChange={(e) => handleUsdChange(e.target.value, getActiveRate())}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3.5 py-2.5 bg-[#F9FAFB] border rounded-[10px] text-[16px] font-semibold text-[#1A1A2E] font-sans outline-none focus:border-[#1B4F72] transition-colors"
+                    style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                  />
+                </div>
+                
+                <div className="text-gray-400 shrink-0">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+
+                <div className="flex-1 bg-[#F9FAFB] border rounded-[10px] px-3.5 py-2.5 flex items-center justify-between min-h-[46px]" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                  <span className="text-[16px] font-semibold text-[#0F6E56] font-sans truncate">
+                    {calcBdt ? Number(calcBdt).toLocaleString("bn-BD") : "০"}
+                  </span>
+                  <span className="text-[15px] font-medium text-[#6B7280]">৳</span>
+                </div>
+              </div>
+            </div>
+
+            {/* BDT to USD Row */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-[#6B7280] font-sans">BDT থেকে USD:</label>
+              <div className="flex items-center space-x-2.5">
+                <div className="flex-1 relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-[#6B7280] font-sans">৳</span>
+                  <input
+                    type="number"
+                    value={calcBdt}
+                    onChange={(e) => handleBdtChange(e.target.value, getActiveRate())}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3.5 py-2.5 bg-[#F9FAFB] border rounded-[10px] text-[16px] font-semibold text-[#1A1A2E] font-sans outline-none focus:border-[#1B4F72] transition-colors"
+                    style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                  />
+                </div>
+                
+                <div className="text-gray-400 shrink-0">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+
+                <div className="flex-1 bg-[#F9FAFB] border rounded-[10px] px-3.5 py-2.5 flex items-center justify-start space-x-1 min-h-[46px]" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                  <span className="text-[15px] font-medium text-[#6B7280] font-sans">$</span>
+                  <span className="text-[16px] font-semibold text-[#1B4F72] font-sans truncate">
+                    {calcUsd || "0.00"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rate Selector Pills */}
+          <div className="space-y-1.5 pt-1">
+            <p className="text-[11px] font-medium text-[#6B7280]">টাকা পাঠানোর মাধ্যম নির্বাচন করুন:</p>
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {[
+                { id: "bkash", label: `bKash ${dbRates.bkash.toFixed(2)}` },
+                { id: "nagad", label: `Nagad ${dbRates.nagad.toFixed(2)}` },
+                { id: "rocket", label: `Rocket ${dbRates.rocket.toFixed(2)}` },
+                { id: "bank", label: `Bank ${dbRates.bank.toFixed(2)}` }
+              ].map((pill) => {
+                const isActive = selectedRateType === pill.id;
+                return (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    onClick={() => handleRateSelect(pill.id)}
+                    className={`px-3 py-1.5 text-[11px] font-medium font-sans rounded-lg transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
+                      isActive 
+                        ? "bg-[#1B4F72] text-white" 
+                        : "bg-[#F7F8FA] text-[#6B7280] hover:bg-gray-100"
+                    }`}
+                    style={{
+                      border: isActive ? 'none' : '0.5px solid #E5E7EB',
+                      borderWidth: isActive ? '0px' : '0.5px'
+                    }}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Service Charge Note */}
+          <div className="text-[10px] text-[#9CA3AF] font-sans pt-1">
+            * ট্রান্সফারে ২% সার্ভিস চার্জ প্রযোজ্য
+          </div>
+        </div>
+      </div>
+
       {/* 4. RECENT TRANSACTIONS */}
       <div className="px-4 mt-4 text-left font-sans">
         <h4 className="text-[13px] font-medium text-[#1A1A2E] font-sans mb-2 pl-1 select-none text-left">
@@ -327,13 +578,21 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
                       <p className="text-[10px] text-[#6B7280] font-mono mt-0.5">${displayUsd} USD</p>
                       <div className="mt-1 flex justify-end">
                         {tx.status === "completed" && (
-                          <button
-                            onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
-                            className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 hover:bg-[#1D9E75]/20 px-1.5 py-0.5 rounded-md border border-[#1D9E75]/20 transition-all cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3 h-3 shrink-0" />
-                            <span>✅ সম্পন্ন — রশিদ দেখুন</span>
-                          </button>
+                          <div className="flex flex-col space-y-1 items-end">
+                            <button
+                              onClick={() => downloadReceiptImage(normalizedTxForReceipt)}
+                              className="flex items-center space-x-0.5 text-[9px] font-bold text-[#1D9E75] bg-[#1D9E75]/10 hover:bg-[#1D9E75]/20 px-1.5 py-0.5 rounded-md border border-[#1D9E75]/20 transition-all cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3 h-3 shrink-0" />
+                              <span>✅ সম্পন্ন — রশিদ দেখুন</span>
+                            </button>
+                            <button
+                              onClick={() => onSelectTab("transferStatus", tx.id)}
+                              className="flex items-center space-x-1 text-[9px] font-bold text-[#1B4F72] bg-[#1B4F72]/10 hover:bg-[#1B4F72]/20 px-1.5 py-1 rounded-md border border-[#1B4F72]/20 transition-all cursor-pointer"
+                            >
+                              <span>⭐ রিভিউ ও রেটিং দিন</span>
+                            </button>
+                          </div>
                         )}
                         {tx.status === "pending" && (
                           <span className="flex items-center space-x-0.5 text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md border border-amber-500/20">

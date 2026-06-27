@@ -15,7 +15,9 @@ import {
   Clock,
   CheckCircle2,
   RefreshCw,
-  X
+  X,
+  Calculator,
+  ArrowRight
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
@@ -35,6 +37,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   const [dbRates, setDbRates] = useState({
     bkash: 110.50,
     nagad: 110.60,
+    rocket: 110.70,
     bank: 110.80,
     usdRate: 110.80
   });
@@ -44,6 +47,51 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   const [currentAlertIndex, setCurrentAlertIndex] = useState<number>(0);
   const [activeAlert, setActiveAlert] = useState<any | null>(null);
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
+
+  // Calculator states and helpers
+  const [calcUsd, setCalcUsd] = useState<string>("");
+  const [calcBdt, setCalcBdt] = useState<string>("");
+  const [selectedRateType, setSelectedRateType] = useState<string>("bkash");
+  const [showCalculator, setShowCalculator] = useState<boolean>(true);
+
+  const getActiveRate = () => {
+    if (selectedRateType === "bkash") return dbRates.bkash;
+    if (selectedRateType === "nagad") return dbRates.nagad;
+    if (selectedRateType === "rocket") return dbRates.rocket || 110.70;
+    return dbRates.bank;
+  };
+
+  const handleUsdChange = (val: string, rate: number) => {
+    setCalcUsd(val);
+    if (!val || isNaN(Number(val))) {
+      setCalcBdt("");
+    } else {
+      setCalcBdt((parseFloat(val) * rate).toFixed(0));
+    }
+  };
+
+  const handleBdtChange = (val: string, rate: number) => {
+    setCalcBdt(val);
+    if (!val || isNaN(Number(val))) {
+      setCalcUsd("");
+    } else {
+      setCalcUsd((parseFloat(val) / rate).toFixed(2));
+    }
+  };
+
+  const handleRateSelect = (type: string) => {
+    setSelectedRateType(type);
+    let rate = dbRates.bkash;
+    if (type === "nagad") rate = dbRates.nagad;
+    else if (type === "rocket") rate = dbRates.rocket || 110.70;
+    else if (type === "bank") rate = dbRates.bank;
+
+    if (calcUsd) {
+      setCalcBdt((parseFloat(calcUsd) * rate).toFixed(0));
+    } else if (calcBdt) {
+      setCalcUsd((parseFloat(calcBdt) / rate).toFixed(2));
+    }
+  };
 
   // Reviews and Trust Stats States
   const [reviewsList, setReviewsList] = useState<any[]>([]);
@@ -98,6 +146,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           setDbRates({
             bkash: r.bkash || 110.50,
             nagad: r.nagad || 110.60,
+            rocket: r.rocket || 110.70,
             bank: r.bank || 110.80,
             usdRate: r.usdRate || 110.80
           });
@@ -540,12 +589,6 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       action: () => onServiceSelect("services", "ticket")
     },
     {
-      id: "ai_chat",
-      label: "AI সহায়তা",
-      icon: MessageCircle,
-      action: () => onServiceSelect("chat")
-    },
-    {
       id: "scam",
       label: "স্ক্যাম রিপোর্ট",
       icon: ShieldAlert,
@@ -558,10 +601,10 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       action: () => onServiceSelect("services", "jobs")
     },
     {
-      id: "referral",
-      label: "রেফার ও ইনকাম",
-      icon: Gift,
-      action: () => onServiceSelect("referral")
+      id: "emergency",
+      label: "জরুরি সেবা",
+      icon: AlertOctagon,
+      action: () => onServiceSelect("emergency")
     }
   ];
 
@@ -577,6 +620,19 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   return (
     <div className="flex flex-col space-y-4 bg-[#F7F8FA]" style={{ paddingBottom: "80px" }}>
       
+      {/* Floating Calculator Toggle Button */}
+      <button
+        onClick={() => setShowCalculator(!showCalculator)}
+        className="fixed z-[100] w-[34px] h-[34px] rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center active:scale-95 transition-all outline-none shadow-sm cursor-pointer"
+        style={{
+          top: '11px',
+          right: 'calc(max(16px, (100vw - 448px) / 2) + 48px)'
+        }}
+        title="লাইভ ক্যালকুলেটর"
+      >
+        <Calculator className={`w-4.5 h-4.5 text-[#6B7280] transition-colors ${showCalculator ? "text-[#1B4F72]" : ""}`} />
+      </button>
+
       {/* 1. Wallet Card - #1B4F72 background, balance */}
       <div className="px-4 text-left">
         <div 
@@ -637,24 +693,43 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
 
           {/* Custom rates block */}
           <div 
-            className="grid grid-cols-3 text-center"
             style={{
               borderTop: '0.5px solid rgba(255,255,255,0.15)',
               paddingTop: '12px',
               marginTop: '16px'
             }}
           >
-            <div className="border-r border-white/10">
-              <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>bKash রেট</p>
-              <p className="text-[12px] font-medium font-sans mt-0.5" style={{ color: '#FFFFFF' }}>{dbRates.bkash.toFixed(2)} BDT</p>
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[10px] text-white/70 flex items-center gap-1 font-medium font-sans">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse"></span>
+                মোবাইল ব্যাংকিং লাইভ রেট (১ USD):
+              </span>
             </div>
-            <div className="border-r border-white/10">
-              <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>Nagad রেট</p>
-              <p className="text-[12px] font-medium font-sans mt-0.5" style={{ color: '#FFFFFF' }}>{dbRates.nagad.toFixed(2)} BDT</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>Bank রেট</p>
-              <p className="text-[12px] font-medium font-sans mt-0.5" style={{ color: '#FFFFFF' }}>{dbRates.bank.toFixed(2)} BDT</p>
+
+            <div className="grid grid-cols-3 text-center">
+              <div className="border-r border-white/10 flex flex-col items-center justify-center">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#E2136E' }}></span>
+                  <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>bKash</p>
+                </div>
+                <p className="text-[13px] font-semibold font-sans" style={{ color: '#FFFFFF' }}>{dbRates.bkash.toFixed(2)} ৳</p>
+              </div>
+              
+              <div className="border-r border-white/10 flex flex-col items-center justify-center">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#F15A22' }}></span>
+                  <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>Nagad</p>
+                </div>
+                <p className="text-[13px] font-semibold font-sans" style={{ color: '#FFFFFF' }}>{dbRates.nagad.toFixed(2)} ৳</p>
+              </div>
+
+              <div className="flex flex-col items-center justify-center">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#8B1FA8' }}></span>
+                  <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>Rocket</p>
+                </div>
+                <p className="text-[13px] font-semibold font-sans" style={{ color: '#FFFFFF' }}>{(dbRates.rocket || 110.70).toFixed(2)} ৳</p>
+              </div>
             </div>
           </div>
         </div>
@@ -778,6 +853,137 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           )}
         </div>
       </div>
+
+      {/* 3.5. Live Calculator Card */}
+      {showCalculator && (
+        <div className="px-4">
+          <div 
+            className="bg-white border text-left p-4 space-y-4"
+            style={{
+              borderColor: '#E5E7EB',
+              borderWidth: '0.5px',
+              borderRadius: '16px'
+            }}
+          >
+            {/* Header Area */}
+            <div className="flex items-center justify-between">
+              <div className="text-left font-sans">
+                <h3 className="text-[13px] font-medium text-[#1A1A2E] leading-tight flex items-center gap-1.5">
+                  <span>💱</span> লাইভ ক্যালকুলেটর
+                </h3>
+                <p className="text-[11px] font-normal text-[#6B7280] mt-0.5">
+                  আজকের রেট অনুযায়ী হিসাব করুন ভাই
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCalculator(false)}
+                className="text-[#6B7280]/60 hover:text-gray-900 focus:outline-none cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Inputs Section */}
+            <div className="space-y-3">
+              {/* USD to BDT Row */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-[#6B7280] font-sans">USD থেকে BDT:</label>
+                <div className="flex items-center space-x-2.5">
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-[#6B7280] font-sans">$</span>
+                    <input
+                      type="number"
+                      value={calcUsd}
+                      onChange={(e) => handleUsdChange(e.target.value, getActiveRate())}
+                      placeholder="0"
+                      className="w-full pl-7 pr-3.5 py-2.5 bg-[#F9FAFB] border rounded-[10px] text-[16px] font-semibold text-[#1A1A2E] font-sans outline-none focus:border-[#1B4F72] transition-colors"
+                      style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                    />
+                  </div>
+                  
+                  <div className="text-gray-400 shrink-0">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+
+                  <div className="flex-1 bg-[#F9FAFB] border rounded-[10px] px-3.5 py-2.5 flex items-center justify-between min-h-[46px]" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                    <span className="text-[16px] font-semibold text-[#0F6E56] font-sans truncate">
+                      {calcBdt ? Number(calcBdt).toLocaleString("bn-BD") : "০"}
+                    </span>
+                    <span className="text-[15px] font-medium text-[#6B7280]">৳</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BDT to USD Row */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-[#6B7280] font-sans">BDT থেকে USD:</label>
+                <div className="flex items-center space-x-2.5">
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-[#6B7280] font-sans">৳</span>
+                    <input
+                      type="number"
+                      value={calcBdt}
+                      onChange={(e) => handleBdtChange(e.target.value, getActiveRate())}
+                      placeholder="0"
+                      className="w-full pl-7 pr-3.5 py-2.5 bg-[#F9FAFB] border rounded-[10px] text-[16px] font-semibold text-[#1A1A2E] font-sans outline-none focus:border-[#1B4F72] transition-colors"
+                      style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                    />
+                  </div>
+                  
+                  <div className="text-gray-400 shrink-0">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+
+                  <div className="flex-1 bg-[#F9FAFB] border rounded-[10px] px-3.5 py-2.5 flex items-center justify-start space-x-1 min-h-[46px]" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                    <span className="text-[15px] font-medium text-[#6B7280] font-sans">$</span>
+                    <span className="text-[16px] font-semibold text-[#1B4F72] font-sans truncate">
+                      {calcUsd || "0.00"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rate Selector Pills */}
+            <div className="space-y-1.5 pt-1">
+              <p className="text-[11px] font-medium text-[#6B7280]">টাকা পাঠানোর মাধ্যম নির্বাচন করুন:</p>
+              <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {[
+                  { id: "bkash", label: `bKash ${dbRates.bkash.toFixed(2)}` },
+                  { id: "nagad", label: `Nagad ${dbRates.nagad.toFixed(2)}` },
+                  { id: "rocket", label: `Rocket ${(dbRates.rocket || 110.70).toFixed(2)}` },
+                  { id: "bank", label: `Bank ${dbRates.bank.toFixed(2)}` }
+                ].map((pill) => {
+                  const isActive = selectedRateType === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => handleRateSelect(pill.id)}
+                      className={`px-3 py-1.5 text-[11px] font-medium font-sans rounded-lg transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
+                        isActive 
+                          ? "bg-[#1B4F72] text-white" 
+                          : "bg-[#F7F8FA] text-[#6B7280] hover:bg-gray-100"
+                      }`}
+                      style={{
+                        border: isActive ? 'none' : '0.5px solid #E5E7EB',
+                        borderWidth: isActive ? '0px' : '0.5px'
+                      }}
+                    >
+                      {pill.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Service Charge Note */}
+            <div className="text-[10px] text-[#9CA3AF] font-sans pt-1">
+              * ট্রান্সফারে ২% সার্ভিস চার্জ প্রযোজ্য
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4. SOS Button - Red bordered card, full width, always visible */}
       <div className="px-4">
@@ -959,9 +1165,9 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             } else if (service.id === "ticket") {
               cardBg = "#EEF2FF";
               iconClr = "#534AB7";
-            } else if (service.id === "ai_chat") {
-              cardBg = "#FDF2E9";
-              iconClr = "#D68910";
+            } else if (service.id === "emergency") {
+              cardBg = "#FDEDEC";
+              iconClr = "#E74C3C";
             } else if (service.id === "scam") {
               cardBg = "#FDEDEC";
               iconClr = "#C0392B";
@@ -1012,11 +1218,12 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         </div>
         
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
-          {(reviewsList.length > 0 ? reviewsList : [
+          {[
+            ...reviewsList,
             {id: "p1", rating: 5, reviewText: "খুব দ্রুত টাকা পাঠিয়েছে, মাত্র ১০ মিনিটে বাড়িতে পৌঁছে গেছে!", userName: "মো***", amount: 50, method: "bkash", createdAt: null},
             {id: "p2", rating: 5, reviewText: "প্রথমে ভয় পেয়েছিলাম কিন্তু সার্ভিস অনেক ভালো। বিশ্বাসযোগ্য।", userName: "সা***", amount: 100, method: "nagad", createdAt: null},
             {id: "p3", rating: 4, reviewText: "ভালো সার্ভিস, দাম একটু বেশি কিন্তু নিরাপদ।", userName: "রা***", amount: 75, method: "bkash", createdAt: null}
-          ]).map((rev) => {
+          ].map((rev) => {
             const displayMethod = String(rev.method || "bkash").toLowerCase();
             return (
               <div 

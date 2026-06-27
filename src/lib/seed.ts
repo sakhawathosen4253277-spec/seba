@@ -78,6 +78,7 @@ export async function seedDatabaseIfNeeded() {
     await setDoc(exchangeDocRef, {
       bkash: 110.50,
       nagad: 110.60,
+      rocket: 110.70,
       bank: 110.80,
       usdRate: 110.80,
       updatedAt: new Date().toISOString()

@@ -242,6 +242,24 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "description", "tag", "duration", "isActive", "order"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User reviews and ratings for completed transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "transferId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewText": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "published": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["transferId", "userId", "userName", "rating", "amount", "method", "published"]
     }
   },
   "firestore": {
@@ -304,6 +322,10 @@
     "maintenanceMode": {
       "schema": "MaintenanceMode",
       "description": "Global and service configurations for holding updates and outages"
+    },
+    "reviews": {
+      "schema": "Review",
+      "description": "User reviews and ratings"
     }
   }
 }

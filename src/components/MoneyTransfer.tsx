@@ -51,7 +51,7 @@ export default function MoneyTransfer({
   exchangeRateLimit = 10.00
 }: MoneyTransferProps) {
   const [usdAmount, setUsdAmount] = useState<string>("");
-  const [recipientMethod, setRecipientMethod] = useState<"bKash" | "Nagad" | "Rocket" | "Bank">("bKash");
+  const [recipientMethod, setRecipientMethod] = useState<"bKash" | "Nagad" | "Rocket">("bKash");
   const [recipientNumber, setRecipientNumber] = useState<string>("");
   const [selectedBank, setSelectedBank] = useState<string>("ইসলামী ব্যাংক বাংলাদেশ পিএলসি (Islami Bank BD)");
   const [recipientName, setRecipientName] = useState<string>("");
@@ -70,7 +70,7 @@ export default function MoneyTransfer({
   }, [exchangeRate]);
 
   const numericUsd = parseFloat(usdAmount) || 0;
-  const isPromoUnderTen = numericUsd >= 1 && numericUsd < exchangeRateLimit && recipientMethod !== "Bank";
+  const isPromoUnderTen = numericUsd >= 1 && numericUsd < exchangeRateLimit;
   const rateUnderTenValue = exchangeRateUnderTen !== undefined ? exchangeRateUnderTen : 120.00;
   const rate = isPromoUnderTen ? rateUnderTenValue : (exchangeRate !== undefined ? exchangeRate : localRate);
 
@@ -205,8 +205,8 @@ export default function MoneyTransfer({
         {/* Method selector */}
         <div>
           <label className="block text-[11px] font-bold text-slate-400 mb-2">প্রাপক মাধ্যম নির্বাচন করুন (Payment Option):</label>
-          <div className="grid grid-cols-4 gap-2">
-            {(["bKash", "Nagad", "Rocket", "Bank"] as const).map((method) => (
+          <div className="grid grid-cols-3 gap-2">
+            {(["bKash", "Nagad", "Rocket"] as const).map((method) => (
               <button
                 key={method}
                 type="button"
@@ -220,7 +220,6 @@ export default function MoneyTransfer({
                 {method === "bKash" && "বিকাশ"}
                 {method === "Nagad" && "নগদ"}
                 {method === "Rocket" && "রকেট"}
-                {method === "Bank" && "ব্যাংক"}
               </button>
             ))}
           </div>
@@ -256,29 +255,11 @@ export default function MoneyTransfer({
           </div>
         )}
 
-        {/* Reactively display Bangladesh bank selector if Bank is chosen */}
-        {recipientMethod === "Bank" && (
-          <div className="animate-slide-up space-y-1.5 text-left">
-            <label className="block text-[11px] font-bold text-slate-400">বাংলাদেশের ব্যাংক নির্বাচন করুন (Select Bank):</label>
-            <select
-              value={selectedBank}
-              onChange={(e) => setSelectedBank(e.target.value)}
-              className="w-full bg-slate-950 text-slate-200 rounded-xl py-3 px-4 text-sm border border-slate-900 focus:border-emerald-500/50 focus:outline-none font-sans"
-            >
-              {BANGLADESHI_BANKS.map((bank) => (
-                <option key={bank.id} value={bank.name} className="bg-slate-950 text-white">
-                  {bank.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
         {/* Recipient Details */}
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <div>
             <label className="block text-[11px] font-bold text-slate-400 mb-1.5">
-              {recipientMethod === "Bank" ? "ব্যাংক অ্যাকাউন্ট নম্বর (Account No):" : "মোবাইল ওয়ালেট নম্বর (Number):"}
+              মোবাইল ওয়ালেট নম্বর (Number):
             </label>
             <input
               type="text"
@@ -287,7 +268,7 @@ export default function MoneyTransfer({
                 setRecipientNumber(e.target.value);
                 if (errors.recipientNumber) setErrors(prev => ({ ...prev, recipientNumber: "" }));
               }}
-              placeholder={recipientMethod === "Bank" ? "যেমন: 12104500987" : "যেমন: 01712xxxxxx"}
+              placeholder="যেমন: 01712xxxxxx"
               className="w-full bg-slate-950 rounded-xl py-3 px-4 text-sm text-white border border-slate-900 focus:border-emerald-500/50 focus:outline-none font-sans"
             />
             {errors.recipientNumber && <p className="text-[10px] text-red-400 mt-1 font-medium">{errors.recipientNumber}</p>}

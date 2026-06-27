@@ -47,7 +47,7 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   // Review & Rating States
-  const [rating, setRating] = useState<number>(0);
+  const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>("");
   const [submittingReview, setSubmittingReview] = useState<boolean>(false);
@@ -61,6 +61,13 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
     4: "ভালো",
     5: "অসাধারণ!"
   };
+
+  const quickComments = [
+    "খুব দ্রুত সার্ভিস ও ভালো রেট! ⚡",
+    "১০০% নিরাপদ ও অনেক বিশ্বস্ত ভাই 👍",
+    "অসাধারণ সার্ভিস, অনেক ধন্যবাদ! 🙏",
+    "মাত্র ১০ মিনিটে সম্পন্ন হয়েছে! ⏰"
+  ];
 
   // Trigger search automatically if prefilledTxId is supplied
   useEffect(() => {
@@ -440,6 +447,31 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
                         {ratingLabels[rating]}
                       </span>
                     )}
+                  </div>
+
+                  {/* Quick Comments Suggestion Grid */}
+                  <div className="space-y-1.5 text-left">
+                    <p className="text-[11px] text-[#6B7280] font-sans font-medium">সহজেই মন্তব্য নির্বাচন করুন (ট্যাপ করুন ভাই):</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {quickComments.map((comment, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setReviewText(comment);
+                            setRating(5); // Auto-set 5-star rating for convenience
+                          }}
+                          className={`text-[11px] px-2.5 py-1.5 rounded-xl border text-left font-sans transition-all active:scale-[0.98] cursor-pointer ${
+                            reviewText === comment 
+                              ? "bg-[#1B4F72] text-white border-[#1B4F72] font-medium" 
+                              : "bg-[#F7F8FA] hover:bg-gray-100 text-[#1A1A2E] border-[#E5E7EB]"
+                          }`}
+                          style={{ borderWidth: "0.5px" }}
+                        >
+                          {comment}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Comment Box */}

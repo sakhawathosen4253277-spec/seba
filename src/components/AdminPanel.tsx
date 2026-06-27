@@ -56,7 +56,7 @@ export default function AdminPanel() {
   // Collections Data States
   const [news, setNews] = useState<any[]>([]);
   const [ticker, setTicker] = useState<any[]>([]);
-  const [exchange, setExchange] = useState<any>({ bkash: 110.50, nagad: 110.60, bank: 110.80, usdRate: 110.80 });
+  const [exchange, setExchange] = useState<any>({ bkash: 110.50, nagad: 110.60, rocket: 110.70, bank: 110.80, usdRate: 110.80 });
   const [jobs, setJobs] = useState<any[]>([]);
   const [employers, setEmployers] = useState<any[]>([]);
   const [employerDeposits, setEmployerDeposits] = useState<any[]>([]);
@@ -139,6 +139,14 @@ export default function AdminPanel() {
     minTime: 5,
     maxTime: 120,
     timeDisplay: "৫ মিনিট থেকে ২ ঘণ্টার মধ্যে"
+  });
+
+  // Popup ad banner state
+  const [adBannerSettings, setAdBannerSettings] = useState<any>({
+    isActive: false,
+    imageBase64: "",
+    duration: 10,
+    maxViewsPerDay: 3
   });
 
   // Home Alerts states
@@ -485,6 +493,12 @@ export default function AdminPanel() {
           return ordA - ordB;
         });
         setHomeAlertsList(list);
+      } else if (tab === "ad_banner") {
+        const docRef = doc(db, "settings", "adBanner");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setAdBannerSettings(docSnap.data());
+        }
       } else if (tab === "referral") {
         const docRef = doc(db, "settings", "referral");
         const docSnap = await getDoc(docRef);
@@ -566,6 +580,41 @@ export default function AdminPanel() {
       showStatusMsg("রেফারেল সেটিংস সেভ করতে সমস্যা হয়েছে ভাই!", true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AD BANNER TAB SAVE & UPLOAD ACTIONS
+  const handleSaveAdBannerSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await setDoc(doc(db, "settings", "adBanner"), adBannerSettings, { merge: true });
+      showStatusMsg("পপআপ ব্যানার সেটিংস সফলভাবে সংরক্ষণ করা হয়েছে ভাই! 📢", false);
+    } catch (err) {
+      console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, "settings/adBanner");
+      showStatusMsg("ব্যানার সেটিংস সেভ করতে সমস্যা হয়েছে ভাই!", true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdBannerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        alert("ছবির সাইজ ২ মেগাবাইটের কম হতে হবে ভাই!");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAdBannerSettings((prev: any) => ({
+          ...prev,
+          imageBase64: reader.result as string
+        }));
+        showStatusMsg("ছবি আপলোড সম্পন্ন হয়েছে! নিচে সেভ করুন বাটনে চাপুন।");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -730,6 +779,7 @@ export default function AdminPanel() {
     const exchangeData = {
       bkash: Number(exchange.bkash),
       nagad: Number(exchange.nagad),
+      rocket: Number(exchange.rocket || 110.70),
       bank: Number(exchange.bank),
       usdRate: Number(exchange.usdRate),
       updatedAt: new Date().toISOString()
@@ -1819,6 +1869,7 @@ export default function AdminPanel() {
           { id: "exchange", name: "এক্সচেঞ্জ রেট" },
           { id: "fees", name: "ফি সেটিংস" },
           { id: "alerts", name: "হোম সতর্কতা" },
+          { id: "ad_banner", name: "পপআপ ব্যানার" },
           { id: "referral", name: "রেফারেল" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
@@ -2110,6 +2161,19 @@ export default function AdminPanel() {
                       required
                       value={exchange.nagad}
                       onChange={(e) => setExchange({ ...exchange, nagad: e.target.value })}
+                      className="w-full border rounded-xl px-3 h-[44px] text-xs font-semibold outline-none bg-[#F9FAFB] font-sans"
+                      style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[12px] font-medium text-[#6B7280]">রকেট রেট (Rocket Rate BDT):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={exchange.rocket || ""}
+                      onChange={(e) => setExchange({ ...exchange, rocket: e.target.value })}
                       className="w-full border rounded-xl px-3 h-[44px] text-xs font-semibold outline-none bg-[#F9FAFB] font-sans"
                       style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
                     />
@@ -4482,6 +4546,132 @@ export default function AdminPanel() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "ad_banner" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">পপআপ ব্যানার বিজ্ঞাপন সেটিংস</h2>
+                    <p className="text-[11px] opacity-90 font-sans">ইউজারদের ড্যাশবোর্ডে সরাসরি পপআপ ইমেজ বিজ্ঞাপন প্রদর্শন ও নিয়ন্ত্রণ করুন</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("ad_banner")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveAdBannerSettings} className="bg-white border border-[#E5E7EB] rounded-[16px] p-5 space-y-4 text-left" style={{ borderWidth: "0.5px" }}>
+                  <h3 className="text-xs font-semibold text-[#1B4F72] font-sans border-b pb-2 mb-2">বিজ্ঞাপন ব্যানার পরিবর্তন ও নিয়ন্ত্রণ</h3>
+
+                  {/* Activation Status */}
+                  <div className="flex items-center justify-between bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                    <div>
+                      <h4 className="text-xs font-semibold text-[#1A1A2E]">বিজ্ঞাপন সক্রিয় করুন</h4>
+                      <p className="text-[11px] text-gray-400 mt-0.5">ড্যাশবোর্ডে ইউজারদের এই ব্যানারটি দেখানো হবে কিনা</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdBannerSettings((prev: any) => ({ ...prev, isActive: !prev.isActive }))}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                        adBannerSettings.isActive 
+                          ? "bg-[#1D9E75] text-white" 
+                          : "bg-gray-100 text-[#6B7280]"
+                      }`}
+                    >
+                      {adBannerSettings.isActive ? "সক্রিয় (ON)" : "বন্ধ (OFF)"}
+                    </button>
+                  </div>
+
+                  {/* Direct Image Upload */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-[#1A1A2E] font-sans">বিজ্ঞাপন ব্যানার ছবি আপলোড করুন *</label>
+                    
+                    <div className="border border-dashed border-gray-300 rounded-xl p-4 text-center bg-gray-50 flex flex-col items-center justify-center space-y-2">
+                      {adBannerSettings.imageBase64 ? (
+                        <div className="relative group max-w-[200px]">
+                          <img 
+                            src={adBannerSettings.imageBase64} 
+                            alt="Preview" 
+                            className="max-h-40 rounded-lg object-contain border border-gray-200"
+                            referrerPolicy="no-referrer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAdBannerSettings((prev: any) => ({ ...prev, imageBase64: "" }))}
+                            className="absolute -top-2 -right-2 bg-[#E74C3C] text-white rounded-full p-1 shadow-md hover:bg-opacity-90"
+                            title="মুছে ফেলুন"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center py-2">
+                          <ImageIcon className="w-8 h-8 text-gray-400 mb-1" />
+                          <span className="text-xs text-gray-500">কোনো ছবি সিলেক্ট করা নেই ভাই</span>
+                        </div>
+                      )}
+
+                      <label className="bg-[#1B4F72] text-white px-3.5 py-1.5 rounded-lg text-xs font-medium hover:bg-opacity-90 cursor-pointer inline-block transition-all shadow-xs">
+                        {adBannerSettings.imageBase64 ? "ছবি পরিবর্তন করুন" : "ছবি সিলেক্ট করুন"}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleAdBannerImageUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                      <p className="text-[10px] text-gray-400">সর্বোচ্চ ২ মেগাবাইট সাইজ অনুমোদিত</p>
+                    </div>
+                  </div>
+
+                  {/* Grid of Auto-Close Seconds & Max Views */}
+                  <div className="grid grid-cols-2 gap-3 font-sans">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">অটো-ক্লোজ সময় (সেকেন্ড)</label>
+                      <input
+                        type="number"
+                        min="3"
+                        max="60"
+                        value={adBannerSettings.duration !== undefined ? adBannerSettings.duration : ""}
+                        onChange={(e) => setAdBannerSettings((prev: any) => ({ ...prev, duration: e.target.value !== "" ? Number(e.target.value) : "" }))}
+                        placeholder="যেমন: ১০"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                      <p className="text-[10px] text-gray-400">কত সেকেন্ড পর পপআপ স্বয়ংক্রিয়ভাবে বন্ধ হবে</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-[#1A1A2E] font-sans">দৈনিক সর্বোচ্চ প্রদর্শন (জনপ্রতি)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={adBannerSettings.maxViewsPerDay !== undefined ? adBannerSettings.maxViewsPerDay : ""}
+                        onChange={(e) => setAdBannerSettings((prev: any) => ({ ...prev, maxViewsPerDay: e.target.value !== "" ? Number(e.target.value) : "" }))}
+                        placeholder="যেমন: ৩"
+                        className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                        required
+                      />
+                      <p className="text-[10px] text-gray-400">প্রতিদিন একজন ইউজার সর্বোচ্চ কতবার বিজ্ঞাপনটি দেখবে</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-[#1B4F72] text-white py-3 rounded-xl font-medium hover:bg-opacity-95 active:scale-[0.99] transition-all font-sans cursor-pointer text-sm disabled:opacity-55"
+                  >
+                    {loading ? "সংরক্ষণ করা হচ্ছে..." : "ব্যানার সেটিংস সংরক্ষণ করুন"}
+                  </button>
+                </form>
               </div>
             )}
 

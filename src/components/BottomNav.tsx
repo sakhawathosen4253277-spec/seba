@@ -1,4 +1,4 @@
-import { Home, FileText, Headphones, Briefcase, User } from "lucide-react";
+import { Home, FileText, AlertTriangle, Briefcase, User } from "lucide-react";
 import { NavTab } from "../types";
 
 interface BottomNavProps {
@@ -19,7 +19,7 @@ export default function BottomNav({
   const tabs: { id: NavTab; subView: string; label: string; icon: any; badge?: number }[] = [
     { id: "home", subView: "none", label: "হোম", icon: Home },
     { id: "services", subView: "visa", label: "ভিসা", icon: FileText },
-    { id: "emergency", subView: "none", label: "সাহায্য", icon: Headphones },
+    { id: "emergency", subView: "none", label: "জরুরি", icon: AlertTriangle },
     { id: "services", subView: "jobs", label: "চাকরি", icon: Briefcase },
     { id: "profile", subView: "none", label: "প্রোফাইল", icon: User },
   ];
