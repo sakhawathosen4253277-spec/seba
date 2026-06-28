@@ -4,6 +4,7 @@ import { Language } from "../types";
 import { auth, db } from "../lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, increment, serverTimestamp, addDoc } from "firebase/firestore";
+import probashiLogo from "../assets/images/probashi_logo_1782647533324.jpg";
 
 const translations = {
   BN: {
@@ -619,9 +620,13 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       
       {/* Brand Profile Center banner */}
       <div className="text-center space-y-2 mt-4 select-none">
-        <div className="w-16 h-16 rounded-[16px] bg-[#1B4F72] flex items-center justify-center mx-auto">
-          <span className="font-medium text-white text-[20px] font-sans">সেবা</span>
-        </div>
+        <img 
+          src={probashiLogo} 
+          alt="প্রবাসী সেবা" 
+          className="w-16 h-16 rounded-[16px] object-cover mx-auto border border-gray-200"
+          referrerPolicy="no-referrer"
+          style={{ borderWidth: "0.5px" }}
+        />
 
         <div className="space-y-0.5">
           <h2 className="text-[22px] font-medium tracking-tight text-[#1A1A2E] font-sans">{t.brandTitle}</h2>

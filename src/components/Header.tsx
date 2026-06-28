@@ -3,6 +3,7 @@ import { LiveNotification } from "../types";
 import { useState, useEffect } from "react";
 import { onSnapshot, collection, query, orderBy, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import probashiLogo from "../assets/images/probashi_logo_1782647533324.jpg";
 
 interface HeaderProps {
   notifications: LiveNotification[];
@@ -165,9 +166,13 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
         {/* Left Side: Logo & Labels */}
         <div className="flex items-center space-x-2.5">
           {/* Logo box */}
-          <div className="w-9 h-9 rounded-[10px] bg-[#1B4F72] flex items-center justify-center select-none shrink-0 text-white text-[11px] font-sans font-medium">
-            সেবা
-          </div>
+          <img 
+            src={probashiLogo} 
+            alt="প্রবাসী সেবা" 
+            className="w-9 h-9 rounded-[10px] object-cover select-none shrink-0 border border-gray-100"
+            referrerPolicy="no-referrer"
+            style={{ borderWidth: "0.5px" }}
+          />
           <div className="flex flex-col justify-center text-left">
             <h1 className="text-[15px] font-medium text-[#1A1A2E] leading-tight">
               • প্রবাসী সেবা •

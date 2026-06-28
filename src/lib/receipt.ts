@@ -1,4 +1,5 @@
 import { Transaction } from "../types";
+import probashiLogo from "../assets/images/probashi_logo_1782647533324.jpg";
 
 // BENGALI TIME FORMAT function:
 const formatBengaliTime = (date: Date) => {
@@ -30,9 +31,21 @@ function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, widt
   ctx.closePath();
 }
 
-export function downloadReceiptImage(tx: any) {
+export async function downloadReceiptImage(tx: any) {
   const width = 600;
   const height = 940;
+
+  // Pre-load the logo image
+  let logoImg: HTMLImageElement | null = null;
+  if (probashiLogo) {
+    logoImg = new Image();
+    logoImg.src = probashiLogo;
+    await new Promise((resolve) => {
+      if (!logoImg) return resolve(null);
+      logoImg.onload = () => resolve(logoImg);
+      logoImg.onerror = () => resolve(null);
+    });
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -107,11 +120,20 @@ export function downloadReceiptImage(tx: any) {
   drawRoundRect(ctx, 45, 45, 44, 44, 10);
   ctx.fill();
   
-  ctx.fillStyle = "#1B4F72";
-  ctx.font = "bold 9px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("প্রবাসী", 67, 61);
-  ctx.fillText("সেবা", 67, 75);
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    drawRoundRect(ctx, 45, 45, 44, 44, 10);
+    ctx.clip();
+    ctx.drawImage(logoImg, 45, 45, 44, 44);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#1B4F72";
+    ctx.font = "bold 9px 'Inter', 'Noto Sans Bengali', Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("প্রবাসী", 67, 61);
+    ctx.fillText("সেবা", 67, 75);
+  }
   ctx.restore();
 
   // App name: "Probashi Sheba" white 16px 500

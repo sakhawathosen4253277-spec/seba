@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "../lib/seed";
+import probashiLogo from "../assets/images/probashi_logo_1782647533324.jpg";
 import { 
   collection, 
   doc, 
@@ -1896,9 +1897,13 @@ export default function AdminPanel() {
     return (
       <div className="min-h-screen bg-[#F0F4F8] flex flex-col items-center justify-center p-4 font-sans text-[#1A1A2E]">
         <div className="w-full max-w-[340px] bg-white p-[32px] rounded-[20px] border border-[#E5E7EB] shadow-sm text-center">
-          <div className="w-12 h-12 bg-[#1B4F72] text-white rounded-[10px] flex items-center justify-center mx-auto mb-4 font-bold text-sm">
-            সেবা
-          </div>
+          <img 
+            src={probashiLogo} 
+            alt="প্রবাসী সেবা" 
+            className="w-12 h-12 rounded-[10px] object-cover mx-auto mb-4 border border-gray-200"
+            referrerPolicy="no-referrer"
+            style={{ borderWidth: "0.5px" }}
+          />
           <h2 className="text-[18px] font-medium text-[#1A1A2E] leading-tight mb-1">প্রবাসী সেবা অ্যাডমিন</h2>
           <p className="text-[12px] text-[#6B7280] mb-6 font-sans">শুধুমাত্র অনুমোদিত ব্যক্তি</p>
 
