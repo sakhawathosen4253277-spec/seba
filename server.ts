@@ -733,6 +733,29 @@ Provide a polite, caring response in Bengali explaining that you tried to reset 
     }
   });
 
+  // Admin password reset endpoint
+  app.post("/api/admin/resetPassword", async (req, res) => {
+    try {
+      const { identifier, newPassword } = req.body;
+      if (!identifier || !newPassword) {
+        return res.status(400).json({ error: "ইমেইল/ফোন এবং নতুন পাসওয়ার্ড প্রয়োজন ভাই।" });
+      }
+      
+      const result = await resetUserPassword(identifier, newPassword);
+      
+      // Also update plaintext password in Firestore users/{uid} document so it remains in sync
+      if (result.uid) {
+        const userRef = doc(adminDb, "users", result.uid);
+        await setDoc(userRef, { password: newPassword }, { merge: true });
+      }
+      
+      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে ভাই!", result });
+    } catch (err: any) {
+      console.error("Error in admin resetPassword endpoint:", err);
+      return res.status(500).json({ error: err.message || "পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে ভাই।" });
+    }
+  });
+
   // Save Exchange Rate
   app.post("/api/admin/exchangeRate", async (req, res) => {
     try {

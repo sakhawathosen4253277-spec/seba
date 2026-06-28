@@ -76,6 +76,8 @@ export default function AdminPanel() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [emergency, setEmergency] = useState<any[]>([]);
   const [depositRequests, setDepositRequests] = useState<any[]>([]);
+  const [passwordResets, setPasswordResets] = useState<any[]>([]);
+  const [resetPasswordsInputs, setResetPasswordsInputs] = useState<{[key: string]: string}>({});
   const [paymentMethodsList, setPaymentMethodsList] = useState<any[]>([]);
   const [depositSubTab, setDepositSubTab] = useState<"requests" | "methods">("requests");
 
@@ -392,6 +394,73 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAdminResetUserPassword = async (requestId: string, identifier: string, newPassword: string, whatsappNumber: string) => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("পাসওয়ার্ড অবশ্যই কমপক্ষে ৬ অক্ষরের হতে হবে ভাই!");
+      return;
+    }
+    
+    if (!window.confirm(`আপনি কি নিশ্চিতভাবে এই ব্যবহারকারীর (${identifier}) পাসওয়ার্ড পরিবর্তন করতে চান? এটি করার পর তাকে হোয়াটসঅ্যাপে (${whatsappNumber}) মেসেজ দেওয়ার লিংক দেওয়া হবে ভাই।`)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/resetPassword", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, newPassword })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert("ভুল হয়েছে: " + (data.error || "পাসওয়ার্ড পরিবর্তন করতে ব্যর্থ ভাই।"));
+        return;
+      }
+      
+      // Update status of password reset request in Firestore
+      await updateDoc(doc(db, "passwordResets", requestId), {
+        status: "completed",
+        resolvedAt: new Date().toISOString(),
+        assignedPassword: newPassword
+      });
+      
+      alert("পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে ভাই!");
+      
+      // Open WhatsApp prefilled message
+      const cleanWhatsApp = whatsappNumber.replace(/\+/g, '').replace(/\s+/g, '').replace(/-/g, '');
+      const message = encodeURIComponent(`সালাম ভাই, প্রবাসী সেবা অ্যাপে আপনার পাসওয়ার্ড পুনরুদ্ধারের অনুরোধটি সম্পন্ন হয়েছে। আপনার নতুন পাসওয়ার্ড হলো: ${newPassword}\n\nদয়া করে এই নতুন পাসওয়ার্ড দিয়ে লগইন করুন। ধন্যবাদ!`);
+      const whatsappUrl = `https://wa.me/${cleanWhatsApp}?text=${message}`;
+      window.open(whatsappUrl, "_blank");
+      
+      fetchTabData("passwordResets");
+    } catch (err: any) {
+      console.error("Error resetting user password from admin:", err);
+      alert("পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে ভাই: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectResetRequest = async (requestId: string) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই অনুরোধটি বাতিল করতে চান?")) {
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, "passwordResets", requestId), {
+        status: "rejected",
+        resolvedAt: new Date().toISOString()
+      });
+      alert("অনুরোধটি বাতিল করা হয়েছে ভাই।");
+      fetchTabData("passwordResets");
+    } catch (err: any) {
+      console.error("Error rejecting reset request:", err);
+      alert("সমস্যা হয়েছে ভাই: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const showStatusMsg = (text: string, isError: boolean = false) => {
     setMessage({ text, isError });
     setTimeout(() => setMessage(null), 4000);
@@ -476,6 +545,11 @@ export default function AdminPanel() {
           return dateB - dateA;
         });
         setUsersList(list);
+      } else if (tab === "passwordResets") {
+        const q = query(collection(db, "passwordResets"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setPasswordResets(list);
       } else if (tab === "maintenance") {
         const docRef = doc(db, "maintenanceMode", "settings");
         const docSnap = await getDoc(docRef);
@@ -2018,6 +2092,7 @@ export default function AdminPanel() {
           { id: "referral", name: "রেফারেল" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
+          { id: "passwordResets", name: "পাসওয়ার্ড রিসেট" },
           { id: "reviews", name: "রিভিউসমূহ" },
           { id: "jobs", name: "চাকরি" },
           { id: "scams", name: "স্ক্যাম" },
@@ -2034,6 +2109,8 @@ export default function AdminPanel() {
             count = transferRequests.filter(r => r.status === "pending").length;
           } else if (tab.id === "jobs") {
             count = employers.filter(e => e.verificationStatus === "pending").length;
+          } else if (tab.id === "passwordResets") {
+            count = passwordResets.filter(r => r.status === "pending").length;
           }
 
           const isActive = activeTab === tab.id;
@@ -2210,6 +2287,9 @@ export default function AdminPanel() {
                       className="w-full border rounded-xl px-3 py-2 text-xs outline-none h-16 resize-none bg-[#F9FAFB]"
                       style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
                     />
+                    <p className="text-[10px] text-gray-400 mt-1 leading-normal">
+                      💡 <strong>লাইভ রেট টিপস:</strong> আপনি যদি এই মেসেজের মধ্যে আজকের লাইভ রেট দেখাতে চান, তবে যেখানে দেখাতে চান সেখানে লিখুন: <span className="font-mono text-[#1B4F72] bg-[#1B4F72]/5 px-1 rounded">{"{bkash}"}</span>, <span className="font-mono text-[#1B4F72] bg-[#1B4F72]/5 px-1 rounded">{"{nagad}"}</span>, <span className="font-mono text-[#1B4F72] bg-[#1B4F72]/5 px-1 rounded">{"{rocket}"}</span>, অথবা <span className="font-mono text-[#1B4F72] bg-[#1B4F72]/5 px-1 rounded">{"{bank}"}</span>। এগুলো অটোমেটিক আপনার আপডেট করা এক্সচেঞ্জ রেট দিয়ে পরিবর্তন হয়ে যাবে!
+                    </p>
                   </div>
 
                   <div className="space-y-1 text-left">
@@ -4165,6 +4245,183 @@ export default function AdminPanel() {
                     <span>{resettingDb ? "ডাটা সাফ হচ্ছে..." : "সমস্ত ইউজার ডাটা ডিলিট করুন (Reset Users Data)"}</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "passwordResets" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <h2 className="text-[15px] font-medium font-sans">পাসওয়ার্ড রিসেট অনুরোধসমূহ</h2>
+                    <p className="text-[11px] opacity-90 font-sans">ইউজারদের ভুলে যাওয়া পাসওয়ার্ড পুনরুদ্ধার ও ভেরিফিকেশন কন্ট্রোল করুন</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => fetchTabData("passwordResets")}
+                    className="p-1 px-[10px] text-[11px] font-semibold bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center space-x-1 cursor-pointer font-sans"
+                  >
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {passwordResets.length === 0 ? (
+                  <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 text-center text-gray-500 text-xs" style={{ borderWidth: "0.5px" }}>
+                    কোনো পাসওয়ার্ড রিসেট অনুরোধ পাওয়া যায়নি ভাই।
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {passwordResets.map((req) => {
+                      const dateText = req.createdAt ? new Date(req.createdAt).toLocaleString("bn-BD") : "আজ";
+                      const isPending = req.status === "pending" || !req.status;
+                      const isCompleted = req.status === "completed";
+                      const isRejected = req.status === "rejected";
+
+                      // Get or initialize input state for this request
+                      const currentVal = resetPasswordsInputs[req.id] !== undefined 
+                        ? resetPasswordsInputs[req.id] 
+                        : Math.floor(100000 + Math.random() * 900000).toString(); // default 6 digit random pw
+
+                      return (
+                        <div 
+                          key={req.id}
+                          className="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col justify-between space-y-4"
+                          style={{ borderWidth: "0.5px" }}
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* User details */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="text-[10px] text-[#6B7280] font-mono block uppercase">ইউজার আইডি / ইমেইল / মোবাইল</span>
+                                  <h4 className="text-xs font-semibold text-[#1A1A2E]">{req.usernameOrId}</h4>
+                                </div>
+                                <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${
+                                  isPending ? "bg-amber-50 text-amber-700 border border-amber-100" :
+                                  isCompleted ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
+                                  "bg-red-50 text-red-700 border border-red-100"
+                                }`} style={{ borderWidth: "0.5px" }}>
+                                  {isPending ? "🟡 অপেক্ষমান" : isCompleted ? "🟢 সম্পন্ন" : "🔴 বাতিল"}
+                                </span>
+                              </div>
+
+                              <div className="pt-1 flex items-center justify-between border-t border-gray-50 text-xs text-[#6B7280]">
+                                <span>অনুরোধের সময়:</span>
+                                <span className="font-mono text-[11px] text-[#1A1A2E]">{dateText}</span>
+                              </div>
+
+                              <div className="pt-1.5 border-t border-gray-50 space-y-1">
+                                <span className="text-[10px] text-[#6B7280] font-mono block uppercase">যোগাযোগের জন্য হোয়াটসঅ্যাপ নাম্বার</span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-bold text-[#1B4F72] font-mono">{req.whatsappNumber}</span>
+                                  <a 
+                                    href={`https://wa.me/${req.whatsappNumber.replace(/\+/g, '').replace(/\s+/g, '').replace(/-/g, '')}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-[#1D9E75] text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all"
+                                  >
+                                    💬 চ্যাট করুন
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Verification credentials */}
+                            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 space-y-2" style={{ borderWidth: "0.5px" }}>
+                              <p className="text-[10px] text-[#6B7280] font-mono uppercase font-bold tracking-wider border-b border-gray-200 pb-1">
+                                ইউজার ভেরিফিকেশন তথ্য (User Provided Info):
+                              </p>
+                              
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#6B7280]">১. শেষ ওয়ালেট ব্যালেন্স:</span>
+                                <span className="font-semibold text-[#1A1A2E] font-mono">{req.lastBalance || "N/A"}</span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#6B7280]">২. শেষ ডিপোজিট বা টাকা পাঠানো:</span>
+                                <span className="font-semibold text-[#1A1A2E] font-mono">{req.lastDeposit || "N/A"}</span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-[#6B7280]">৩. শেষ উইথড্র বা টাকা তোলা:</span>
+                                <span className="font-semibold text-[#1A1A2E] font-mono">{req.lastWithdraw || "N/A"}</span>
+                              </div>
+
+                              <p className="text-[10px] text-[#E74C3C] leading-relaxed mt-1">
+                                * এডমিন প্যানেলের "ইউজার্স" ট্যাব থেকে উক্ত ইউজারের ব্যালেন্স এবং লেজার এর সাথে মিলিয়ে মিলিয়ে দেখুন ভাই।
+                              </p>
+                            </div>
+                          </div>
+
+                          {isPending && (
+                            <div className="bg-[#FFFDF5] border border-[#FBEFCD] rounded-xl p-3.5 space-y-3" style={{ borderWidth: "0.5px" }}>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex-1">
+                                  <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                                    নতুন পাসওয়ার্ড সেট করুন (৬ অক্ষরের বেশি):
+                                  </label>
+                                  <input 
+                                    type="text"
+                                    value={currentVal}
+                                    onChange={(e) => {
+                                      setResetPasswordsInputs({
+                                        ...resetPasswordsInputs,
+                                        [req.id]: e.target.value
+                                      });
+                                    }}
+                                    placeholder="৬ সংখ্যার নতুন পাসওয়ার্ড দিন"
+                                    className="w-full h-10 bg-white text-[#1A1A2E] text-[12px] px-3.5 rounded-[8px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none transition-colors font-mono"
+                                    style={{ borderWidth: '0.5px' }}
+                                  />
+                                </div>
+
+                                <div className="flex gap-2 shrink-0 pt-3 sm:pt-0">
+                                  <button
+                                    onClick={() => handleAdminResetUserPassword(req.id, req.usernameOrId, currentVal, req.whatsappNumber)}
+                                    className="bg-[#1B4F72] hover:bg-opacity-95 text-white text-xs px-4 py-2.5 rounded-xl font-medium cursor-pointer transition-all flex items-center justify-center font-sans"
+                                  >
+                                    🔑 পাসওয়ার্ড পরিবর্তন ও হোয়াটস্যাপ করুন
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectResetRequest(req.id)}
+                                    className="bg-red-50 hover:bg-red-100 text-[#E74C3C] border border-red-200 text-xs px-3.5 py-2.5 rounded-xl font-medium cursor-pointer transition-all flex items-center justify-center font-sans"
+                                  >
+                                    বাতিল করুন
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {isCompleted && (
+                            <div className="bg-emerald-50/50 border border-emerald-100 text-emerald-800 rounded-xl p-3 text-xs leading-relaxed flex items-center justify-between font-sans">
+                              <span>
+                                ✔ <strong>সমাধান করা হয়েছে:</strong> এই অনুরোধকারীর পাসওয়ার্ড সফলভাবে <strong>"{req.assignedPassword || 'N/A'}"</strong> তে পরিবর্তন করা হয়েছে ভাই।
+                              </span>
+                              {req.resolvedAt && (
+                                <span className="text-[10px] text-emerald-600 font-mono">
+                                  {new Date(req.resolvedAt).toLocaleDateString("bn-BD")}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {isRejected && (
+                            <div className="bg-red-50/50 border border-red-100 text-red-800 rounded-xl p-3 text-xs leading-relaxed flex items-center justify-between font-sans">
+                              <span>
+                                ❌ <strong>বাতিল করা হয়েছে:</strong> এই অনুরোধটি এডমিন বাতিল করেছেন।
+                              </span>
+                              {req.resolvedAt && (
+                                <span className="text-[10px] text-red-600 font-mono">
+                                  {new Date(req.resolvedAt).toLocaleDateString("bn-BD")}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

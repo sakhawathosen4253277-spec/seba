@@ -158,6 +158,10 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   // Forgot password state variables
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [resetWhatsapp, setResetWhatsapp] = useState("");
+  const [resetLastBalance, setResetLastBalance] = useState("");
+  const [resetLastDeposit, setResetLastDeposit] = useState("");
+  const [resetLastWithdraw, setResetLastWithdraw] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
 
   // Fallback to "BN" if selected lang layout is somehow not defined
@@ -215,24 +219,42 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail.trim()) {
-      alert(lang === "BN" ? "দয়া করে আপনার ইমেইল ঠিকানাটি লিখুন ভাই।" : "Please enter your email address.");
+    const identifier = resetEmail.trim();
+    if (!identifier) {
+      alert(lang === "BN" ? "দয়া করে আপনার নিবন্ধিত ইমেইল বা মোবাইল বা ইউজার আইডি লিখুন ভাই।" : "Please enter your registered Email, Phone, or User ID.");
+      return;
+    }
+    if (!resetWhatsapp.trim()) {
+      alert(lang === "BN" ? "দয়া করে আপনার সচল হোয়াটসঅ্যাপ নাম্বারটি লিখুন ভাই।" : "Please enter your WhatsApp number.");
       return;
     }
 
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, resetEmail.trim().toLowerCase());
-      alert(t.resetSuccessMsg);
+      await addDoc(collection(db, "passwordResets"), {
+        usernameOrId: identifier,
+        whatsappNumber: resetWhatsapp.trim(),
+        lastBalance: resetLastBalance.trim() || "N/A",
+        lastDeposit: resetLastDeposit.trim() || "N/A",
+        lastWithdraw: resetLastWithdraw.trim() || "N/A",
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+
+      alert(lang === "BN" 
+        ? "ধন্যবাদ ভাই, আপনার পাসওয়ার্ড পুনরুদ্ধারের অনুরোধটি সফলভাবে জমা দেওয়া হয়েছে। এডমিন আপনার তথ্য যাচাই করে আপনার দেওয়া হোয়াটসঅ্যাপ নাম্বারে নতুন পাসওয়ার্ড পাঠিয়ে দেবেন।"
+        : "Thank you brother, your password reset request has been successfully submitted. The admin will verify your details and send a new password to your provided WhatsApp number."
+      );
+      
       setIsForgotPassword(false);
       setResetEmail("");
+      setResetWhatsapp("");
+      setResetLastBalance("");
+      setResetLastDeposit("");
+      setResetLastWithdraw("");
     } catch (error: any) {
-      console.error("Forgot password error:", error);
-      if (error.code === "auth/user-not-found" || error.code === "auth/invalid-email") {
-        alert(lang === "BN" ? "দুঃখিত ভাই, এই ইমেইল ঠিকানাটি দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি।" : "Sorry, no account found with this email address.");
-      } else {
-        alert(t.errorGeneric);
-      }
+      console.error("Forgot password submission error:", error);
+      alert(lang === "BN" ? "অনুরোধটি সাবমিট করতে সমস্যা হয়েছে ভাই। দয়া করে আবার চেষ্টা করুন।" : "Something went wrong. Please try again.");
     } finally {
       setResetLoading(false);
     }
@@ -704,41 +726,103 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
       <div className="bg-white p-[24px] rounded-[16px] border-[0.5px] border-[#E5E7EB] space-y-4" style={{ borderWidth: '0.5px' }}>
         {isForgotPassword ? (
           <div className="space-y-4">
-            <h3 className="text-[15px] font-medium text-[#1A1A2E] text-center">
-              {t.forgotPasswordTitle}
+            <h3 className="text-[15px] font-medium text-[#1A1A2E] text-center font-sans">
+              পাসওয়ার্ড পুনরুদ্ধারের অনুরোধ
             </h3>
 
-            <form onSubmit={handleForgotPassword} className="space-y-3.5">
+            <form onSubmit={handleForgotPassword} className="space-y-3.5 text-left font-sans">
               <div>
-                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.resetEmailLabel}</label>
+                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                  নিবন্ধিত ইমেল, মোবাইল বা ইউজার আইডি (Registered Account):
+                </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
+                  <User className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder={t.resetEmailPlaceholder}
+                    placeholder="যেমন: miah.probashi@gmail.com বা মোবাইল"
                     className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
                     style={{ borderWidth: '0.5px' }}
                   />
                 </div>
               </div>
 
-              <div className="text-[11px] text-[#E74C3C] leading-relaxed bg-[#FDF2F2] p-3 rounded-[10px] border-[0.5px] border-[#FDE8E8]" style={{ borderWidth: '0.5px' }}>
-                {t.phoneForgotNotice}
+              <div>
+                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                  হোয়াটসঅ্যাপ নাম্বার (WhatsApp for sending Password):
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
+                  <input
+                    type="text"
+                    required
+                    value={resetWhatsapp}
+                    onChange={(e) => setResetWhatsapp(e.target.value)}
+                    placeholder="যেমন: +855xxxxxxx"
+                    className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                    style={{ borderWidth: '0.5px' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                  আপনার শেষ ওয়ালেট ব্যালেন্স (Last Wallet Balance):
+                </label>
+                <input
+                  type="text"
+                  value={resetLastBalance}
+                  onChange={(e) => setResetLastBalance(e.target.value)}
+                  placeholder="যেমন: $12.50 USD (আনুমানিক)"
+                  className="w-full h-11 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] px-3.5 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  style={{ borderWidth: '0.5px' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                  আপনার শেষ ডিপোজিট বা টাকা পাঠানোর পরিমাণ (Last Deposit):
+                </label>
+                <input
+                  type="text"
+                  value={resetLastDeposit}
+                  onChange={(e) => setResetLastDeposit(e.target.value)}
+                  placeholder="যেমন: $50 USD (আনুমানিক)"
+                  className="w-full h-11 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] px-3.5 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  style={{ borderWidth: '0.5px' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[#6B7280] font-normal mb-1">
+                  আপনার শেষ উইথড্র বা টাকা তোলার পরিমাণ (Last Withdrawal):
+                </label>
+                <input
+                  type="text"
+                  value={resetLastWithdraw}
+                  onChange={(e) => setResetLastWithdraw(e.target.value)}
+                  placeholder="যেমন: $20 USD (আনুমানিক)"
+                  className="w-full h-11 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] px-3.5 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                  style={{ borderWidth: '0.5px' }}
+                />
+              </div>
+
+              <div className="text-[11px] text-[#6B7280] leading-relaxed bg-[#F4F8FA] p-3 rounded-[10px] border-[0.5px] border-[#D5E6F2]" style={{ borderWidth: '0.5px' }}>
+                💡 <strong>তথ্য যাচাইকরণ:</strong> আপনার দেওয়া ওয়ালেট ব্যালেন্স এবং শেষ লেনদেনের তথ্যটি এডমিন প্যানেলে যাচাই করা হবে। তথ্য সঠিক হলে আপনার হোয়াটসঅ্যাপে নতুন পাসওয়ার্ড পাঠানো হবে ভাই।
               </div>
 
               <button
                 type="submit"
                 disabled={resetLoading}
-                className="w-full h-12 bg-[#1B4F72] text-white font-medium text-[13px] rounded-[12px] flex items-center justify-center space-x-2 transition-colors cursor-pointer hover:bg-opacity-95 disabled:bg-opacity-50 font-sans"
+                className="w-full h-12 bg-[#1B4F72] text-white font-medium text-[13px] rounded-[12px] flex items-center justify-center space-x-2 transition-colors cursor-pointer hover:bg-opacity-95 disabled:bg-opacity-50 font-sans mt-2"
               >
                 {resetLoading ? (
                   <span>{t.loadingText}</span>
                 ) : (
                   <>
-                    <span>{t.sendResetLinkBtn}</span>
+                    <span>অনুরোধ সাবমিট করুন</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -751,6 +835,10 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
                 onClick={() => {
                   setIsForgotPassword(false);
                   setResetEmail("");
+                  setResetWhatsapp("");
+                  setResetLastBalance("");
+                  setResetLastDeposit("");
+                  setResetLastWithdraw("");
                 }}
                 className="text-[13px] font-medium text-[#1B4F72] focus:outline-none cursor-pointer"
               >

@@ -27,7 +27,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
-import { signOut, sendPasswordResetEmail } from "firebase/auth";
+import { signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { Transaction } from "../types";
@@ -118,6 +118,9 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
   const [pwResetLoading, setPwResetLoading] = useState(false);
   const [pwResetMsg, setPwResetMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -168,19 +171,61 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
     localStorage.setItem("selectedLanguage", lang);
   };
 
-  const handlePasswordReset = async () => {
-    if (!currentUser?.email) {
-      setPwResetMsg({ text: "আপনার ইমেইল পাওয়া যায়নি ভাই।", isError: true });
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) {
+      setPwResetMsg({ text: "অনুগ্রহ করে প্রথমে লগইন করুন ভাই।", isError: true });
       return;
     }
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPwResetMsg({ text: "দয়া করে সবগুলো ঘর পূরণ করুন ভাই।", isError: true });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwResetMsg({ text: "নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে ভাই।", isError: true });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPwResetMsg({ text: "নতুন পাসওয়ার্ড এবং নিশ্চিত পাসওয়ার্ড মেলেনি ভাই।", isError: true });
+      return;
+    }
+
     setPwResetLoading(true);
     setPwResetMsg(null);
+
     try {
-      await sendPasswordResetEmail(auth, currentUser.email);
-      setPwResetMsg({ text: "আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিঙ্ক পাঠানো হয়েছে ভাই। অনুগ্রহ করে ইমেইল ইনবক্স চেক করুন ভাই।", isError: false });
+      // 1. Reauthenticate user
+      const userEmail = currentUser.email || "";
+      if (!userEmail) {
+        throw new Error("আপনার ইমেইল আইডি পাওয়া যায়নি ভাই।");
+      }
+      
+      const credential = EmailAuthProvider.credential(userEmail, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // 2. Update password in Firebase Auth
+      await updatePassword(currentUser, newPassword);
+
+      // 3. Update plaintext password in Firestore
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        password: newPassword
+      });
+
+      setPwResetMsg({ text: "আপনার পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে এবং ডাটাবেজে আপডেট করা হয়েছে ভাই! 👍", isError: false });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
     } catch (err: any) {
-      console.error(err);
-      setPwResetMsg({ text: "পাসওয়ার্ড রিসেট ইমেইল পাঠাতে সমস্যা সৃষ্টি হয়েছে ভাই। দয়া করে পরে চেষ্টা করুন।", isError: true });
+      console.error("Password change error:", err);
+      let errorText = "পাসওয়ার্ড পরিবর্তন করতে সমস্যা হয়েছে ভাই। দয়া করে সঠিক বর্তমান পাসওয়ার্ড টাইপ করুন।";
+      if (err.code === "auth/wrong-password") {
+        errorText = "আপনার বর্তমান পাসওয়ার্ডটি ভুল ভাই! সঠিক পাসওয়ার্ড দিন।";
+      } else if (err.code === "auth/weak-password") {
+        errorText = "নতুন পাসওয়ার্ডটি অত্যন্ত দুর্বল ভাই! অন্য পাসওয়ার্ড দিন।";
+      } else if (err.message) {
+        errorText = err.message;
+      }
+      setPwResetMsg({ text: errorText, isError: true });
     } finally {
       setPwResetLoading(false);
     }
@@ -933,13 +978,56 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
                     </div>
                   </div>
 
-                  <button
-                    onClick={handlePasswordReset}
-                    disabled={pwResetLoading}
-                    className="w-full bg-[#1B4F72] hover:bg-opacity-95 text-white py-3 rounded-xl text-xs font-medium cursor-pointer outline-none select-none transition-all flex items-center justify-center"
-                  >
-                    {pwResetLoading ? "অনুরোধ পাঠানো হচ্ছে..." : "পাসওয়ার্ড পরিবর্তন করুন (Change Password)"}
-                  </button>
+                  <form onSubmit={handlePasswordReset} className="space-y-3.5 border-t border-gray-100 pt-3.5 mt-2 text-left">
+                    <p className="text-xs font-semibold text-[#1A1A2E]">পাসওয়ার্ড পরিবর্তন করুন (Change Password)</p>
+                    
+                    <div>
+                      <label className="block text-[11px] text-[#6B7280] font-normal mb-1">বর্তমান পাসওয়ার্ড (Current Password)</label>
+                      <input
+                        type="password"
+                        required
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="আপনার বর্তমান পাসওয়ার্ড দিন"
+                        className="w-full h-10 bg-[#F9FAFB] text-[#1A1A2E] text-[12px] px-3.5 rounded-[10px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors font-mono"
+                        style={{ borderWidth: '0.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-[#6B7280] font-normal mb-1">নতুন পাসওয়ার্ড (New Password)</label>
+                      <input
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="কমপক্ষে ৬ অক্ষরের নতুন পাসওয়ার্ড"
+                        className="w-full h-10 bg-[#F9FAFB] text-[#1A1A2E] text-[12px] px-3.5 rounded-[10px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors font-mono"
+                        style={{ borderWidth: '0.5px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-[#6B7280] font-normal mb-1">নতুন পাসওয়ার্ড নিশ্চিত করুন (Confirm Password)</label>
+                      <input
+                        type="password"
+                        required
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        placeholder="আবারও নতুন পাসওয়ার্ড দিন"
+                        className="w-full h-10 bg-[#F9FAFB] text-[#1A1A2E] text-[12px] px-3.5 rounded-[10px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors font-mono"
+                        style={{ borderWidth: '0.5px' }}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={pwResetLoading}
+                      className="w-full bg-[#1B4F72] hover:bg-opacity-95 text-white py-3 rounded-xl text-xs font-medium cursor-pointer outline-none select-none transition-all flex items-center justify-center font-sans mt-2"
+                    >
+                      {pwResetLoading ? "আপডেট হচ্ছে..." : "পাসওয়ার্ড পরিবর্তন করুন"}
+                    </button>
+                  </form>
 
                   {pwResetMsg && (
                     <div 

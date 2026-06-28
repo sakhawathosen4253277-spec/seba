@@ -17,6 +17,12 @@ interface HeaderProps {
 export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80, exchangeRateUnderTen = 120.00 }: HeaderProps) {
   const [dbExchangeRate, setDbExchangeRate] = useState<number>(exchangeRate);
   const [dbExchangeRateUnderTen, setDbExchangeRateUnderTen] = useState<number>(exchangeRateUnderTen);
+  const [rates, setRates] = useState({
+    bkash: 110.80,
+    nagad: 110.50,
+    rocket: 110.70,
+    bank: 110.20,
+  });
   const [dbTickerItems, setDbTickerItems] = useState<string[]>([]);
   const [tickerItems, setTickerItems] = useState<string[]>([]);
   const [aiNewsItems, setAiNewsItems] = useState<string[]>([]);
@@ -35,12 +41,20 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
   }, [unreadCount, prevUnreadCount]);
 
   // Function to dynamically replace static rates in messages with correct live rates in real-time
-  const formatTickerMessage = (message: string, rate: number): string => {
+  const formatTickerMessage = (message: string, currentRates: typeof rates): string => {
+    let formatted = message;
+    // Replace placeholders with correct rates
+    formatted = formatted.replace(/{bkash}/gi, `${currentRates.bkash.toFixed(2)}`);
+    formatted = formatted.replace(/{nagad}/gi, `${currentRates.nagad.toFixed(2)}`);
+    formatted = formatted.replace(/{rocket}/gi, `${currentRates.rocket.toFixed(2)}`);
+    formatted = formatted.replace(/{bank}/gi, `${currentRates.bank.toFixed(2)}`);
+
     const regex = /1\s*USD\s*=\s*\d+(?:\.\d+)?/gi;
-    if (regex.test(message)) {
-      return message.replace(regex, `1 USD = ${rate.toFixed(2)}`);
+    if (regex.test(formatted)) {
+      const maxRate = Math.max(currentRates.bkash, currentRates.nagad, currentRates.rocket, currentRates.bank);
+      formatted = formatted.replace(regex, `1 USD = ${maxRate.toFixed(2)}`);
     }
-    return message;
+    return formatted;
   };
 
   // Sync with prop when prop updates
@@ -61,6 +75,14 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
     const unsubRate = onSnapshot(doc(db, "exchangeRates", "current"), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
+        const currentRates = {
+          bkash: data.bkash !== undefined ? Number(data.bkash) : 110.80,
+          nagad: data.nagad !== undefined ? Number(data.nagad) : 110.50,
+          rocket: data.rocket !== undefined ? Number(data.rocket) : 110.70,
+          bank: data.bank !== undefined ? Number(data.bank) : 110.20,
+        };
+        setRates(currentRates);
+
         if (data.usdRate !== undefined) {
           setDbExchangeRate(Number(data.usdRate));
         } else if (data.bkash !== undefined) {
@@ -127,10 +149,10 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
       return arr;
     }
 
-    const maxRate = Math.max(dbExchangeRate, dbExchangeRateUnderTen);
-
     // Determine the baseline list of scrolling news
     let baseItems = [...dbTickerItems];
+
+    const defaultRateString = `💰 আজকের রেট: ১ USD = বিকাশ: ${rates.bkash.toFixed(2)} ৳ | নগদ: ${rates.nagad.toFixed(2)} ৳ | রকেট: ${rates.rocket.toFixed(2)} ৳ | ব্যাংক: ${rates.bank.toFixed(2)} ৳`;
 
     if (baseItems.length === 0) {
       // Fallback default set if there are no ticker items in the database yet
@@ -140,24 +162,24 @@ export default function Header({ unreadCount, onBellClick, exchangeRate = 110.80
         "🆘 বিপদে পড়লে: Bangladesh Consulate +855-23-210-822",
         "📋 ভিসার মেয়াদ শেষ হওয়ার আগেই extension করুন — app এ ভিসা তথ্য দেখুন",
         "🚫 দালালকে passport দেবেন না — এটা বেআইনি",
-        `💰 আজকের রেট: 1 USD = ${maxRate.toFixed(2)} BDT — সবচেয়ে ভালো রেট আমাদের কাছে`,
+        defaultRateString,
         "🎫 এয়ার টিকেট দরকার? আমাদের WhatsApp করুন: +855762012121",
         "⚠️ Facebook এ সস্তা ভিসার অফার = স্ক্যাম — সাবধান থাকুন",
       ];
     } else {
       // Format existing items from database with the live rate replacement helper
-      baseItems = baseItems.map(item => formatTickerMessage(item, maxRate));
+      baseItems = baseItems.map(item => formatTickerMessage(item, rates));
 
-      // Ensure that if no database ticker mentions the rate, we automatically append the high contrast live rate banner
-      const hasRateMsg = baseItems.some(msg => /1\s*USD/i.test(msg));
+      // Ensure that if no database ticker mentions any rate keywords, we automatically append the high contrast live rate banner
+      const hasRateMsg = baseItems.some(msg => /বিকাশ|নগদ|রকেট|ব্যাংক|USD|রেট/i.test(msg));
       if (!hasRateMsg) {
-        baseItems.unshift(`💰 আজকের রেট: 1 USD = ${maxRate.toFixed(2)} BDT — সবচেয়ে ভালো রেট আমাদের কাছে`);
+        baseItems.unshift(defaultRateString);
       }
     }
 
-    const combined = [...baseItems, ...aiNewsItems.map(item => formatTickerMessage(item, maxRate))];
+    const combined = [...baseItems, ...aiNewsItems.map(item => formatTickerMessage(item, rates))];
     setTickerItems(shuffleArray(combined));
-  }, [dbExchangeRate, dbExchangeRateUnderTen, dbTickerItems, aiNewsItems]);
+  }, [rates, dbTickerItems, aiNewsItems]);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-[#E5E7EB]" style={{ borderBottomWidth: "0.5px" }}>
