@@ -507,7 +507,13 @@ export default function AdminPanel() {
         const docRef = doc(db, "settings", "adBanner");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setAdBannerSettings(docSnap.data());
+          setAdBannerSettings({
+            isActive: false,
+            imageBase64: "",
+            duration: 10,
+            maxViewsPerDay: 3,
+            ...docSnap.data()
+          });
         }
       } else if (tab === "referral") {
         const docRef = doc(db, "settings", "referral");
@@ -612,17 +618,53 @@ export default function AdminPanel() {
   const handleAdBannerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        alert("ছবির সাইজ ২ মেগাবাইটের কম হতে হবে ভাই!");
-        return;
-      }
+      showStatusMsg("ছবি প্রসেস করা হচ্ছে ভাই, দয়া করে অপেক্ষা করুন...", false);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAdBannerSettings((prev: any) => ({
-          ...prev,
-          imageBase64: reader.result as string
-        }));
-        showStatusMsg("ছবি আপলোড সম্পন্ন হয়েছে! নিচে সেভ করুন বাটনে চাপুন।");
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const max_size = 1000;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.7);
+            
+            setAdBannerSettings((prev: any) => ({
+              ...prev,
+              imageBase64: compressedBase64
+            }));
+            showStatusMsg("ছবি সফলভাবে সাইজ ও কম্প্রেস করা হয়েছে! নিচে সেভ করুন বাটনে চাপুন ভাই।", false);
+          } else {
+            setAdBannerSettings((prev: any) => ({
+              ...prev,
+              imageBase64: event.target?.result as string
+            }));
+            showStatusMsg("ছবি আপলোড সম্পন্ন হয়েছে! নিচে সেভ করুন বাটনে চাপুন।", false);
+          }
+        };
+        img.onerror = () => {
+          showStatusMsg("ছবি প্রসেস করতে সমস্যা হয়েছে ভাই!", true);
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
