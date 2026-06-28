@@ -562,6 +562,14 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
                         </span>
                       </div>
                       <p className="text-[11px] text-[#6B7280] mt-0.5">{displayDate} • {displayNum}</p>
+                      {tx.status === "completed" && tx.confirmationDigits && (
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-[#1D9E75] bg-emerald-50 border border-emerald-100/50 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse"></span>
+                            <span>পিন কোড: <span className="font-mono font-bold">*{tx.confirmationDigits}</span></span>
+                          </span>
+                        </div>
+                      )}
                       {tx.status === "completed" && (
                         <button
                           onClick={() => downloadReceiptImage(normalizedTxForReceipt)}

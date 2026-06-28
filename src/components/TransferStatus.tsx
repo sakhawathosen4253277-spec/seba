@@ -341,6 +341,26 @@ export default function TransferStatus({ onBack, prefilledTxId }: TransferStatus
             <div className="text-[10px] text-gray-400 pt-1 text-center font-sans">
               অনুরোধের সময়: {new Date(requestData.createdAt).toLocaleString("bn-BD")}
             </div>
+
+            {requestData.status === "completed" && (requestData as any).confirmationDigits && (
+              <div 
+                className="mt-3 p-3.5 bg-emerald-50 border border-emerald-100 rounded-2xl text-left space-y-1.5"
+                style={{ borderWidth: "0.5px" }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#1D9E75] animate-ping shrink-0"></span>
+                  <p className="text-[12px] font-semibold text-[#1A1A2E] font-sans">
+                    আমাদের ভেরিফিকেশন ৪-ডিজিট পিন: 
+                    <span className="ml-1.5 font-mono text-[13px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-900 tracking-wider font-bold">
+                      *{(requestData as any).confirmationDigits}
+                    </span>
+                  </p>
+                </div>
+                <p className="text-[11px] text-[#6B7280] font-sans leading-relaxed">
+                  ভাই, এই ৪ ডিজিট মিলিয়ে নিন। আপনার বিকাশ/নগদ/রকেটে যে পেমেন্ট এসেছে, তার প্রেরক নম্বরের শেষ ৪ সংখ্যা এই পিনের সাথে মিলবে। এর মাধ্যমে নিশ্চিত হোন যে টাকাটি আমাদের ওয়েবসাইট থেকে সফলভাবে পাঠানো হয়েছে।
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Payment proof from admin (If completed) */}
