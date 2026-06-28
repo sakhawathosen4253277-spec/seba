@@ -657,6 +657,24 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             <div className="mt-2.5 text-[11px] font-sans flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.8)' }}>
               <span>{statsCount}+ সফল ট্রান্সফার</span>
             </div>
+
+            {/* Premium, high-visibility Referral Stats Row */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] font-sans text-white/90">
+              <div className="flex flex-col text-left">
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>রেফারেল উপার্জন</span>
+                <span className="text-[14px] font-medium mt-0.5 text-[#1D9E75]">${userDoc?.referralEarnings || 0}</span>
+              </div>
+              <div className="w-[1px] h-6 bg-white/15"></div>
+              <div className="flex flex-col text-left">
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>পেন্ডিং বোনাস</span>
+                <span className="text-[14px] font-medium mt-0.5 text-[#F5A623]">${userDoc?.referralBalance || 0}</span>
+              </div>
+              <div className="w-[1px] h-6 bg-white/15"></div>
+              <div className="flex flex-col text-right">
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>মোট রেফারেল</span>
+                <span className="text-[14px] font-medium mt-0.5 text-white">{userDoc?.totalReferrals || 0} জন</span>
+              </div>
+            </div>
           </div>
 
           {/* Quick Action buttons */}

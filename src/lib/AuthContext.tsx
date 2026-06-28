@@ -73,7 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Auto-generate referral code if missing
         if (!existingData.referralCode) {
-          const newCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          const userIdDigits = (existingData.userId || "").replace("PS-", "");
+          const newCode = userIdDigits ? "PS-REF-" + userIdDigits : "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
           try {
             await updateDoc(doc(db, "users", currentUser.uid), {
               referralCode: newCode,

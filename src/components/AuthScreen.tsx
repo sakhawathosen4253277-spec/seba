@@ -302,8 +302,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
           const generatedUserId = "PS-" + randomDigits;
 
-          // Generate unique referralCode
-          const newReferralCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          // Generate unique referralCode matching their userId
+          const newReferralCode = "PS-REF-" + randomDigits;
           
           let referredByValue: string | null = null;
           let userPendingBonus = 0;
@@ -318,11 +318,30 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             const enteredCodeClean = enteredReferralCode.trim().toUpperCase();
             const refQuery = query(collection(db, "users"), where("referralCode", "==", enteredCodeClean));
             const refSnap = await getDocs(refQuery);
-            if (!refSnap.empty) {
-              const referrerDoc = refSnap.docs[0];
+            
+            let referrerDoc = !refSnap.empty ? refSnap.docs[0] : null;
+            if (!referrerDoc) {
+              const derivedUserId = enteredCodeClean.replace("PS-REF-", "PS-");
+              const altQuery = query(collection(db, "users"), where("userId", "==", derivedUserId));
+              const altSnap = await getDocs(altQuery);
+              if (!altSnap.empty) {
+                referrerDoc = altSnap.docs[0];
+              }
+            }
+
+            if (referrerDoc) {
               referredByValue = enteredCodeClean;
               userPendingBonus = signupBonusVal;
               userReferralCompleted = false;
+              
+              // Increment referrer's referralBalance (representing pending referral balance)
+              try {
+                await updateDoc(referrerDoc.ref, {
+                  referralBalance: increment(signupBonusVal)
+                });
+              } catch (updateErr) {
+                console.warn("Failed to increment referrer's pending balance:", updateErr);
+              }
               
               // Save friendly pending notification to referrer:
               await addDoc(collection(db, "notifications"), {
@@ -417,8 +436,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
           const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
           const generatedUserId = "PS-" + randomDigits;
 
-          // Generate unique referralCode
-          const newReferralCode = "PS-REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+          // Generate unique referralCode matching their userId
+          const newReferralCode = "PS-REF-" + randomDigits;
           
           let referredByValue: string | null = null;
           let userPendingBonus = 0;
@@ -433,11 +452,30 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             const enteredCodeClean = enteredReferralCode.trim().toUpperCase();
             const refQuery = query(collection(db, "users"), where("referralCode", "==", enteredCodeClean));
             const refSnap = await getDocs(refQuery);
-            if (!refSnap.empty) {
-              const referrerDoc = refSnap.docs[0];
+            
+            let referrerDoc = !refSnap.empty ? refSnap.docs[0] : null;
+            if (!referrerDoc) {
+              const derivedUserId = enteredCodeClean.replace("PS-REF-", "PS-");
+              const altQuery = query(collection(db, "users"), where("userId", "==", derivedUserId));
+              const altSnap = await getDocs(altQuery);
+              if (!altSnap.empty) {
+                referrerDoc = altSnap.docs[0];
+              }
+            }
+
+            if (referrerDoc) {
               referredByValue = enteredCodeClean;
               userPendingBonus = signupBonusVal;
               userReferralCompleted = false;
+              
+              // Increment referrer's referralBalance (representing pending referral balance)
+              try {
+                await updateDoc(referrerDoc.ref, {
+                  referralBalance: increment(signupBonusVal)
+                });
+              } catch (updateErr) {
+                console.warn("Failed to increment referrer's pending balance:", updateErr);
+              }
               
               // Save friendly pending notification to referrer:
               await addDoc(collection(db, "notifications"), {

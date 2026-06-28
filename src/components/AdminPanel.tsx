@@ -1763,16 +1763,24 @@ export default function AdminPanel() {
             // 2. If referred by a friend and referral system is enabled, reward the friend as well
             if (referralEnabled && referredUserData.referredBy) {
               const refCode = referredUserData.referredBy;
-              const referrerQuery = query(collection(db, "users"), where("referralCode", "==", refCode));
-              const referrerQuerySnap = await getDocs(referrerQuery);
+              let referrerQuery = query(collection(db, "users"), where("referralCode", "==", refCode));
+              let referrerQuerySnap = await getDocs(referrerQuery);
+              
+              if (referrerQuerySnap.empty) {
+                const derivedUserId = refCode.replace("PS-REF-", "PS-");
+                referrerQuery = query(collection(db, "users"), where("userId", "==", derivedUserId));
+                referrerQuerySnap = await getDocs(referrerQuery);
+              }
               
               if (!referrerQuerySnap.empty) {
                 const referrerDoc = referrerQuerySnap.docs[0];
                 const referrerRef = referrerDoc.ref;
                 
+                // Decrement from referralBalance (pending) and add to balance (main wallet) and referralEarnings (total)
                 await updateDoc(referrerRef, {
                   balance: increment(referralBonus),
                   referralEarnings: increment(referralBonus),
+                  referralBalance: increment(-referralBonus),
                   totalReferrals: increment(1)
                 });
                 
