@@ -96,6 +96,11 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   // Reviews and Trust Stats States
   const [reviewsList, setReviewsList] = useState<any[]>([]);
   const [statsCount, setStatsCount] = useState<number>(120);
+  const [referralSettings, setReferralSettings] = useState<any>({
+    dailyClaimAmount: 0.05,
+    dailyMinWithdraw: 10.00,
+    signupBonusAmount: 2.00
+  });
 
   const formatDaysAgo = (dateStr: any) => {
     if (!dateStr) return "১ দিন আগে";
@@ -210,6 +215,21 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
               order: 1
             }
           ]);
+        }
+
+        // Fetch settings/referral for daily bonus claim amount and min withdrawal
+        try {
+          const referralSnap = await getDoc(doc(db, "settings", "referral"));
+          if (referralSnap.exists()) {
+            const refData = referralSnap.data();
+            setReferralSettings({
+              dailyClaimAmount: refData.dailyClaimAmount !== undefined ? Number(refData.dailyClaimAmount) : 0.05,
+              dailyMinWithdraw: refData.dailyMinWithdraw !== undefined ? Number(refData.dailyMinWithdraw) : 10.00,
+              signupBonusAmount: refData.signupBonusAmount !== undefined ? Number(refData.signupBonusAmount) : 2.00,
+            });
+          }
+        } catch (e) {
+          console.error("Error loading referral settings in HomeDashboard:", e);
         }
 
         // 4. Fetch Reviews
@@ -531,6 +551,42 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
     return () => clearInterval(interval);
   }, [userDoc?.lastDailyClaim]);
 
+  const [withdrawingDaily, setWithdrawingDaily] = useState(false);
+
+  const handleWithdrawDailyBonus = async () => {
+    if (!currentUser || !userDoc) return;
+    const minWithdraw = referralSettings.dailyMinWithdraw || 10.00;
+    const currentDailyBonusBalance = Number(userDoc.dailyBonusBalance || 0);
+
+    if (currentDailyBonusBalance < minWithdraw) {
+      alert(`ডেইলি বোনাস মেইন ওয়ালেটে ট্রান্সফার করতে সর্বনিম্ন $${minWithdraw} থাকতে হবে ভাই!`);
+      return;
+    }
+
+    if (!window.confirm(`আপনি কি আপনার জমানো $${currentDailyBonusBalance} ডেইলি বোনাস মেইন ওয়ালেটে ট্রান্সফার করতে চান ভাই?`)) {
+      return;
+    }
+
+    setWithdrawingDaily(true);
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      const currentMainBalance = Number(userDoc.balance || 0);
+      const newMainBalance = Number((currentMainBalance + currentDailyBonusBalance).toFixed(4));
+
+      await setDoc(userRef, {
+        balance: newMainBalance,
+        dailyBonusBalance: 0
+      }, { merge: true });
+
+      alert(`অভিনন্দন ভাই! আপনার $${currentDailyBonusBalance} ডেইলি বোনাস সফলভাবে মেইন ওয়ালেটে যোগ করা হয়েছে। 🎉`);
+    } catch (err) {
+      console.error("Error withdrawing daily bonus:", err);
+      alert("ট্রান্সফার করতে সমস্যা হয়েছে ভাই। দয়া করে আবার চেষ্টা করুন।");
+    } finally {
+      setWithdrawingDaily(false);
+    }
+  };
+
   const handleCollectDailyBonus = async () => {
     if (!currentUser) {
       setClaimMsg({ text: "বোনাস সংগ্রহ করতে অনুগ্রহ করে আগে লগইন করুন ভাই।", type: "error" });
@@ -551,16 +607,22 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
     setClaimMsg(null);
 
     try {
+      const claimAmount = referralSettings.dailyClaimAmount || 0.05;
       const userRef = doc(db, "users", currentUser.uid);
-      const newBalance = Number((userDoc?.balance || 0) + 0.05);
+      const currentDailyBonusBalance = Number(userDoc?.dailyBonusBalance || 0);
+      const currentDailyBonusTotal = Number(userDoc?.dailyBonusTotal || 0);
+      
+      const newDailyBonusBalance = Number((currentDailyBonusBalance + claimAmount).toFixed(4));
+      const newDailyBonusTotal = Number((currentDailyBonusTotal + claimAmount).toFixed(4));
       const claimDateStr = new Date().toISOString();
 
       await setDoc(userRef, {
-        balance: newBalance,
+        dailyBonusBalance: newDailyBonusBalance,
+        dailyBonusTotal: newDailyBonusTotal,
         lastDailyClaim: claimDateStr
       }, { merge: true });
 
-      setClaimMsg({ text: "আলহামদুলিল্লাহ ভাই! $0.05 ডেইলি বোনাস আপনার ওয়ালেটে যুক্ত হয়েছে। 🎉", type: "success" });
+      setClaimMsg({ text: `আলহামদুলিল্লাহ ভাই! $${claimAmount} ডেইলি বোনাস আপনার ডেইলি বোনাস ব্যালেন্সে যুক্ত হয়েছে। 🎉`, type: "success" });
       setTimeout(() => setClaimMsg(null), 6000);
     } catch (err) {
       console.error("Failed to collect daily bonus:", err);
@@ -661,18 +723,20 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             {/* Premium, high-visibility Referral Stats Row */}
             <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] font-sans text-white/90">
               <div className="flex flex-col text-left">
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>রেফারেল উপার্জন</span>
-                <span className="text-[14px] font-medium mt-0.5 text-[#1D9E75]">${userDoc?.referralEarnings || 0}</span>
+                <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.6)' }}>রেফারেল উপার্জন</span>
+                <span className="text-[13px] font-medium mt-0.5 text-[#1D9E75]">${userDoc?.referralEarnings || 0}</span>
+                <span className="text-[8px] opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }}>পেন্ডিং: ${(Number(userDoc?.referralBalance || 0) + Number(userDoc?.pendingBonus || 0)).toFixed(2)}</span>
               </div>
-              <div className="w-[1px] h-6 bg-white/15"></div>
+              <div className="w-[1px] h-8 bg-white/15"></div>
               <div className="flex flex-col text-left">
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>পেন্ডিং বোনাস</span>
-                <span className="text-[14px] font-medium mt-0.5 text-[#F5A623]">${userDoc?.referralBalance || 0}</span>
+                <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.6)' }}>ডেইলি বোনাস</span>
+                <span className="text-[13px] font-medium mt-0.5 text-[#F5A623]">${Number(userDoc?.dailyBonusBalance || 0).toFixed(2)}</span>
+                <span className="text-[8px] opacity-80" style={{ color: 'rgba(255,255,255,0.5)' }}>মোট: ${Number(userDoc?.dailyBonusTotal || 0).toFixed(2)}</span>
               </div>
-              <div className="w-[1px] h-6 bg-white/15"></div>
+              <div className="w-[1px] h-8 bg-white/15"></div>
               <div className="flex flex-col text-right">
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>মোট রেফারেল</span>
-                <span className="text-[14px] font-medium mt-0.5 text-white">{userDoc?.totalReferrals || 0} জন</span>
+                <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.6)' }}>মোট রেফারেল</span>
+                <span className="text-[13px] font-medium mt-0.5 text-white">{userDoc?.totalReferrals || 0} জন</span>
               </div>
             </div>
           </div>
@@ -827,7 +891,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
                   দৈনিক ফ্রি বোনাস সংগ্রহ
                 </h4>
                 <p className="text-[11px] font-normal text-[#6B7280] mt-1 font-sans leading-tight">
-                  প্রতি ২৪ ঘণ্টায় প্রবাসী সেবার পক্ষ থেকে $0.05 বোনাস পান ভাই!
+                  প্রতি ২৪ ঘণ্টায় প্রবাসী সেবার পক্ষ থেকে ${referralSettings.dailyClaimAmount || 0.05} বোনাস পান ভাই!
                 </p>
               </div>
             </div>
@@ -858,6 +922,27 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
                 {claiming ? "লোড হচ্ছে..." : "বোনাস নিন"}
               </button>
             )}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+            <div className="text-left font-sans">
+              <span className="text-[11px] text-[#6B7280]">জমানো ডেইলি বোনাস ব্যালেন্স: </span>
+              <span className="text-[13px] font-semibold text-[#1B4F72]">${Number(userDoc?.dailyBonusBalance || 0).toFixed(2)}</span>
+              <div className="text-[9px] text-[#9CA3AF] mt-0.5">সর্বনিম্ন উইথড্র সীমা: ${referralSettings.dailyMinWithdraw || 10}</div>
+            </div>
+            
+            <button
+              onClick={handleWithdrawDailyBonus}
+              disabled={withdrawingDaily || Number(userDoc?.dailyBonusBalance || 0) < (referralSettings.dailyMinWithdraw || 10)}
+              className="px-3 py-1.5 text-[11px] font-sans font-medium rounded-lg transition-all cursor-pointer select-none border text-center whitespace-nowrap"
+              style={{
+                backgroundColor: Number(userDoc?.dailyBonusBalance || 0) >= (referralSettings.dailyMinWithdraw || 10) ? '#1D9E75' : '#F7F8FA',
+                color: Number(userDoc?.dailyBonusBalance || 0) >= (referralSettings.dailyMinWithdraw || 10) ? '#FFFFFF' : '#9CA3AF',
+                borderColor: Number(userDoc?.dailyBonusBalance || 0) >= (referralSettings.dailyMinWithdraw || 10) ? '#1D9E75' : '#E5E7EB',
+              }}
+            >
+              {withdrawingDaily ? "ট্রান্সফার হচ্ছে..." : "ওয়ালেটে ট্রান্সফার করুন"}
+            </button>
           </div>
 
           {claimMsg && (

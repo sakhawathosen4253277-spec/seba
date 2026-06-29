@@ -143,7 +143,9 @@ export default function AdminPanel() {
     prizeAnnouncement: "এই মাসের সেরা ৩ রেফারার পাবেন আকর্ষণীয় পুরস্কার! 🎁",
     signupBonusAmount: 2,
     noCodeBonusEnabled: true,
-    noCodeBonusAmount: 2
+    noCodeBonusAmount: 2,
+    dailyClaimAmount: 0.05,
+    dailyMinWithdraw: 10
   });
 
   // Transfer time settings state
@@ -159,6 +161,12 @@ export default function AdminPanel() {
     imageBase64: "",
     duration: 10,
     maxViewsPerDay: 3
+  });
+
+  // Blocked users settings state
+  const [blockSettings, setBlockSettings] = useState<any>({
+    blockMessage: "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই। অনুগ্রহ করে আমাদের সাথে যোগাযোগ করুন।",
+    blockWhatsapp: "+855964898625"
   });
 
   // Home Alerts states
@@ -242,7 +250,7 @@ export default function AdminPanel() {
     }
   }, [isAdminLoggedIn]);
 
-  // Fetch initial badge count data of Dep & Transfer pending on Logged state
+  // Fetch initial badge count data of Dep, Transfer & Password Resets pending on Logged state
   useEffect(() => {
     if (isAdminLoggedIn) {
       const fetchCounts = async () => {
@@ -254,6 +262,10 @@ export default function AdminPanel() {
           const qTrans = query(collection(db, "transferRequests"), where("status", "==", "pending"));
           const snapshotTrans = await getDocs(qTrans);
           setTransferRequests(snapshotTrans.docs.map(d => ({ id: d.id, ...d.data() })));
+
+          const qResets = query(collection(db, "passwordResets"), where("status", "==", "pending"));
+          const snapshotResets = await getDocs(qResets);
+          setPasswordResets(snapshotResets.docs.map(d => ({ id: d.id, ...d.data() })));
         } catch (e) {
           console.error("Error loading pending counts:", e);
         }
@@ -545,10 +557,20 @@ export default function AdminPanel() {
           return dateB - dateA;
         });
         setUsersList(list);
+
+        const blockSnap = await getDoc(doc(db, "settings", "blockSettings"));
+        if (blockSnap.exists()) {
+          setBlockSettings(blockSnap.data());
+        }
       } else if (tab === "passwordResets") {
-        const q = query(collection(db, "passwordResets"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "passwordResets"));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
         setPasswordResets(list);
       } else if (tab === "maintenance") {
         const docRef = doc(db, "maintenanceMode", "settings");
@@ -593,7 +615,11 @@ export default function AdminPanel() {
         const docRef = doc(db, "settings", "referral");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setReferralSettings(docSnap.data());
+          setReferralSettings({
+            dailyClaimAmount: 0.05,
+            dailyMinWithdraw: 10,
+            ...docSnap.data()
+          });
         }
       } else if (tab === "reviews") {
         const q = query(collection(db, "reviews"));
@@ -1537,6 +1563,30 @@ export default function AdminPanel() {
     } catch (e) {
       console.error("Error toggling user block in admin:", e);
       showStatusMsg("আপডেট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userNameOrPhone: string) => {
+    if (!window.confirm(`আপনি কি নিশ্চিতভাবে ইউজার "${userNameOrPhone}" এর অ্যাকাউন্ট ডিলিট করতে চান? এই কাজটি আর ফিরিয়ে আনা যাবে না ভাই!`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "users", userId));
+      showStatusMsg("ইউজার অ্যাকাউন্ট সফলভাবে ডিলিট করা হয়েছে ভাই।");
+      fetchTabData("users");
+    } catch (e) {
+      console.error("Error deleting user in admin:", e);
+      showStatusMsg("ডিলিট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleSaveBlockSettings = async () => {
+    try {
+      await setDoc(doc(db, "settings", "blockSettings"), blockSettings, { merge: true });
+      showStatusMsg("ব্লকড ইউজার সেটিংস সফলভাবে সেভ করা হয়েছে ভাই! 🎉", false);
+    } catch (e) {
+      console.error("Error saving block settings:", e);
+      showStatusMsg("সেটিংস সেভ করতে সমস্যা হয়েছে ভাই!", true);
     }
   };
 
@@ -3886,6 +3936,53 @@ export default function AdminPanel() {
                   <span className="absolute right-3.5 top-3 text-[#9CA3AF] text-xs font-sans font-medium">খুঁজুন</span>
                 </div>
 
+                {/* Blocked Users Settings Section */}
+                <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 space-y-4" style={{ borderWidth: "0.5px" }}>
+                  <div className="border-b border-gray-100 pb-2">
+                    <h3 className="text-xs font-semibold text-[#1B4F72] font-sans flex items-center gap-1.5">
+                      <span>🛑</span> ব্লকড ইউজার সেটিংস (Custom Block Message & Support)
+                    </h3>
+                    <p className="text-[10px] text-[#6B7280]">ইউজার অ্যাকাউন্ট ব্লক করা হলে লগইন স্ক্রিনে প্রদর্শিত মেসেজ ও সাপোর্ট নাম্বার পরিবর্তন করুন ভাই</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-[#1A1A2E] mb-1">কাস্টম ব্লকড নোটিশ মেসেজ</label>
+                      <textarea
+                        rows={2}
+                        value={blockSettings.blockMessage || ""}
+                        onChange={(e) => setBlockSettings({ ...blockSettings, blockMessage: e.target.value })}
+                        placeholder="আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই..."
+                        className="w-full text-xs p-2.5 bg-[#F9FAFB] rounded-lg border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                      />
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-[#1A1A2E] mb-1">সাপোর্ট হোয়াটসঅ্যাপ নাম্বার</label>
+                        <input
+                          type="text"
+                          value={blockSettings.blockWhatsapp || ""}
+                          onChange={(e) => setBlockSettings({ ...blockSettings, blockWhatsapp: e.target.value })}
+                          placeholder="+855XXXXXXXX"
+                          className="w-full h-9 text-xs px-3 bg-[#F9FAFB] rounded-lg border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none font-mono"
+                          style={{ borderWidth: "0.5px" }}
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleSaveBlockSettings}
+                          className="bg-[#1B4F72] text-white text-[11px] font-medium px-4 py-2 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all flex items-center gap-1"
+                        >
+                          <span>💾 সেটিংস সেভ করুন</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Users list container */}
                 <div className="space-y-3">
                   {usersList.length === 0 ? (
@@ -4026,7 +4123,7 @@ export default function AdminPanel() {
                                 >
                                   {u.isPremium ? "VIP বাতিল" : "VIP করুন"}
                                 </button>
-                                <button
+                                 <button
                                   onClick={() => handleToggleUserBlock(u.id, !!u.isBlocked)}
                                   className={`text-[10px] font-semibold px-2 py-1 rounded-lg cursor-pointer ${
                                     u.isBlocked
@@ -4035,6 +4132,12 @@ export default function AdminPanel() {
                                   }`}
                                 >
                                   {u.isBlocked ? "আনব্লক" : "ব্লক"}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.name || u.phone || "ইউজার")}
+                                  className="text-[10px] font-semibold px-2 py-1 bg-[#E74C3C] text-white rounded-lg cursor-pointer hover:bg-opacity-90 transition-all font-sans"
+                                >
+                                  ডিলিট
                                 </button>
                               </div>
                             </div>
@@ -4859,6 +4962,46 @@ export default function AdminPanel() {
                       style={{ borderWidth: "0.5px" }}
                     />
                     <p className="text-[11px] text-[#6B7280] font-sans">রেফারেল পেজের লিডারবোর্ডের ওপরে প্রদর্শিত হবে</p>
+                  </div>
+
+                  {/* Daily Claim Settings */}
+                  <div className="pt-4 border-t border-gray-100 space-y-4">
+                    <h4 className="text-xs font-bold text-[#1B4F72] font-sans">🎁 দৈনিক ফ্রি বোনাস সেটিংস (Daily Bonus Settings)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-[#1A1A2E] font-sans">প্রতিদিনের ক্লেইম বোনাস ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={referralSettings.dailyClaimAmount !== undefined ? referralSettings.dailyClaimAmount : ""}
+                          onChange={(e) => setReferralSettings((prev: any) => ({
+                            ...prev,
+                            dailyClaimAmount: e.target.value !== "" ? Number(e.target.value) : ""
+                          }))}
+                          placeholder="যেমন: ০.০৫"
+                          className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                          style={{ borderWidth: "0.5px" }}
+                        />
+                        <p className="text-[11px] text-[#6B7280] font-sans">ডেইলি ক্লেইম করলে ইউজার কত ডলার বোনাস পাবে (ডিফল্ট: $০.০৫)</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-[#1A1A2E] font-sans">মেইন ওয়ালেটে নেয়ার সর্বনিম্ন সীমা ($)</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={referralSettings.dailyMinWithdraw !== undefined ? referralSettings.dailyMinWithdraw : ""}
+                          onChange={(e) => setReferralSettings((prev: any) => ({
+                            ...prev,
+                            dailyMinWithdraw: e.target.value !== "" ? Number(e.target.value) : ""
+                          }))}
+                          placeholder="যেমন: ১০"
+                          className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                          style={{ borderWidth: "0.5px" }}
+                        />
+                        <p className="text-[11px] text-[#6B7280] font-sans">ডেইলি বোনাস ব্যালেন্স মেইন ওয়ালেটে ট্রান্সফার করতে সর্বনিম্ন কত ডলার লাগবে</p>
+                      </div>
+                    </div>
                   </div>
 
                   <button

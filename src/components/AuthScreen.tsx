@@ -169,6 +169,35 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   const t = translations[currentLang];
 
   const [isAutoReferral, setIsAutoReferral] = useState(false);
+  const [deviceId, setDeviceId] = useState<string>("");
+  const [blockedInfo, setBlockedInfo] = useState<{ message: string; whatsapp: string } | null>(null);
+  const [blockSettings, setBlockSettings] = useState<any>({
+    blockMessage: "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই। অনুগ্রহ করে আমাদের সাথে যোগাযোগ করুন।",
+    blockWhatsapp: "+855964898625"
+  });
+
+  useEffect(() => {
+    let devId = localStorage.getItem("probashi_device_id");
+    if (!devId) {
+      devId = "DEV-" + Math.random().toString(36).substring(2, 15) + "-" + Date.now().toString(36);
+      localStorage.setItem("probashi_device_id", devId);
+    }
+    setDeviceId(devId);
+
+    // Fetch Block settings on startup
+    const fetchBlockSettings = async () => {
+      try {
+        const snap = await getDoc(doc(db, "settings", "blockSettings"));
+        if (snap.exists()) {
+          setBlockSettings(snap.data());
+        }
+      } catch (e) {
+        console.error("Error fetching block settings in AuthScreen:", e);
+      }
+    };
+    fetchBlockSettings();
+  }, []);
+
   const [refConfig, setRefConfig] = useState<any>({
     referralSystemEnabled: true,
     signupBonusAmount: 2,
@@ -296,6 +325,21 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
     try {
       if (isRegister) {
         // Handle REGISTRATION
+        
+        // One device, one account check
+        if (deviceId) {
+          const qDevice = query(collection(db, "users"), where("deviceId", "==", deviceId));
+          const snapDevice = await getDocs(qDevice);
+          if (!snapDevice.empty) {
+            alert(lang === "BN" 
+              ? "দুঃখিত ভাই, এই ডিভাইসে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা হয়েছে। আমাদের পলিসি অনুযায়ী এক ডিভাইসে একটির বেশি অ্যাকাউন্ট খোলার অনুমতি নেই।" 
+              : "Sorry brother, an account has already been registered on this device. Our policy only allows one account per device."
+            );
+            setLoading(false);
+            return;
+          }
+        }
+
         if (regType === "phone") {
           // Normalize digits of the phone number
           const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
@@ -413,7 +457,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             pendingBonus: userPendingBonus,
             totalCompletedTransfersAmount: 0,
             password: password, // Store plaintext password for admin review
-            totalTransfers: 0
+            totalTransfers: 0,
+            deviceId: deviceId || "N/A"
           });
 
           // Send notification on new user registration to Telegram
@@ -547,7 +592,8 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             pendingBonus: userPendingBonus,
             totalCompletedTransfersAmount: 0,
             password: password, // Store plaintext password for admin review
-            totalTransfers: 0
+            totalTransfers: 0,
+            deviceId: deviceId || "N/A"
           });
           
           // Send notification on new user registration to Telegram
@@ -623,6 +669,21 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
         const userCredential = await signInWithEmailAndPassword(auth, resolvedEmail, password);
         const user = userCredential.user;
 
+        // Check if user is blocked
+        const userDocSnap = await getDoc(doc(db, "users", user.uid));
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          if (userData.isBlocked === true) {
+            await auth.signOut();
+            setBlockedInfo({
+              message: blockSettings.blockMessage || "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই।",
+              whatsapp: blockSettings.blockWhatsapp || "+855964898625"
+            });
+            setLoading(false);
+            return;
+          }
+        }
+
         // Skip verification gate of email only if it is a phone-registered fallback ending with our custom @probashi.com mock domain
         const isEmailVerifiedOrMocked = user.emailVerified || (user.email && user.email.endsWith("@probashi.com"));
 
@@ -677,6 +738,43 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
 
   return (
     <div className="flex flex-col space-y-5 pb-20 px-5 pt-6 font-sans bg-[#F0F4F8] min-h-screen text-[#1A1A2E] relative">
+      
+      {blockedInfo && (
+        <div className="fixed inset-0 bg-[#1A1A2E]/70 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-fade-in">
+          <div className="bg-white border-[0.5px] border-red-200 rounded-[20px] p-6 max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div className="w-14 h-14 bg-red-50 text-[#E74C3C] rounded-full flex items-center justify-center mx-auto text-2xl">
+              🚫
+            </div>
+            <div className="space-y-2 text-left">
+              <h3 className="text-base font-semibold text-[#1A1A2E] text-center">অ্যাকাউন্ট ব্লকড বা স্থগিত!</h3>
+              <p className="text-xs text-[#6B7280] leading-relaxed text-center">
+                {blockedInfo.message}
+              </p>
+            </div>
+            
+            <div className="bg-red-50/50 rounded-xl p-3 border border-red-100 text-[11px] text-[#E74C3C] text-left leading-relaxed">
+              * যদি আপনি মনে করেন আপনার অ্যাকাউন্টটি ভুলবশত বা কোনো কারণ ছাড়াই ব্লক করা হয়েছে, তাহলে সরাসরি হোয়াটসঅ্যাপে এডমিনকে জানান ভাই।
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <a
+                href={`https://wa.me/${blockedInfo.whatsapp.replace(/\+/g, '').replace(/\s+/g, '').replace(/-/g, '')}?text=${encodeURIComponent("আসসালামু আলাইকুম ভাই, আমার অ্যাকাউন্টটি ব্লক বা সাসপেন্ড দেখাচ্ছে। দয়া করে একটু সাহায্য করবেন।")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full h-11 bg-[#1D9E75] hover:bg-opacity-95 text-white rounded-[12px] font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
+              >
+                💬 হোয়াটসঅ্যাপে এডমিনকে জানান
+              </a>
+              <button
+                onClick={() => setBlockedInfo(null)}
+                className="w-full h-11 bg-gray-50 hover:bg-gray-100 text-[#6B7280] rounded-[12px] font-semibold text-xs border border-gray-200 transition-all cursor-pointer"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Brand Profile Center banner */}
       <div className="text-center space-y-2 mt-4 select-none">
