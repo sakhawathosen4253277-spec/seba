@@ -27,9 +27,10 @@ import {
   ArrowRight
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
+import UserAvatar from "./UserAvatar";
 import { signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc, setDoc } from "firebase/firestore";
 import { Transaction } from "../types";
 import { downloadReceiptImage } from "../lib/receipt";
 
@@ -124,34 +125,35 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("দয়া করে ২ এমবি (2MB) এর চেয়ে ছোট ছবি সিলেক্ট করুন ভাই!");
-        return;
-      }
-      setPhotoUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        try {
-          if (currentUser) {
-            await updateDoc(doc(db, "users", currentUser.uid), {
-              profilePhoto: base64String
-            });
-          }
-        } catch (err) {
-          console.error("Error saving profile photo:", err);
-          alert("ছবি পরিবর্তন করতে সমস্যা হয়েছে ভাই!");
-        } finally {
-          setPhotoUploading(false);
-        }
-      };
-      reader.onerror = () => {
-        alert("ফাইল পড়তে সমস্যা হয়েছে ভাই!");
-        setPhotoUploading(false);
-      };
-      reader.readAsDataURL(file);
+    if (!file || !currentUser) return;
+    
+    if (file.size > 2 * 1024 * 1024) {
+      alert("দয়া করে ২ এমবি (2MB) এর চেয়ে ছোট ছবি সিলেক্ট করুন ভাই!");
+      return;
     }
+    
+    setPhotoUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+       const base64 = event.target?.result as string;
+       try {
+         await setDoc(doc(db, 'users', currentUser.uid), {
+           photoUrl: base64,
+           profilePhoto: base64
+         }, { merge: true });
+         alert('ছবি আপলোড হয়েছে! ✅');
+       } catch (err) {
+         console.error("Error saving profile photo:", err);
+         alert("ছবি পরিবর্তন করতে সমস্যা হয়েছে ভাই!");
+       } finally {
+         setPhotoUploading(false);
+       }
+    };
+    reader.onerror = () => {
+      alert("ফাইল পড়তে সমস্যা হয়েছে ভাই!");
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const toggleTxAlerts = () => {
@@ -302,41 +304,36 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
         className="bg-[#1B4F72] text-white text-center select-none"
         style={{ padding: '28px 20px 48px' }}
       >
-        <div className="relative inline-block group">
-          {/* Avatar 72px */}
-          <label 
-            htmlFor="profile-photo-input"
-            className="block w-[72px] h-[72px] bg-white/10 rounded-full border border-white/20 flex items-center justify-center text-white mx-auto overflow-hidden relative cursor-pointer"
-            style={{ borderWidth: '0.5px' }}
-          >
-            {userDoc?.profilePhoto ? (
-              <img 
-                src={userDoc.profilePhoto} 
-                alt="Profile" 
-                className="w-full h-full object-cover" 
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <User className="w-9 h-9" />
-            )}
-            {photoUploading && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <span className="text-[10px] text-white">...</span>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
-              <Camera className="w-4 h-4 text-white" />
-            </div>
-          </label>
-          <input 
-            type="file" 
-            accept="image/*" 
-            id="profile-photo-input" 
-            onChange={handlePhotoUpload} 
-            className="hidden" 
+        <div style={{position: 'relative', display: 'inline-block'}}>
+          <UserAvatar 
+            size={80}
+            photoUrl={userDoc?.photoUrl}
+            name={userDoc?.name}
           />
+          <label style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: '26px',
+            height: '26px',
+            background: '#1B4F72',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            border: '2px solid white'
+          }}>
+            <i className="ti ti-camera" style={{color:'white', fontSize:'13px'}}></i>
+            <input 
+              type="file" 
+              accept="image/*"
+              style={{display: 'none'}}
+              onChange={handlePhotoUpload}
+            />
+          </label>
           {isPremium && (
-            <span className="absolute bottom-0 right-0 bg-[#E74C3C] text-white p-1 rounded-full border border-[#1B4F72]" style={{ borderWidth: '0.5px' }}>
+            <span className="absolute -bottom-1 -left-1 bg-[#E74C3C] text-white p-1 rounded-full border border-[#1B4F72]" style={{ borderWidth: '0.5px' }}>
               <Award className="w-3.5 h-3.5 text-white fill-current" />
             </span>
           )}

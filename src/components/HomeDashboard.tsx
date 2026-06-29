@@ -23,6 +23,7 @@ import { NavTab } from "../types";
 import { db } from "../lib/firebase";
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where, limit, orderBy } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
+import UserAvatar from "./UserAvatar";
 
 interface HomeDashboardProps {
   onServiceSelect: (tab: NavTab, subView?: string) => void;
@@ -715,13 +716,22 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           id="wallet-balance-card"
         >
           {/* Greeting & Balance Block */}
+          <div className="mb-4 text-left font-sans flex items-center justify-between">
+            <div>
+              <h2 className="text-[16px] font-medium text-white/90 mb-1">
+                আস-সালামু আলাইকুম {userDoc?.name || currentUser?.displayName ? `${userDoc?.name || currentUser?.displayName} ভাই` : "ভাই"} 👋
+              </h2>
+              <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                আপনার মেম্বার ওয়ালেট (Wallet Balance)
+              </p>
+            </div>
+            <UserAvatar 
+              size={44}
+              photoUrl={userDoc?.photoUrl}
+              name={userDoc?.name}
+            />
+          </div>
           <div className="mb-4 text-left font-sans">
-            <h2 className="text-[16px] font-medium text-white/90 mb-1">
-              আস-সালামু আলাইকুম {userDoc?.name || currentUser?.displayName ? `${userDoc?.name || currentUser?.displayName} ভাই` : "ভাই"} 👋
-            </h2>
-            <p className="text-[11px] font-normal" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              আপনার মেম্বার ওয়ালেট (Wallet Balance)
-            </p>
             <h3 className="text-[34px] font-semibold leading-none font-sans mt-2 text-white">
               ${walletBalance.toFixed(2)}
               <span className="text-[12px] ml-1.5 font-normal" style={{ color: 'rgba(255,255,255,0.6)' }}>USD</span>

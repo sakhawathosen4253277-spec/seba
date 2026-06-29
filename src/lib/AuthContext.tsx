@@ -27,6 +27,7 @@ export interface UserDoc {
   totalTransfers: number;
   lastDailyClaim?: string;
   profilePhoto?: string;
+  photoUrl?: string;
   dailyBonusBalance?: number;
   dailyBonusTotal?: number;
   pendingBonus?: number;
@@ -139,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           totalTransfers: Number(existingData.totalTransfers) || 0,
           lastDailyClaim: existingData.lastDailyClaim || "",
           profilePhoto: existingData.profilePhoto || "",
+          photoUrl: existingData.photoUrl || "",
           dailyBonusBalance: Number(existingData.dailyBonusBalance) || 0,
           dailyBonusTotal: Number(existingData.dailyBonusTotal) || 0,
           pendingBonus: Number(existingData.pendingBonus) || 0
