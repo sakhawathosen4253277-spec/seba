@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, LogIn, Globe, ArrowRight, Phone, Gift, Sparkles, Send, X } from "lucide-react";
 import { Language } from "../types";
 import { auth, db } from "../lib/firebase";
+import { useAuth } from "../lib/AuthContext";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, increment, serverTimestamp, addDoc } from "firebase/firestore";
 import probashiLogo from "../assets/images/probashi_logo_1782647533324.jpg";
@@ -168,9 +169,9 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
   const currentLang = lang in translations ? lang : "BN";
   const t = translations[currentLang];
 
+  const { blockedInfo, setBlockedInfo } = useAuth();
   const [isAutoReferral, setIsAutoReferral] = useState(false);
   const [deviceId, setDeviceId] = useState<string>("");
-  const [blockedInfo, setBlockedInfo] = useState<{ message: string; whatsapp: string } | null>(null);
   const [blockSettings, setBlockSettings] = useState<any>({
     blockMessage: "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই। অনুগ্রহ করে আমাদের সাথে যোগাযোগ করুন।",
     blockWhatsapp: "+855964898625"

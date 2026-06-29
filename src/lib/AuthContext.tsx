@@ -4,7 +4,7 @@ import {
   onAuthStateChanged,
   signOut as firebaseSignOut
 } from "firebase/auth";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "./firebase";
 
 export interface UserDoc {
@@ -37,19 +37,24 @@ interface AuthContextType {
   userDoc: UserDoc | null;
   loading: boolean;
   logout: () => Promise<void>;
+  blockedInfo: { message: string; whatsapp: string } | null;
+  setBlockedInfo: (info: { message: string; whatsapp: string } | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   userDoc: null,
   loading: true,
-  logout: async () => {}
+  logout: async () => {},
+  blockedInfo: null,
+  setBlockedInfo: () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [blockedInfo, setBlockedInfo] = useState<{ message: string; whatsapp: string } | null>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -74,6 +79,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (snap.exists()) {
         const existingData = snap.data();
         
+        // Immediate block check
+        if (existingData.isBlocked === true) {
+          console.warn("User is blocked. Logging out...");
+          try {
+            const settingsRef = doc(db, "settings", "blockSettings");
+            const settingsSnap = await getDoc(settingsRef);
+            const bSettings = settingsSnap.exists() ? settingsSnap.data() : {};
+            setBlockedInfo({
+              message: bSettings.blockMessage || existingData.blockMessage || "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই।",
+              whatsapp: bSettings.blockWhatsapp || existingData.blockWhatsapp || "+855964898625"
+            });
+          } catch (err) {
+            console.warn("Failed to fetch block settings:", err);
+            setBlockedInfo({
+              message: existingData.blockMessage || "আপনার অ্যাকাউন্টটি সাময়িকভাবে ব্লক বা সাসপেন্ড করা হয়েছে ভাই।",
+              whatsapp: existingData.blockWhatsapp || "+855964898625"
+            });
+          }
+          await firebaseSignOut(auth);
+          setUserDoc(null);
+          setLoading(false);
+          return;
+        }
+
         // Auto-generate referral code if missing
         if (!existingData.referralCode) {
           const userIdDigits = (existingData.userId || "").replace("PS-", "");
@@ -144,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, userDoc, loading, logout }}>
+    <AuthContext.Provider value={{ currentUser, userDoc, loading, logout, blockedInfo, setBlockedInfo }}>
       {children}
     </AuthContext.Provider>
   );

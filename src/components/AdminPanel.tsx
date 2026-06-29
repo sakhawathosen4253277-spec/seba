@@ -145,7 +145,8 @@ export default function AdminPanel() {
     noCodeBonusEnabled: true,
     noCodeBonusAmount: 2,
     dailyClaimAmount: 0.05,
-    dailyMinWithdraw: 10
+    dailyMinWithdraw: 10,
+    vipExtraPercent: 50
   });
 
   // Transfer time settings state
@@ -618,6 +619,7 @@ export default function AdminPanel() {
           setReferralSettings({
             dailyClaimAmount: 0.05,
             dailyMinWithdraw: 10,
+            vipExtraPercent: 50,
             ...docSnap.data()
           });
         }
@@ -4966,7 +4968,7 @@ export default function AdminPanel() {
 
                   {/* Daily Claim Settings */}
                   <div className="pt-4 border-t border-gray-100 space-y-4">
-                    <h4 className="text-xs font-bold text-[#1B4F72] font-sans">🎁 দৈনিক ফ্রি বোনাস সেটিংস (Daily Bonus Settings)</h4>
+                    <h4 className="text-xs font-bold text-[#1B4F72] font-sans">🎁 দৈনিক ফ্রি বোনাস ও ভিআইপি সেটিংস (Daily Bonus Settings)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-[#1A1A2E] font-sans">প্রতিদিনের ক্লেইম বোনাস ($)</label>
@@ -5000,6 +5002,23 @@ export default function AdminPanel() {
                           style={{ borderWidth: "0.5px" }}
                         />
                         <p className="text-[11px] text-[#6B7280] font-sans">ডেইলি বোনাস ব্যালেন্স মেইন ওয়ালেটে ট্রান্সফার করতে সর্বনিম্ন কত ডলার লাগবে</p>
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-xs font-semibold text-[#1A1A2E] font-sans">ভিআইপি (VIP) মেম্বারদের জন্য অতিরিক্ত বোনাস (%)</label>
+                        <input
+                          type="number"
+                          step="5"
+                          value={referralSettings.vipExtraPercent !== undefined ? referralSettings.vipExtraPercent : ""}
+                          onChange={(e) => setReferralSettings((prev: any) => ({
+                            ...prev,
+                            vipExtraPercent: e.target.value !== "" ? Number(e.target.value) : ""
+                          }))}
+                          placeholder="যেমন: ৫০"
+                          className="w-full h-11 bg-gray-50 border border-[#E5E7EB] rounded-xl px-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#1B4F72] transition-colors font-sans"
+                          style={{ borderWidth: "0.5px" }}
+                        />
+                        <p className="text-[11px] text-[#6B7280] font-sans">ভিআইপি (Premium) মেম্বারদের জন্য কত শতাংশ অতিরিক্ত ফ্রি বোনাস দেওয়া হবে (যেমন: ৫০ মানে ৫০% বেশি বোনাস পাবে)</p>
                       </div>
                     </div>
                   </div>

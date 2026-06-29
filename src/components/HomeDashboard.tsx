@@ -607,7 +607,13 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
     setClaimMsg(null);
 
     try {
-      const claimAmount = referralSettings.dailyClaimAmount || 0.05;
+      let claimAmount = referralSettings.dailyClaimAmount || 0.05;
+      const isVip = !!userDoc?.isPremium;
+      if (isVip) {
+        const extraPercent = referralSettings.vipExtraPercent !== undefined ? Number(referralSettings.vipExtraPercent) : 50;
+        claimAmount = Number((claimAmount * (1 + extraPercent / 100)).toFixed(4));
+      }
+
       const userRef = doc(db, "users", currentUser.uid);
       const currentDailyBonusBalance = Number(userDoc?.dailyBonusBalance || 0);
       const currentDailyBonusTotal = Number(userDoc?.dailyBonusTotal || 0);
@@ -622,7 +628,11 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         lastDailyClaim: claimDateStr
       }, { merge: true });
 
-      setClaimMsg({ text: `আলহামদুলিল্লাহ ভাই! $${claimAmount} ডেইলি বোনাস আপনার ডেইলি বোনাস ব্যালেন্সে যুক্ত হয়েছে। 🎉`, type: "success" });
+      if (isVip) {
+        setClaimMsg({ text: `আলহামদুলিল্লাহ ভাই! VIP বোনাসসহ মোট $${claimAmount} ডেইলি বোনাস আপনার ব্যালেন্সে যুক্ত হয়েছে। 🌟🎉`, type: "success" });
+      } else {
+        setClaimMsg({ text: `আলহামদুলিল্লাহ ভাই! $${claimAmount} ডেইলি বোনাস আপনার ডেইলি বোনাস ব্যালেন্সে যুক্ত হয়েছে। 🎉`, type: "success" });
+      }
       setTimeout(() => setClaimMsg(null), 6000);
     } catch (err) {
       console.error("Failed to collect daily bonus:", err);
@@ -892,6 +902,11 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
                 </h4>
                 <p className="text-[11px] font-normal text-[#6B7280] mt-1 font-sans leading-tight">
                   প্রতি ২৪ ঘণ্টায় প্রবাসী সেবার পক্ষ থেকে ${referralSettings.dailyClaimAmount || 0.05} বোনাস পান ভাই!
+                  {userDoc?.isPremium ? (
+                    <span className="text-[#D68910] font-semibold block mt-0.5">⭐ VIP বোনাস: ${(Number(referralSettings.dailyClaimAmount || 0.05) * (1 + (referralSettings.vipExtraPercent !== undefined ? referralSettings.vipExtraPercent : 50) / 100)).toFixed(4)} ({referralSettings.vipExtraPercent !== undefined ? referralSettings.vipExtraPercent : 50}% বেশি)</span>
+                  ) : (
+                    <span className="text-[#D68910] text-[10px] block mt-0.5">💡 VIP মেম্বাররা {referralSettings.vipExtraPercent !== undefined ? referralSettings.vipExtraPercent : 50}% অতিরিক্ত বোনাস পান ভাই!</span>
+                  )}
                 </p>
               </div>
             </div>
