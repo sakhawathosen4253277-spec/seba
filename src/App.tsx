@@ -30,6 +30,7 @@ import AdminPanel from "./components/AdminPanel";
 import ProfilePage from "./components/ProfilePage";
 import AdBannerModal from "./components/AdBannerModal";
 import ReferralPage from "./components/ReferralPage";
+import FullScreenRatingModal from "./components/FullScreenRatingModal";
 import { useAuth } from "./lib/AuthContext";
 import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
 import { db } from "./lib/firebase";
@@ -901,6 +902,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Global completed transfer rating overlay */}
+      {!!currentUser && <FullScreenRatingModal currentUser={currentUser} />}
 
     </div>
   );

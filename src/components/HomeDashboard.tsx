@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where, limit, orderBy } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where, limit, orderBy, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 import UserAvatar from "./UserAvatar";
 import CommunitySection from "./CommunitySection";
@@ -235,34 +235,8 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           console.error("Error loading referral settings in HomeDashboard:", e);
         }
 
-        // 4. Fetch Reviews
-        try {
-          const reviewsRef = collection(db, "reviews");
-          const reviewsSnap = await getDocs(reviewsRef);
-          let fetchedReviews: any[] = [];
-          if (!reviewsSnap.empty) {
-            fetchedReviews = reviewsSnap.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null
-              };
-            });
-            // Client side filter and sort to prevent index errors
-            fetchedReviews = fetchedReviews.filter(r => r.rating >= 4 && r.published !== false);
-            fetchedReviews.sort((a, b) => {
-              const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-              const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-              return timeB - timeA;
-            });
-            fetchedReviews = fetchedReviews.slice(0, 5);
-          }
-          setReviewsList(fetchedReviews);
-        } catch (err) {
-          console.error("Error loading reviews:", err);
-        }
-
+        // 4. Fetch Reviews (Handled reactively via separate useEffect below)
+        
         // 5. Fetch trust statistics count (based on real completed transfers and deposits)
         let realCompletedTransfers = 0;
         let realCompletedDeposits = 0;
@@ -299,6 +273,37 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       }
     }
     loadData();
+  }, []);
+
+  // Real-time listener for reviews
+  useEffect(() => {
+    const reviewsRef = collection(db, "reviews");
+    const unsubscribe = onSnapshot(reviewsRef, (snapshot) => {
+      let fetchedReviews: any[] = [];
+      if (!snapshot.empty) {
+        fetchedReviews = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null
+          };
+        });
+        // Client side filter and sort
+        fetchedReviews = fetchedReviews.filter(r => r.rating >= 4 && r.published !== false);
+        fetchedReviews.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+        fetchedReviews = fetchedReviews.slice(0, 5);
+      }
+      setReviewsList(fetchedReviews);
+    }, (err) => {
+      console.error("Error loading reviews in real-time:", err);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const [userTransactions, setUserTransactions] = useState<any[]>([]);
