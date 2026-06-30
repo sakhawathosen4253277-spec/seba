@@ -53,6 +53,10 @@ export default function AdminPanel() {
   const [usersSearchQuery, setUsersSearchQuery] = useState("");
   const [editingUserBalanceId, setEditingUserBalanceId] = useState<string | null>(null);
   const [editingUserBalanceValue, setEditingUserBalanceValue] = useState<string>("");
+  const [notifTargetType, setNotifTargetType] = useState<"all" | "single">("all");
+  const [notifTargetUserId, setNotifTargetUserId] = useState<string>("");
+  const [notifMessage, setNotifMessage] = useState<string>("");
+  const [sendingNotif, setSendingNotif] = useState<boolean>(false);
 
   // User history view states
   const [viewingUserHistory, setViewingUserHistory] = useState<any | null>(null);
@@ -1589,6 +1593,62 @@ export default function AdminPanel() {
     } catch (e) {
       console.error("Error saving block settings:", e);
       showStatusMsg("সেটিংস সেভ করতে সমস্যা হয়েছে ভাই!", true);
+    }
+  };
+
+  const handleSendCustomNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifMessage.trim()) {
+      showStatusMsg("দয়া করে একটি নোটিফিকেশন বার্তা লিখুন ভাই!", true);
+      return;
+    }
+
+    setSendingNotif(true);
+    try {
+      if (notifTargetType === "single") {
+        if (!notifTargetUserId) {
+          showStatusMsg("দয়া করে একজন ইউজার সিলেক্ট করুন ভাই!", true);
+          setSendingNotif(false);
+          return;
+        }
+
+        await addDoc(collection(db, "notifications"), {
+          userId: notifTargetUserId,
+          message: notifMessage.trim(),
+          type: "admin_announcement",
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
+
+        showStatusMsg("ইউজারকে নোটিফিকেশনটি সফলভাবে পাঠানো হয়েছে! ✅");
+      } else {
+        // Send to all users
+        if (usersList.length === 0) {
+          showStatusMsg("কোনো রেজিস্টার্ড ইউজার পাওয়া যায়নি ভাই!", true);
+          setSendingNotif(false);
+          return;
+        }
+
+        const promises = usersList.map(u => {
+          return addDoc(collection(db, "notifications"), {
+            userId: u.id,
+            message: notifMessage.trim(),
+            type: "admin_announcement",
+            isRead: false,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        await Promise.all(promises);
+        showStatusMsg(`সফলভাবে মোট ${usersList.length} জন প্রবাসী ভাইদের কাছে নোটিফিকেশন পাঠানো হয়েছে! ✅`);
+      }
+
+      setNotifMessage("");
+    } catch (err) {
+      console.error("Error sending custom notifications:", err);
+      showStatusMsg("নোটিফিকেশন পাঠাতে সমস্যা হয়েছে, দয়া করে আবার চেষ্টা করুন ভাই।", true);
+    } finally {
+      setSendingNotif(false);
     }
   };
 
@@ -3938,6 +3998,110 @@ export default function AdminPanel() {
                   <span className="absolute right-3.5 top-3 text-[#9CA3AF] text-xs font-sans font-medium">খুঁজুন</span>
                 </div>
 
+                {/* Send Notification Card */}
+                <div 
+                  id="send-user-notification-form"
+                  className="bg-white border border-[#E5E7EB] rounded-2xl p-4 space-y-4" 
+                  style={{ borderWidth: "0.5px" }}
+                >
+                  <div className="border-b border-gray-100 pb-2">
+                    <h3 className="text-xs font-semibold text-[#1B4F72] font-sans flex items-center gap-1.5">
+                      <span>🔔</span> প্রবাসী ভাইদের নোটিফিকেশন পাঠান (Send User Notification)
+                    </h3>
+                    <p className="text-[10px] text-[#6B7280]">সবাইকে অথবা নির্দিষ্ট কোনো ইউজারকে মোবাইল অ্যাপে পুশ/ইন-অ্যাপ নোটিফিকেশন পাঠান ভাই</p>
+                  </div>
+
+                  <form onSubmit={handleSendCustomNotification} className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-[#1A1A2E] mb-1">কার কাছে পাঠাতে চান? (Target Recipient)</label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotifTargetType("all");
+                              setNotifTargetUserId("");
+                            }}
+                            className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                              notifTargetType === "all"
+                                ? "bg-[#1B4F72] text-white border-[#1B4F72]"
+                                : "bg-[#F7F8FA] text-[#1A1A2E] border-[#E5E7EB]"
+                            }`}
+                            style={{ borderWidth: "0.5px" }}
+                          >
+                            সবাইকে একসাথে (All Users)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNotifTargetType("single")}
+                            className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold border transition-all ${
+                              notifTargetType === "single"
+                                ? "bg-[#1B4F72] text-white border-[#1B4F72]"
+                                : "bg-[#F7F8FA] text-[#1A1A2E] border-[#E5E7EB]"
+                            }`}
+                            style={{ borderWidth: "0.5px" }}
+                          >
+                            নির্দিষ্ট একজনকে (Single)
+                          </button>
+                        </div>
+                      </div>
+
+                      {notifTargetType === "single" && (
+                        <div>
+                          <label className="block text-[11px] font-medium text-[#1A1A2E] mb-1">ইউজার সিলেক্ট করুন (Select User)</label>
+                          <select
+                            value={notifTargetUserId}
+                            onChange={(e) => setNotifTargetUserId(e.target.value)}
+                            className="w-full h-9 text-xs px-2.5 bg-[#F9FAFB] rounded-lg border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none font-sans font-medium"
+                            style={{ borderWidth: "0.5px" }}
+                          >
+                            <option value="">-- ইউজার নির্বাচন করুন --</option>
+                            {usersList.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name || "N/A"} ({u.email && u.email.endsWith("@probashi.com") ? u.phone : u.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-medium text-[#1A1A2E]">নোটিফিকেশন বার্তা (Notification Message)</label>
+                      <textarea
+                        rows={2}
+                        value={notifMessage}
+                        onChange={(e) => setNotifMessage(e.target.value)}
+                        placeholder="আপনার নোটিফিকেশন বার্তাটি এখানে লিখুন ভাই..."
+                        className="w-full text-xs p-2.5 bg-[#F9FAFB] rounded-lg border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none font-sans"
+                        style={{ borderWidth: "0.5px" }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1.5 border-t border-gray-50">
+                      <span className="text-[10px] text-[#6B7280]">
+                        {notifTargetType === "all" ? `মোট ${usersList.length} জন ইউজারের কাছে পাঠানো হবে` : "১ জন নির্দিষ্ট ইউজারের কাছে পাঠানো হবে"}
+                      </span>
+                      <button
+                        type="submit"
+                        disabled={sendingNotif}
+                        className="bg-[#1D9E75] text-white text-xs font-semibold px-4 py-2 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all flex items-center gap-1.5 disabled:opacity-60"
+                      >
+                        {sendingNotif ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>পাঠানো হচ্ছে...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🚀 নোটিফিকেশন পাঠান</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
                 {/* Blocked Users Settings Section */}
                 <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 space-y-4" style={{ borderWidth: "0.5px" }}>
                   <div className="border-b border-gray-100 pb-2">
@@ -4114,6 +4278,19 @@ export default function AdminPanel() {
                                   className="text-[10px] font-semibold px-2 py-1 bg-amber-500 text-white rounded-lg cursor-pointer hover:bg-amber-600 transition-all"
                                 >
                                   ইতিহাস
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setNotifTargetType("single");
+                                    setNotifTargetUserId(u.id);
+                                    const element = document.getElementById("send-user-notification-form");
+                                    if (element) {
+                                      element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    }
+                                  }}
+                                  className="text-[10px] font-semibold px-2 py-1 bg-[#1B4F72] text-white rounded-lg cursor-pointer hover:bg-opacity-95 transition-all"
+                                >
+                                  নোটিফিকেশন
                                 </button>
                                 <button
                                   onClick={() => handleToggleUserPremium(u.id, !!u.isPremium)}
