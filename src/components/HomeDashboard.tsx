@@ -24,6 +24,7 @@ import { db } from "../lib/firebase";
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, query, where, limit, orderBy } from "firebase/firestore";
 import { useAuth } from "../lib/AuthContext";
 import UserAvatar from "./UserAvatar";
+import CommunitySection from "./CommunitySection";
 
 interface HomeDashboardProps {
   onServiceSelect: (tab: NavTab, subView?: string) => void;
@@ -48,6 +49,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
   const [currentAlertIndex, setCurrentAlertIndex] = useState<number>(0);
   const [activeAlert, setActiveAlert] = useState<any | null>(null);
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [activeFeedTab, setActiveFeedTab] = useState<"news" | "community">("news");
 
   // Calculator states and helpers
   const [calcUsd, setCalcUsd] = useState<string>("");
@@ -729,6 +731,7 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
               size={44}
               photoUrl={userDoc?.photoUrl}
               name={userDoc?.name}
+              isPremium={!!userDoc?.isPremium}
             />
           </div>
           <div className="mb-4 text-left font-sans">
@@ -1406,66 +1409,92 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
         </div>
       </div>
 
-      {/* 6. News/Updates: List of clean white cards with category tags */}
+      {/* 6. News & Community Feed Section */}
       <div className="px-4 text-left">
-        <h4 className="text-[14px] font-medium text-[#1A1A2E] font-sans mb-3 text-left">
-          সর্বশেষ আপডেট ও বিজ্ঞপ্তি
-        </h4>
-        
-        <div className="space-y-4">
-          {currentNewsList.slice(0, 3).map((item) => {
-            // Map category colors
-            let categoryBg = "#EBF5FB";
-            let categoryText = "#1B6CA8";
-
-            if (item.tag?.includes("স্ক্যাম") || item.tag?.includes("সতর্কতা")) {
-              categoryBg = "#FDEDEC";
-              categoryText = "#C0392B";
-            } else if (item.tag?.includes("টিকেট") || item.tag?.includes("ভ্রমণ")) {
-              categoryBg = "#EEF2FF";
-              categoryText = "#534AB7";
-            } else if (item.tag?.includes("চাকরি") || item.tag?.includes("কাজ")) {
-              categoryBg = "#F0F3F4";
-              categoryText = "#444441";
-            } else if (item.tag?.includes("ভিসা")) {
-              categoryBg = "#EBF5FB";
-              categoryText = "#1B6CA8";
-            } else {
-              categoryBg = "#E8F8F1";
-              categoryText = "#0F6E56";
-            }
-
-            return (
-              <div 
-                key={item.id}
-                className="bg-white border text-left p-4" 
-                style={{
-                  borderRadius: '14px',
-                  borderColor: '#E5E7EB',
-                  borderWidth: '0.5px'
-                }}
-              >
-                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-                  <span 
-                    className="inline-block font-sans font-medium text-[10px] px-2.5 py-0.5 rounded-[20px]"
-                    style={{ backgroundColor: categoryBg, color: categoryText }}
-                  >
-                    {item.tag}
-                  </span>
-                  <span className="text-[11px] text-[#6B7280] font-sans font-normal">
-                    {item.date}
-                  </span>
-                </div>
-                <h4 className="text-[13px] font-medium text-[#1A1A2E] leading-snug font-sans mb-1">
-                  {item.title}
-                </h4>
-                <p className="text-[12px] text-[#6B7280] leading-relaxed font-sans font-normal">
-                  {item.desc}
-                </p>
-              </div>
-            );
-          })}
+        {/* Toggle Tab Bar */}
+        <div className="flex border-b border-gray-200 mb-4 font-sans text-xs">
+          <button 
+            type="button"
+            className={`pb-2 px-1 font-medium transition-colors cursor-pointer mr-5 ${
+              activeFeedTab === "news" 
+                ? "border-b-2 border-[#1B4F72] text-[#1B4F72]" 
+                : "text-[#6B7280] hover:text-[#1B4F72]"
+            }`}
+            onClick={() => setActiveFeedTab("news")}
+          >
+            সর্বশেষ আপডেট ও বিজ্ঞপ্তি
+          </button>
+          <button 
+            type="button"
+            className={`pb-2 px-1 font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+              activeFeedTab === "community" 
+                ? "border-b-2 border-[#1B4F72] text-[#1B4F72]" 
+                : "text-[#6B7280] hover:text-[#1B4F72]"
+            }`}
+            onClick={() => setActiveFeedTab("community")}
+          >
+            💬 জনমত ও ফোরাম
+          </button>
         </div>
+
+        {activeFeedTab === "news" ? (
+          <div className="space-y-4">
+            {currentNewsList.slice(0, 3).map((item) => {
+              // Map category colors
+              let categoryBg = "#EBF5FB";
+              let categoryText = "#1B6CA8";
+
+              if (item.tag?.includes("স্ক্যাম") || item.tag?.includes("সতর্কতা")) {
+                categoryBg = "#FDEDEC";
+                categoryText = "#C0392B";
+              } else if (item.tag?.includes("টিকেট") || item.tag?.includes("ভ্রমণ")) {
+                categoryBg = "#EEF2FF";
+                categoryText = "#534AB7";
+              } else if (item.tag?.includes("চাকরি") || item.tag?.includes("কাজ")) {
+                categoryBg = "#F0F3F4";
+                categoryText = "#444441";
+              } else if (item.tag?.includes("ভিসা")) {
+                categoryBg = "#EBF5FB";
+                categoryText = "#1B6CA8";
+              } else {
+                categoryBg = "#E8F8F1";
+                categoryText = "#0F6E56";
+              }
+
+              return (
+                <div 
+                  key={item.id}
+                  className="bg-white border text-left p-4" 
+                  style={{
+                    borderRadius: '14px',
+                    borderColor: '#E5E7EB',
+                    borderWidth: '0.5px'
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <span 
+                      className="inline-block font-sans font-medium text-[10px] px-2.5 py-0.5 rounded-[20px]"
+                      style={{ backgroundColor: categoryBg, color: categoryText }}
+                    >
+                      {item.tag}
+                    </span>
+                    <span className="text-[11px] text-[#6B7280] font-sans font-normal">
+                      {item.date}
+                    </span>
+                  </div>
+                  <h4 className="text-[13px] font-medium text-[#1A1A2E] leading-snug font-sans mb-1">
+                    {item.title}
+                  </h4>
+                  <p className="text-[12px] text-[#6B7280] leading-relaxed font-sans font-normal">
+                    {item.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <CommunitySection />
+        )}
       </div>
 
       {/* Urgent Pop-up Alert Modal overlay for Migrant Workers */}

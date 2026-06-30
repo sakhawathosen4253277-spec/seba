@@ -30,7 +30,7 @@ import { useAuth } from "../lib/AuthContext";
 import UserAvatar from "./UserAvatar";
 import { signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { Transaction } from "../types";
 import { downloadReceiptImage } from "../lib/receipt";
 
@@ -135,19 +135,19 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
     setPhotoUploading(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
-       const base64 = event.target?.result as string;
-       try {
-         await setDoc(doc(db, 'users', currentUser.uid), {
-           photoUrl: base64,
-           profilePhoto: base64
-         }, { merge: true });
-         alert('ছবি আপলোড হয়েছে! ✅');
-       } catch (err) {
-         console.error("Error saving profile photo:", err);
-         alert("ছবি পরিবর্তন করতে সমস্যা হয়েছে ভাই!");
-       } finally {
-         setPhotoUploading(false);
-       }
+      const base64 = event.target?.result as string;
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          photoUrl: base64,
+          profilePhoto: base64
+        });
+        alert('ছবি আপলোড হয়েছে! ✅');
+      } catch (err) {
+        console.error("Error saving profile photo:", err);
+        alert("ছবি পরিবর্তন করতে সমস্যা হয়েছে ভাই!");
+      } finally {
+        setPhotoUploading(false);
+      }
     };
     reader.onerror = () => {
       alert("ফাইল পড়তে সমস্যা হয়েছে ভাই!");
@@ -309,6 +309,7 @@ export default function ProfilePage({ onBackToHome, onSelectTab }: ProfilePagePr
             size={80}
             photoUrl={userDoc?.photoUrl}
             name={userDoc?.name}
+            isPremium={isPremium}
           />
           <label style={{
             position: 'absolute',

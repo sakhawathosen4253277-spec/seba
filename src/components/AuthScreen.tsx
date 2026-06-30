@@ -344,17 +344,26 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
         if (regType === "phone") {
           // Normalize digits of the phone number
           const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
-          if (cleanPhone.length < 6) {
-            alert(lang === "BN" ? "দয়া করে অন্তত ৬ সংখ্যার সঠিক মোবাইল নাম্বার লিখুন ভাই।" : "Please enter a valid phone number.");
+          
+          let normalizedPhone = cleanPhone;
+          if (cleanPhone.startsWith('0')) {
+            normalizedPhone = '855' + cleanPhone.slice(1);
+          }
+          
+          if (!normalizedPhone.startsWith('855') || normalizedPhone.length < 11 || normalizedPhone.length > 12) {
+            alert(lang === "BN" 
+              ? "দুঃখিত ভাই, শুধুমাত্র কম্বোডিয়ার মোবাইল নাম্বার দিয়ে অ্যাকাউন্ট খোলা যাবে (যেমন: +৮৫৫ বা ০ দিয়ে শুরু হওয়া ৮-৯ সংখ্যার নাম্বার)।" 
+              : "Sorry brother, only Cambodian phone numbers are allowed to register (e.g., numbers starting with +855 or 0 with 8-9 digits)."
+            );
             setLoading(false);
             return;
           }
 
           // Create a mock domain email behind the scene to register securely in Firebase auth
-          const generatedEmail = `${cleanPhone}@probashi.com`;
+          const generatedEmail = `${normalizedPhone}@probashi.com`;
 
           // Check if this phone number is already saved to firestore beforehand (prevents duplicated registrations easily)
-          const qNorm = query(collection(db, "users"), where("phoneNormalized", "==", cleanPhone));
+          const qNorm = query(collection(db, "users"), where("phoneNormalized", "==", normalizedPhone));
           const snapNorm = await getDocs(qNorm);
           if (!snapNorm.empty) {
             alert(t.emailInUse);
@@ -444,7 +453,7 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
             name: fullName.trim(),
             email: generatedEmail,
             phone: phone.trim(),
-            phoneNormalized: cleanPhone,
+            phoneNormalized: normalizedPhone,
             balance: 0,
             isPremium: false,
             isBlocked: false,
@@ -635,11 +644,15 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
 
         // If login text does not contain "@", we process it as a mobile number lookup
         if (!resolvedEmail.includes("@")) {
-          const digitsOnly = resolvedEmail.replace(/[^0-9]/g, '');
+          let digitsOnly = resolvedEmail.replace(/[^0-9]/g, '');
           if (!digitsOnly) {
             alert(lang === "BN" ? "দয়া করে সঠিক মোবাইল নাম্বার বা ইমেল দিন ভাই।" : "Please enter a valid phone or email.");
             setLoading(false);
             return;
+          }
+
+          if (digitsOnly.startsWith('0')) {
+            digitsOnly = '855' + digitsOnly.slice(1);
           }
 
           // Search Firestore "users" collection for phoneNormalized matching input digits or raw matching
@@ -951,36 +964,6 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
               {isRegister ? t.registerTitle : t.loginTitle}
             </h3>
 
-            {/* Dynamic Registration Options Selector — recommend phone default as instructed */}
-            {isRegister && (
-              <div className="grid grid-cols-2 gap-2 text-center text-[12px] pb-1 border-b border-gray-100" style={{ borderBottomWidth: '0.5px' }}>
-                <button
-                  type="button"
-                  onClick={() => setRegType("phone")}
-                  className={`h-9 rounded-[8px] font-medium transition-all cursor-pointer ${
-                    regType === "phone"
-                      ? "bg-[#1B4F72] text-white"
-                      : "bg-[#F0F4F8] text-[#6B7280] border-[0.5px] border-[#E5E7EB] hover:bg-gray-100"
-                  }`}
-                  style={{ borderWidth: regType === "phone" ? '0' : '0.5px' }}
-                >
-                  মেবাইল নাম্বার (পরামর্শিত)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRegType("email")}
-                  className={`h-9 rounded-[8px] font-medium transition-all cursor-pointer ${
-                    regType === "email"
-                      ? "bg-[#1B4F72] text-white"
-                      : "bg-[#F0F4F8] text-[#6B7280] border-[0.5px] border-[#E5E7EB] hover:bg-gray-100"
-                  }`}
-                  style={{ borderWidth: regType === "email" ? '0' : '0.5px' }}
-                >
-                  ইমেইল অ্যাড্রেস
-                </button>
-              </div>
-            )}
-
             <form onSubmit={handleAuth} className="space-y-3.5">
               {isRegister && (
                 <div>
@@ -1001,39 +984,21 @@ export default function AuthScreen({ onLoginSuccess, lang, onSetLang }: AuthProp
               )}
 
               {isRegister ? (
-                regType === "phone" ? (
-                  <div>
-                    <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.phoneLabel}</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
-                      <input
-                        type="text"
-                        required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder={t.phonePlaceholder}
-                        className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
-                        style={{ borderWidth: '0.5px' }}
-                      />
-                    </div>
+                <div>
+                  <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.phoneLabel}</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
+                    <input
+                      type="text"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder={t.phonePlaceholder}
+                      className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
+                      style={{ borderWidth: '0.5px' }}
+                    />
                   </div>
-                ) : (
-                  <div>
-                    <label className="block text-[11px] text-[#6B7280] font-normal mb-1">{t.emailLabel}</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3.5 w-4.5 h-4.5 text-[#9CA3AF]" />
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder={t.emailPlaceholder}
-                        className="w-full h-12 bg-[#F9FAFB] text-[#1A1A2E] text-[13px] pl-10 pr-4 rounded-[12px] border-[0.5px] border-[#E5E7EB] focus:border-[#1B4F72] focus:outline-none focus:bg-white transition-colors"
-                        style={{ borderWidth: '0.5px' }}
-                      />
-                    </div>
-                  </div>
-                )
+                </div>
               ) : (
                 // Dedicated Single Flexible Input field during login (accepts both Phone or Email)
                 <div>
