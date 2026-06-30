@@ -111,9 +111,15 @@ export default function AdminPanel() {
 
   // Form states for deposit and payment methods
   const [newMethodName, setNewMethodName] = useState("");
-  const [newMethodCountry, setNewMethodCountry] = useState<"BD" | "KH">("BD");
+  const [newMethodCountry, setNewMethodCountry] = useState<"BD" | "KH" | "GLOBAL">("BD");
   const [newMethodColor, setNewMethodColor] = useState("#1B4F72");
   const [newMethodAccount, setNewMethodAccount] = useState("");
+
+  const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
+  const [editMethodAccount, setEditMethodAccount] = useState("");
+  const [editMethodWalletAddress, setEditMethodWalletAddress] = useState("");
+  const [editMethodNetwork, setEditMethodNetwork] = useState("");
+  const [editMethodOrder, setEditMethodOrder] = useState<number>(1);
 
   // Maintenance Settings State
   const [maintenanceSettings, setMaintenanceSettings] = useState<any>({
@@ -1833,6 +1839,32 @@ export default function AdminPanel() {
     }
   };
 
+  const handleUpdateMethodDetails = async (id: string) => {
+    if (!editMethodAccount.trim()) {
+      showStatusMsg("দয়া করে হিসাব/প্রাপক বিবরণ লিখুন ভাই!", true);
+      return;
+    }
+    try {
+      const updates: any = {
+        accountName: editMethodAccount.trim(),
+        order: Number(editMethodOrder) || 1
+      };
+      if (editMethodWalletAddress !== undefined) {
+        updates.walletAddress = editMethodWalletAddress.trim();
+      }
+      if (editMethodNetwork !== undefined) {
+        updates.network = editMethodNetwork.trim();
+      }
+      await updateDoc(doc(db, "paymentMethods", id), updates);
+      showStatusMsg("পেমেন্ট মেথড বিবরণ সফলভাবে আপডেট করা হয়েছে!");
+      setEditingMethodId(null);
+      fetchTabData("deposit");
+    } catch (err) {
+      console.error("Error updating payment method details:", err);
+      showStatusMsg("আপডেট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
   const handleUploadQR = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -2175,6 +2207,7 @@ export default function AdminPanel() {
   // Group Payments by Country for Separate Column Listing
   const bdMethods = paymentMethodsList.filter(item => item.country === "BD" || !item.country);
   const khMethods = paymentMethodsList.filter(item => item.country === "KH");
+  const globalMethods = paymentMethodsList.filter(item => item.country === "GLOBAL");
 
   return (
     <div className="min-h-screen bg-[#F0F4F8] font-sans text-[#1A1A2E] pb-24 flex flex-col">
@@ -2691,12 +2724,13 @@ export default function AdminPanel() {
                           <label className="text-[11px] font-medium text-[#6B7280]">দেশ/কান্ট্রি:</label>
                           <select
                             value={newMethodCountry}
-                            onChange={(e) => setNewMethodCountry(e.target.value as "BD" | "KH")}
+                            onChange={(e) => setNewMethodCountry(e.target.value as "BD" | "KH" | "GLOBAL")}
                             className="w-full border rounded-xl px-2.5 py-1.5 text-xs outline-none bg-[#F9FAFB]"
                             style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
                           >
                             <option value="BD">🇧🇩 বাংলাদেশ (BDT)</option>
                             <option value="KH">🇰🇭 কম্বোডিয়া (USD)</option>
+                            <option value="GLOBAL">🌐 গ্লোবাল ক্রিপ্টো (USDT / Crypto)</option>
                           </select>
                         </div>
                       </div>
@@ -2768,12 +2802,66 @@ export default function AdminPanel() {
                                 </div>
                               </div>
 
-                              <div className="flex justify-between items-center gap-3">
-                                <div className="text-xs text-gray-600 flex-1 font-sans">
-                                  <p><strong>হিসাব:</strong> {item.accountName}</p>
-                                  <p className="text-[10px] text-gray-400 mt-0.5">অর্ডার: {item.order}</p>
-                                </div>
-                                <div className="flex items-center space-x-2 shrink-0">
+                              <div className="flex justify-between items-start gap-3">
+                                {editingMethodId === item.id ? (
+                                  <div className="bg-[#F9FAFB] p-3 rounded-xl border border-gray-100 space-y-2.5 flex-1 text-left">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">হিসাব নাম (Account Info):</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodAccount}
+                                        onChange={(e) => setEditMethodAccount(e.target.value)}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">ক্রম বিন্যাস (অর্ডার):</label>
+                                      <input 
+                                        type="number" 
+                                        className="w-20 text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodOrder}
+                                        onChange={(e) => setEditMethodOrder(Number(e.target.value))}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="flex gap-2 pt-1.5">
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleUpdateMethodDetails(item.id)}
+                                        className="bg-[#1D9E75] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer animate-none"
+                                      >
+                                        সংরক্ষণ
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => setEditingMethodId(null)}
+                                        className="bg-gray-400 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer animate-none"
+                                      >
+                                        বাতিল
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-600 flex-1 font-sans">
+                                    <p><strong>হিসাব:</strong> {item.accountName}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">অর্ডার: {item.order}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMethodId(item.id);
+                                        setEditMethodAccount(item.accountName || "");
+                                        setEditMethodWalletAddress(item.walletAddress || "");
+                                        setEditMethodNetwork(item.network || "");
+                                        setEditMethodOrder(item.order || 1);
+                                      }}
+                                      className="text-[10px] text-blue-600 font-semibold hover:underline mt-1.5 block cursor-pointer"
+                                    >
+                                      ⚙️ তথ্য সম্পাদন করুন (Edit details)
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
                                   {item.qrImageUrl ? (
                                     <img 
                                       src={item.qrImageUrl} 
@@ -2830,12 +2918,204 @@ export default function AdminPanel() {
                                 </div>
                               </div>
 
-                              <div className="flex justify-between items-center gap-3">
-                                <div className="text-xs text-gray-600 flex-1 font-sans">
-                                  <p><strong>হিসাব:</strong> {item.accountName}</p>
-                                  <p className="text-[10px] text-gray-400 mt-0.5">অর্ডার: {item.order}</p>
+                              <div className="flex justify-between items-start gap-3">
+                                {editingMethodId === item.id ? (
+                                  <div className="bg-[#F9FAFB] p-3 rounded-xl border border-gray-100 space-y-2.5 flex-1 text-left">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">হিসাব নাম (Account Info):</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodAccount}
+                                        onChange={(e) => setEditMethodAccount(e.target.value)}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">ক্রম বিন্যাস (অর্ডার):</label>
+                                      <input 
+                                        type="number" 
+                                        className="w-20 text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodOrder}
+                                        onChange={(e) => setEditMethodOrder(Number(e.target.value))}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="flex gap-2 pt-1.5">
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleUpdateMethodDetails(item.id)}
+                                        className="bg-[#1D9E75] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                                      >
+                                        সংরক্ষণ
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => setEditingMethodId(null)}
+                                        className="bg-gray-400 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                                      >
+                                        বাতিল
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-600 flex-1 font-sans">
+                                    <p><strong>হিসাব:</strong> {item.accountName}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">অর্ডার: {item.order}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMethodId(item.id);
+                                        setEditMethodAccount(item.accountName || "");
+                                        setEditMethodWalletAddress(item.walletAddress || "");
+                                        setEditMethodNetwork(item.network || "");
+                                        setEditMethodOrder(item.order || 1);
+                                      }}
+                                      className="text-[10px] text-blue-600 font-semibold hover:underline mt-1.5 block cursor-pointer"
+                                    >
+                                      ⚙️ তথ্য সম্পাদন করুন (Edit details)
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+                                  {item.qrImageUrl ? (
+                                    <img 
+                                      src={item.qrImageUrl} 
+                                      alt="QR Preview" 
+                                      onClick={() => setViewingImage(item.qrImageUrl)}
+                                      className="w-[44px] h-[44px] object-contain rounded border bg-gray-50 cursor-pointer"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <span className="text-[10px] text-amber-600 italic shrink-0">QR নেই</span>
+                                  )}
+                                  <label className="text-[10px] bg-blue-50 text-[#1B4F72] border border-blue-100 px-2.5 py-1.5 rounded-xl cursor-pointer font-semibold shrink-0">
+                                    QR আপলোড
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      onChange={(e) => handleUploadQR(item.id, e)} 
+                                      className="hidden" 
+                                    />
+                                  </label>
                                 </div>
-                                <div className="flex items-center space-x-2 shrink-0">
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* GLOBAL Methods group */}
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-[#1B4F72] border-l-2 border-[#1B4F72] pl-2">🌐 গ্লোবাল পেমেন্ট পদ্ধতি সমূহ (USDT / Crypto):</h4>
+                        {globalMethods.length === 0 ? (
+                          <p className="text-xs text-gray-400 bg-white border border-[#E5E7EB] rounded-xl p-3 text-center italic">কোনো গ্লোবাল মেথড নেই</p>
+                        ) : (
+                          globalMethods.map((item) => (
+                            <div key={item.id} className="bg-white border rounded-xl p-3 flex flex-col gap-2" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                              <div className="flex justify-between items-center pb-2 border-b border-gray-50">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                  <span className="text-xs font-bold text-[#1A1A2E]">{item.name}</span>
+                                </div>
+                                <div className="flex items-center space-x-1.5 select-none font-sans">
+                                  <span className="text-[10px] text-gray-500">{item.isActive ? "সক্রিয়" : "বন্ধ"}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleMethodActive(item.id, item.isActive)}
+                                    className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 outline-none cursor-pointer ${
+                                      item.isActive ? "bg-[#1D9E75]" : "bg-gray-300"
+                                    }`}
+                                  >
+                                    <div className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                                      item.isActive ? "translate-x-4" : "translate-x-0"
+                                    }`} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex justify-between items-start gap-3">
+                                {editingMethodId === item.id ? (
+                                  <div className="bg-[#F9FAFB] p-3 rounded-xl border border-gray-100 space-y-2.5 flex-1 text-left">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">হিসাব নাম (Account Info):</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodAccount}
+                                        onChange={(e) => setEditMethodAccount(e.target.value)}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">USDT ওয়ালেট ঠিকানা (Wallet Address):</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full text-xs border rounded-lg p-1.5 outline-none bg-white font-mono select-all"
+                                        value={editMethodWalletAddress}
+                                        onChange={(e) => setEditMethodWalletAddress(e.target.value)}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">নেটওয়ার্ক (যেমন: TRC20 / BEP20):</label>
+                                      <input 
+                                        type="text" 
+                                        className="w-full text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodNetwork}
+                                        onChange={(e) => setEditMethodNetwork(e.target.value)}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] font-bold text-[#1B4F72]">ক্রম বিন্যাস (অর্ডার):</label>
+                                      <input 
+                                        type="number" 
+                                        className="w-20 text-xs border rounded-lg p-1.5 outline-none bg-white font-sans"
+                                        value={editMethodOrder}
+                                        onChange={(e) => setEditMethodOrder(Number(e.target.value))}
+                                        style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}
+                                      />
+                                    </div>
+                                    <div className="flex gap-2 pt-1.5">
+                                      <button 
+                                        type="button"
+                                        onClick={() => handleUpdateMethodDetails(item.id)}
+                                        className="bg-[#1D9E75] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                                      >
+                                        সংরক্ষণ
+                                      </button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => setEditingMethodId(null)}
+                                        className="bg-gray-400 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                                      >
+                                        বাতিল
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-600 flex-1 font-sans">
+                                    <p><strong>হিসাব:</strong> {item.accountName}</p>
+                                    <p className="mt-0.5"><strong>ওয়ালেট:</strong> <span className="font-mono text-[11px] select-all break-all text-gray-800 bg-gray-50 px-1 py-0.5 rounded border border-gray-100">{item.walletAddress || "N/A"}</span></p>
+                                    <p className="mt-0.5"><strong>নেটওয়ার্ক:</strong> <span className="font-mono text-[11px] text-gray-800">{item.network || "N/A"}</span></p>
+                                    <p className="text-[10px] text-gray-400 mt-1">অর্ডার: {item.order}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMethodId(item.id);
+                                        setEditMethodAccount(item.accountName || "");
+                                        setEditMethodWalletAddress(item.walletAddress || "");
+                                        setEditMethodNetwork(item.network || "");
+                                        setEditMethodOrder(item.order || 1);
+                                      }}
+                                      className="text-[10px] text-blue-600 font-semibold hover:underline mt-1.5 block cursor-pointer"
+                                    >
+                                      ⚙️ তথ্য সম্পাদন করুন (Edit details)
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
                                   {item.qrImageUrl ? (
                                     <img 
                                       src={item.qrImageUrl} 
