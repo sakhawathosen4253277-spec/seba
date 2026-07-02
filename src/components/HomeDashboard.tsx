@@ -777,36 +777,51 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
           </div>
 
           {/* Quick Action buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               onClick={() => onServiceSelect("deposit")}
-              className="flex items-center justify-center gap-2 cursor-pointer font-sans font-medium select-none text-white hover:bg-white/20 active:scale-95 transition-all outline-none"
+              className="flex items-center justify-center gap-1 cursor-pointer font-sans font-medium select-none text-white hover:bg-white/20 active:scale-95 transition-all outline-none"
               style={{
                 background: 'rgba(255,255,255,0.12)',
                 border: '0.5px solid rgba(255,255,255,0.2)',
                 borderRadius: '12px',
-                fontSize: '14px',
+                fontSize: '11px',
                 height: '50px',
                 flex: 1
               }}
             >
-              <CreditCard className="w-5 h-5" />
-              <span>ডিপোজিট করুন</span>
+              <CreditCard className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">ডিপোজিট করুন</span>
+            </button>
+            <button
+              onClick={() => onServiceSelect("recharge")}
+              className="flex items-center justify-center gap-1 cursor-pointer font-sans font-medium select-none text-white hover:bg-white/20 active:scale-95 transition-all outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: '0.5px solid rgba(255,255,255,0.2)',
+                borderRadius: '12px',
+                fontSize: '11px',
+                height: '50px',
+                flex: 1
+              }}
+            >
+              <Phone className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">মোবাইল রিচার্জ</span>
             </button>
             <button
               onClick={() => onServiceSelect("transfer")}
-              className="flex items-center justify-center gap-2 cursor-pointer font-sans font-medium select-none text-white hover:bg-white/20 active:scale-95 transition-all outline-none"
+              className="flex items-center justify-center gap-1 cursor-pointer font-sans font-medium select-none text-white hover:bg-white/20 active:scale-95 transition-all outline-none"
               style={{
                 background: 'rgba(255,255,255,0.12)',
                 border: '0.5px solid rgba(255,255,255,0.2)',
                 borderRadius: '12px',
-                fontSize: '14px',
+                fontSize: '11px',
                 height: '50px',
                 flex: 1
               }}
             >
-              <DollarSign className="w-5 h-5" />
-              <span>টাকা পাঠান</span>
+              <DollarSign className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">টাকা পাঠান</span>
             </button>
           </div>
 
