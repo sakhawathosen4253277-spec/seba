@@ -30,9 +30,10 @@ import AdminPanel from "./components/AdminPanel";
 import ProfilePage from "./components/ProfilePage";
 import AdBannerModal from "./components/AdBannerModal";
 import ReferralPage from "./components/ReferralPage";
+import RechargePage from "./components/RechargePage";
 import FullScreenRatingModal from "./components/FullScreenRatingModal";
 import { useAuth } from "./lib/AuthContext";
-import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded } from "./lib/seed";
+import { seedDatabaseIfNeeded, seedPaymentMethodsIfNeeded, seedRechargePackagesIfNeeded } from "./lib/seed";
 import { db } from "./lib/firebase";
 import { doc, onSnapshot, setDoc, collection, query, where, orderBy, getDocs, updateDoc, writeBatch } from "firebase/firestore";
 
@@ -284,6 +285,7 @@ export default function App() {
     setAgentName(randomName);
     seedDatabaseIfNeeded();
     seedPaymentMethodsIfNeeded();
+    seedRechargePackagesIfNeeded();
 
     // Live update for global exchange rates
     const unsub = onSnapshot(doc(db, "exchangeRates", "current"), (snapshot) => {
@@ -826,6 +828,13 @@ export default function App() {
             {currentTab === "referral" && (
               <ReferralPage
                 onBackToHome={() => handleServiceSelect("home", "none")}
+              />
+            )}
+
+            {/* TAB: RECHARGE PAGE */}
+            {currentTab === "recharge" && (
+              <RechargePage
+                onBack={() => handleServiceSelect("home", "none")}
               />
             )}
 

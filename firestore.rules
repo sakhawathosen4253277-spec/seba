@@ -1,6 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /rechargePackages/{pkg} {
+      allow read: if true;
+      allow write: if true; // admin/auth control
+    }
+    match /rechargeOrders/{order} {
+      allow read, write: if true; // auth controlled via client
+    }
     match /{document=**} {
       allow read, write: if true;
     }

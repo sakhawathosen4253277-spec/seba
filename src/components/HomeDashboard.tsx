@@ -17,7 +17,8 @@ import {
   RefreshCw,
   X,
   Calculator,
-  ArrowRight
+  ArrowRight,
+  Phone
 } from "lucide-react";
 import { NavTab } from "../types";
 import { db } from "../lib/firebase";
@@ -687,6 +688,12 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
       label: "জরুরি সেবা",
       icon: AlertOctagon,
       action: () => onServiceSelect("emergency")
+    },
+    {
+      id: "recharge",
+      label: "মোবাইল রিচার্জ",
+      icon: Phone,
+      action: () => onServiceSelect("recharge")
     }
   ];
 
@@ -1315,6 +1322,9 @@ export default function HomeDashboard({ onServiceSelect, walletBalance }: HomeDa
             } else if (service.id === "referral") {
               cardBg = "#EBF5FB";
               iconClr = "#1A5276";
+            } else if (service.id === "recharge") {
+              cardBg = "#EAF2F8";
+              iconClr = "#1B4F72";
             }
 
             return (

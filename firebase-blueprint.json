@@ -260,6 +260,49 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["transferId", "userId", "userName", "rating", "amount", "method", "published"]
+    },
+    "RechargePackage": {
+      "title": "RechargePackage",
+      "description": "Available mobile recharge amount or internet pack packages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "operator": { "type": "string" },
+        "operatorCode": { "type": "string" },
+        "color": { "type": "string" },
+        "logo": { "type": "string" },
+        "type": { "type": "string", "enum": ["recharge", "mb", "minute", "mixed"] },
+        "amount": { "type": "string" },
+        "price": { "type": "number" },
+        "validity": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "isOffer": { "type": "boolean" },
+        "offerText": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["operator", "operatorCode", "type", "amount", "price", "isActive"]
+    },
+    "RechargeOrder": {
+      "title": "RechargeOrder",
+      "description": "Submitted mobile recharge requests by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhone": { "type": "string" },
+        "operator": { "type": "string" },
+        "operatorCode": { "type": "string" },
+        "packageType": { "type": "string", "enum": ["recharge", "mb", "minute", "mixed"] },
+        "amount": { "type": "string" },
+        "price": { "type": "number" },
+        "recipientNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
+        "balanceDeducted": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["userId", "userName", "recipientNumber", "operator", "packageType", "amount", "price", "status"]
     }
   },
   "firestore": {
@@ -326,6 +369,14 @@
     "reviews": {
       "schema": "Review",
       "description": "User reviews and ratings"
+    },
+    "rechargePackages": {
+      "schema": "RechargePackage",
+      "description": "Available mobile recharge and internet packages"
+    },
+    "rechargeOrders": {
+      "schema": "RechargeOrder",
+      "description": "Submitted mobile recharge requests queue"
     }
   }
 }

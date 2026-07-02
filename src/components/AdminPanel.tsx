@@ -180,6 +180,27 @@ export default function AdminPanel() {
     blockWhatsapp: "+855964898625"
   });
 
+  // Mobile Recharge States
+  const [rechargeOrders, setRechargeOrders] = useState<any[]>([]);
+  const [rechargePackages, setRechargePackages] = useState<any[]>([]);
+  const [rechargeSubTab, setRechargeSubTab] = useState<"orders" | "packages">("orders");
+
+  // Add package form states
+  const [newPkgOperatorCode, setNewPkgOperatorCode] = useState<string>("GP");
+  const [newPkgType, setNewPkgType] = useState<string>("recharge");
+  const [newPkgAmount, setNewPkgAmount] = useState<string>("");
+  const [newPkgPrice, setNewPkgPrice] = useState<string>("");
+  const [newPkgValidity, setNewPkgValidity] = useState<string>("");
+  const [newPkgIsOffer, setNewPkgIsOffer] = useState<boolean>(false);
+  const [newPkgOfferText, setNewPkgOfferText] = useState<string>("");
+
+  // Edit package inline state
+  const [editingPkgId, setEditingPkgId] = useState<string | null>(null);
+  const [editPkgPrice, setEditPkgPrice] = useState<string>("");
+  const [editPkgIsOffer, setEditPkgIsOffer] = useState<boolean>(false);
+  const [editPkgOfferText, setEditPkgOfferText] = useState<string>("");
+  const [editPkgIsActive, setEditPkgIsActive] = useState<boolean>(true);
+
   // Home Alerts states
   const [homeAlertsList, setHomeAlertsList] = useState<any[]>([]);
   const [newHomeAlert, setNewHomeAlert] = useState({
@@ -643,6 +664,22 @@ export default function AdminPanel() {
           return dateB - dateA;
         });
         setReviews(list);
+      } else if (tab === "recharge") {
+        const qO = query(collection(db, "rechargeOrders"));
+        const snapshotO = await getDocs(qO);
+        const listO = snapshotO.docs.map(d => ({ id: d.id, ...d.data() }));
+        listO.sort((a: any, b: any) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+        setRechargeOrders(listO);
+
+        const qP = query(collection(db, "rechargePackages"));
+        const snapshotP = await getDocs(qP);
+        const listP = snapshotP.docs.map(d => ({ id: d.id, ...d.data() }));
+        listP.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+        setRechargePackages(listP);
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, tab);
@@ -2161,6 +2198,172 @@ export default function AdminPanel() {
     }
   };
 
+  // ==========================================
+  // MOBILE RECHARGE ADMIN ACTIONS
+  // ==========================================
+
+  const handleCompleteRechargeOrder = async (orderId: string) => {
+    try {
+      await updateDoc(doc(db, "rechargeOrders", orderId), {
+        status: "completed",
+        completedAt: new Date().toISOString()
+      });
+      showStatusMsg("রিচার্জ অনুরোধ সফলভাবে সম্পন্ন করা হয়েছে ভাই!");
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error completing recharge order:", err);
+      showStatusMsg("অনুরোধ সম্পন্ন করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleFailRechargeOrder = async (order: any) => {
+    try {
+      // 1. Update order status to failed
+      await updateDoc(doc(db, "rechargeOrders", order.id), {
+        status: "failed",
+        completedAt: new Date().toISOString()
+      });
+
+      // 2. Refund balance to user
+      if (order.userId && order.price > 0) {
+        await updateDoc(doc(db, "users", order.userId), {
+          balance: increment(order.price)
+        });
+      }
+
+      showStatusMsg(`রিচার্জ অনুরোধ ব্যর্থ করা হয়েছে এবং $${order.price} USD গ্রাহকের ওয়ালেটে ফেরত দেওয়া হয়েছে ভাই!`);
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error failing recharge order:", err);
+      showStatusMsg("অনুরোধ বাতিল করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleAddRechargePackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPkgAmount.trim() || !newPkgPrice) {
+      showStatusMsg("সব তথ্য সঠিকভাবে প্রদান করুন ভাই।", true);
+      return;
+    }
+
+    try {
+      const priceNum = Number(newPkgPrice);
+      if (isNaN(priceNum)) {
+        showStatusMsg("মূল্য সঠিক সংখ্যা হতে হবে ভাই।", true);
+        return;
+      }
+
+      const id = "pkg_" + Date.now().toString();
+      let operatorName = "Grameenphone";
+      let operatorColor = "#EE3439";
+      let operatorLogo = "🟥";
+
+      if (newPkgOperatorCode === "GP") {
+        operatorName = "Grameenphone";
+        operatorColor = "#EE3439";
+        operatorLogo = "🟥";
+      } else if (newPkgOperatorCode === "RB") {
+        operatorName = "Robi";
+        operatorColor = "#E2001A";
+        operatorLogo = "🔴";
+      } else if (newPkgOperatorCode === "BL") {
+        operatorName = "Banglalink";
+        operatorColor = "#F7941D";
+        operatorLogo = "🟠";
+      } else if (newPkgOperatorCode === "TT") {
+        operatorName = "Teletalk";
+        operatorColor = "#006838";
+        operatorLogo = "🟢";
+      } else if (newPkgOperatorCode === "AT") {
+        operatorName = "Airtel";
+        operatorColor = "#ED1C24";
+        operatorLogo = "❤️";
+      }
+
+      // Find max order to assign next
+      const maxOrder = rechargePackages.reduce((max, p) => Math.max(max, p.order || 0), 0);
+
+      const payload = {
+        id,
+        operator: operatorName,
+        operatorCode: newPkgOperatorCode,
+        color: operatorColor,
+        logo: operatorLogo,
+        type: newPkgType,
+        amount: newPkgAmount.trim(),
+        price: priceNum,
+        validity: newPkgValidity.trim() || "",
+        isActive: true,
+        isOffer: newPkgIsOffer,
+        offerText: newPkgOfferText.trim() || "",
+        order: maxOrder + 1
+      };
+
+      await setDoc(doc(db, "rechargePackages", id), payload);
+      showStatusMsg("নতুন রিচার্জ প্যাকেজ সফলভাবে যোগ করা হয়েছে ভাই!");
+      
+      // Clear inputs
+      setNewPkgAmount("");
+      setNewPkgPrice("");
+      setNewPkgValidity("");
+      setNewPkgIsOffer(false);
+      setNewPkgOfferText("");
+
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error adding recharge package:", err);
+      showStatusMsg("প্যাকেজ যোগ করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleUpdateRechargePackage = async (id: string) => {
+    try {
+      const priceNum = Number(editPkgPrice);
+      if (isNaN(priceNum)) {
+        showStatusMsg("সঠিক মূল্য দিন ভাই।", true);
+        return;
+      }
+
+      await updateDoc(doc(db, "rechargePackages", id), {
+        price: priceNum,
+        isOffer: editPkgIsOffer,
+        offerText: editPkgOfferText.trim(),
+        isActive: editPkgIsActive
+      });
+
+      showStatusMsg("প্যাকেজ সফলভাবে আপডেট করা হয়েছে ভাই!");
+      setEditingPkgId(null);
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error updating recharge package:", err);
+      showStatusMsg("প্যাকেজ আপডেট করতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
+  const handleTogglePackageActive = async (id: string, currentVal: boolean) => {
+    try {
+      await updateDoc(doc(db, "rechargePackages", id), {
+        isActive: !currentVal
+      });
+      showStatusMsg("প্যাকেজের সক্রিয়তা পরিবর্তন করা হয়েছে ভাই!");
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error toggling package active:", err);
+    }
+  };
+
+  const handleDeleteRechargePackage = async (id: string) => {
+    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই প্যাকেজটি ডিলিট করতে চান ভাই?")) return;
+    try {
+      await deleteDoc(doc(db, "rechargePackages", id));
+      showStatusMsg("প্যাকেজটি সফলভাবে মুছে ফেলা হয়েছে ভাই!");
+      fetchTabData("recharge");
+    } catch (err) {
+      console.error("Error deleting recharge package:", err);
+      showStatusMsg("প্যাকেজ মুছতে সমস্যা হয়েছে ভাই।", true);
+    }
+  };
+
   if (!isAdminLoggedIn) {
     return (
       <div className="min-h-screen bg-[#F0F4F8] flex flex-col items-center justify-center p-4 font-sans text-[#1A1A2E]">
@@ -2237,6 +2440,7 @@ export default function AdminPanel() {
           { id: "referral", name: "রেফারেল" },
           { id: "deposit", name: "ডিপোজিট" },
           { id: "transfer", name: "ট্রান্সফার" },
+          { id: "recharge", name: "মোবাইল রিচার্জ" },
           { id: "passwordResets", name: "পাসওয়ার্ড রিসেট" },
           { id: "reviews", name: "রিভিউসমূহ" },
           { id: "jobs", name: "চাকরি" },
@@ -2256,6 +2460,8 @@ export default function AdminPanel() {
             count = employers.filter(e => e.verificationStatus === "pending").length;
           } else if (tab.id === "passwordResets") {
             count = passwordResets.filter(r => r.status === "pending").length;
+          } else if (tab.id === "recharge") {
+            count = rechargeOrders.filter(r => r.status === "pending").length;
           }
 
           const isActive = activeTab === tab.id;
@@ -3364,7 +3570,364 @@ export default function AdminPanel() {
                       </div>
                     ))
                   )}
+                  </div>
                 </div>
+              )}
+
+            {/* ==== MOBILE RECHARGE TAB ==== */}
+            {activeTab === "recharge" && (
+              <div className="space-y-4 text-left font-sans animate-fade-in pb-12">
+                {/* Header info */}
+                <div className="bg-[#1B4F72] text-white p-4 rounded-2xl">
+                  <h2 className="text-[15px] font-medium font-sans">মোবাইল রিচার্জ কন্ট্রোল প্যানেল</h2>
+                  <p className="text-[11px] opacity-90 font-sans">রিচার্জ অনুরোধ প্রসেস করুন এবং packages পরিচালনা করুন</p>
+                </div>
+
+                {/* Sub-tabs Selector */}
+                <div className="flex bg-white rounded-xl p-1 border select-none text-xs" style={{ borderColor: "#E5E7EB", borderWidth: "0.5px" }}>
+                  <button
+                    onClick={() => setRechargeSubTab("orders")}
+                    className={`flex-1 py-2 font-medium rounded-lg transition-all cursor-pointer ${
+                      rechargeSubTab === "orders"
+                        ? "bg-[#1B4F72] text-white shadow-sm"
+                        : "text-[#6B7280] hover:bg-gray-100"
+                    }`}
+                  >
+                    অনুরোধ ({rechargeOrders.filter(o => o.status === "pending").length})
+                  </button>
+                  <button
+                    onClick={() => setRechargeSubTab("packages")}
+                    className={`flex-1 py-2 font-medium rounded-lg transition-all cursor-pointer ${
+                      rechargeSubTab === "packages"
+                        ? "bg-[#1B4F72] text-white shadow-sm"
+                        : "text-[#6B7280] hover:bg-gray-100"
+                    }`}
+                  >
+                    প্যাকেজ ({rechargePackages.length})
+                  </button>
+                </div>
+
+                {/* Sub-tab 1: Orders / Requests */}
+                {rechargeSubTab === "orders" && (
+                  <div className="space-y-4">
+                    {rechargeOrders.length === 0 ? (
+                      <div className="bg-white border rounded-2xl p-8 text-center text-xs text-gray-400 italic border-[#E5E7EB]">
+                        কোনো রিচার্জ অনুরোধ পাওয়া যায়নি ভাই।
+                      </div>
+                    ) : (
+                      rechargeOrders.map((order) => (
+                        <div key={order.id} className="bg-white border rounded-2xl p-4 space-y-3 shadow-sm border-[#E5E7EB] text-xs">
+                          {/* Top row */}
+                          <div className="flex justify-between items-center border-b pb-2 border-gray-100">
+                            <div>
+                              <span className="font-semibold text-gray-900 block">{order.userName}</span>
+                              <span className="text-[10px] text-gray-400 font-sans">ব্যবহারকারী: {order.userPhone || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                order.status === "pending"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : order.status === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}>
+                                {order.status === "pending" ? "পেন্ডিং" : order.status === "completed" ? "সম্পন্ন" : "ব্যর্থ"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Order Details */}
+                          <div className="grid grid-cols-2 gap-2 text-left bg-[#F9FAFB] rounded-xl p-3 border border-gray-50">
+                            <div>
+                              <p className="text-[#6B7280] text-[10px]">রিচার্জ নম্বর</p>
+                              <p className="font-bold text-gray-900 font-sans text-xs tracking-wider">{order.recipientNumber}</p>
+                            </div>
+                            <div>
+                              <p className="text-[#6B7280] text-[10px]">অপারেটর</p>
+                              <p className="font-semibold text-gray-900">{order.operator}</p>
+                            </div>
+                            <div>
+                              <p className="text-[#6B7280] text-[10px]">প্যাকেজ / পরিমাণ</p>
+                              <p className="font-semibold text-gray-900">{order.packageType === 'recharge' ? '৳' + order.amount : order.amount}</p>
+                            </div>
+                            <div>
+                              <p className="text-[#6B7280] text-[10px]">মূল্য (USD)</p>
+                              <p className="font-bold text-[#1B4F72] font-sans">${order.price?.toFixed(2)}</p>
+                            </div>
+                          </div>
+
+                          {/* Time */}
+                          <div className="text-[10px] text-gray-400 text-left font-sans">
+                            তারিখ: {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
+                          </div>
+
+                          {/* Action Buttons for pending order */}
+                          {order.status === "pending" && (
+                            <div className="flex gap-2 pt-1 border-t border-gray-100">
+                              <button
+                                onClick={() => handleCompleteRechargeOrder(order.id)}
+                                className="flex-1 h-9 bg-[#1D9E75] text-white text-[11px] font-semibold rounded-lg cursor-pointer hover:bg-opacity-95 transition-all"
+                              >
+                                সম্পন্ন ✓
+                              </button>
+                              <button
+                                onClick={() => handleFailRechargeOrder(order)}
+                                className="flex-1 h-9 bg-[#E74C3C] text-white text-[11px] font-semibold rounded-lg cursor-pointer hover:bg-opacity-95 transition-all"
+                              >
+                                ব্যর্থ ✗ (রিফান্ড করুন)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-tab 2: Packages */}
+                {rechargeSubTab === "packages" && (
+                  <div className="space-y-6">
+                    {/* ADD NEW PACKAGE FORM */}
+                    <form onSubmit={handleAddRechargePackage} className="bg-white border rounded-2xl p-4 space-y-3 shadow-sm border-[#E5E7EB]">
+                      <h3 className="text-xs font-semibold text-gray-900 border-b pb-2">নতুন প্যাকেজ যোগ করুন</h3>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium text-gray-500">অপারেটর</label>
+                          <select
+                            value={newPkgOperatorCode}
+                            onChange={(e) => setNewPkgOperatorCode(e.target.value)}
+                            className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2 outline-none"
+                          >
+                            <option value="GP">Grameenphone (GP)</option>
+                            <option value="RB">Robi</option>
+                            <option value="BL">Banglalink (BL)</option>
+                            <option value="TT">Teletalk</option>
+                            <option value="AT">Airtel</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium text-gray-500">টাইপ</label>
+                          <select
+                            value={newPkgType}
+                            onChange={(e) => setNewPkgType(e.target.value)}
+                            className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2 outline-none"
+                          >
+                            <option value="recharge">রিচার্জ</option>
+                            <option value="mb">MB প্যাক</option>
+                            <option value="minute">মিনিট</option>
+                            <option value="mixed">মিক্সড</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium text-gray-500">পরিমাণ (যেমন: ৫০, 1GB)</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="পরিমাণ"
+                            value={newPkgAmount}
+                            onChange={(e) => setNewPkgAmount(e.target.value)}
+                            className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2.5 outline-none font-sans"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-medium text-gray-500">মূল্য (USD)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            placeholder="যেমন: 0.45"
+                            value={newPkgPrice}
+                            onChange={(e) => setNewPkgPrice(e.target.value)}
+                            className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2.5 outline-none font-sans"
+                          />
+                        </div>
+
+                        <div className="space-y-1 col-span-2">
+                          <label className="text-[10px] font-medium text-gray-500">মেয়াদ (MB/মিনিট প্যাকের জন্য)</label>
+                          <input
+                            type="text"
+                            placeholder="যেমন: ৭ দিন, ৩০ দিন"
+                            value={newPkgValidity}
+                            onChange={(e) => setNewPkgValidity(e.target.value)}
+                            className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2.5 outline-none font-sans"
+                          />
+                        </div>
+
+                        {/* isOffer */}
+                        <div className="col-span-2 flex items-center justify-between py-1 bg-gray-50 px-2 rounded-lg border border-gray-100">
+                          <span className="text-[11px] font-medium text-gray-600">বিশেষ অফার?</span>
+                          <input
+                            type="checkbox"
+                            checked={newPkgIsOffer}
+                            onChange={(e) => setNewPkgIsOffer(e.target.checked)}
+                            className="w-4 h-4 accent-[#1B4F72] cursor-pointer"
+                          />
+                        </div>
+
+                        {newPkgIsOffer && (
+                          <div className="space-y-1 col-span-2">
+                            <label className="text-[10px] font-medium text-gray-500">অফার টেক্সট (যেমন: সাশ্রয়ী!, ধামাকা!)</label>
+                            <input
+                              type="text"
+                              placeholder="অফার টেক্সট দিন"
+                              value={newPkgOfferText}
+                              onChange={(e) => setNewPkgOfferText(e.target.value)}
+                              className="w-full h-9 bg-gray-50 border border-gray-200 rounded-lg text-xs px-2.5 outline-none font-sans"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full h-10 bg-[#1B4F72] text-white text-xs font-semibold rounded-xl cursor-pointer hover:bg-opacity-95 transition-all mt-2"
+                      >
+                        প্যাকেজ সংরক্ষণ করুন
+                      </button>
+                    </form>
+
+                    {/* PACKAGES LIST */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold text-gray-900">বিদ্যমান প্যাকেজসমূহ ({rechargePackages.length})</h3>
+
+                      {rechargePackages.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">কোনো প্যাকেজ নেই ভাই।</p>
+                      ) : (
+                        rechargePackages.map((pkg) => {
+                          const isEditingThis = editingPkgId === pkg.id;
+                          return (
+                            <div key={pkg.id} className="bg-white border rounded-2xl p-4 shadow-sm border-[#E5E7EB] space-y-3 text-xs">
+                              {/* Top row */}
+                              <div className="flex justify-between items-center border-b pb-2 border-gray-100">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{pkg.logo || "🟥"}</span>
+                                  <span className="font-semibold text-gray-900">{pkg.operator} ({pkg.type?.toUpperCase()})</span>
+                                </div>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => {
+                                      if (isEditingThis) {
+                                        setEditingPkgId(null);
+                                      } else {
+                                        setEditingPkgId(pkg.id);
+                                        setEditPkgPrice(pkg.price.toString());
+                                        setEditPkgIsOffer(pkg.isOffer || false);
+                                        setEditPkgOfferText(pkg.offerText || "");
+                                        setEditPkgIsActive(pkg.isActive !== false);
+                                      }
+                                    }}
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded text-[10px] font-medium"
+                                  >
+                                    {isEditingThis ? "বাতিল" : "সম্পাদনা"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteRechargePackage(pkg.id)}
+                                    className="bg-red-50 hover:bg-red-100 text-[#E74C3C] px-2 py-1 rounded text-[10px] font-medium"
+                                  >
+                                    মুছে ফেলুন
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Display vs Edit Block */}
+                              {!isEditingThis ? (
+                                <div className="space-y-1.5 text-left">
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                      <p className="text-[10px] text-gray-400">পরিমাণ</p>
+                                      <p className="font-semibold text-gray-800">{pkg.type === 'recharge' ? '৳' + pkg.amount : pkg.amount}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-400">মূল্য (USD)</p>
+                                      <p className="font-semibold text-[#1B4F72] font-sans">${pkg.price?.toFixed(2)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-gray-400">মেয়াদ</p>
+                                      <p className="font-semibold text-gray-800 font-sans">{pkg.validity || "N/A"}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-semibold ${
+                                      pkg.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                                    }`}>
+                                      {pkg.isActive ? "সক্রিয়" : "নিষ্ক্রিয়"}
+                                    </span>
+                                    {pkg.isOffer && (
+                                      <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[9px] font-semibold">
+                                        বিশেষ অফার: {pkg.offerText || "হ্যাঁ"}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2 text-left pt-1">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] text-gray-400 font-semibold block font-sans">মূল্য (USD)</label>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={editPkgPrice}
+                                        onChange={(e) => setEditPkgPrice(e.target.value)}
+                                        className="w-full h-8 bg-gray-50 border border-gray-200 rounded px-2 outline-none text-xs font-sans"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] text-gray-400 font-semibold block font-sans">অবস্থা</label>
+                                      <select
+                                        value={editPkgIsActive ? "active" : "inactive"}
+                                        onChange={(e) => setEditPkgIsActive(e.target.value === "active")}
+                                        className="w-full h-8 bg-gray-50 border border-gray-200 rounded px-1.5 outline-none text-xs"
+                                      >
+                                        <option value="active">সক্রিয় (Active)</option>
+                                        <option value="inactive">নিষ্ক্রিয় (Inactive)</option>
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between py-1 bg-gray-50 px-2 rounded border border-gray-100">
+                                    <span className="text-[10px] font-medium text-gray-600">বিশেষ অফার?</span>
+                                    <input
+                                      type="checkbox"
+                                      checked={editPkgIsOffer}
+                                      onChange={(e) => setEditPkgIsOffer(e.target.checked)}
+                                      className="w-3.5 h-3.5 accent-[#1B4F72]"
+                                    />
+                                  </div>
+
+                                  {editPkgIsOffer && (
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] text-gray-400 block font-semibold">অফার টেক্সট</label>
+                                      <input
+                                        type="text"
+                                        value={editPkgOfferText}
+                                        onChange={(e) => setEditPkgOfferText(e.target.value)}
+                                        className="w-full h-8 bg-gray-50 border border-gray-200 rounded px-2 outline-none text-xs font-sans"
+                                      />
+                                    </div>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleUpdateRechargePackage(pkg.id)}
+                                    className="w-full h-8 bg-[#1B4F72] text-white rounded text-[11px] font-semibold hover:bg-opacity-95 cursor-pointer mt-1"
+                                  >
+                                    আপডেট করুন
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

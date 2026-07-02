@@ -1,6 +1,6 @@
 export type Language = "BN" | "EN" | "KH";
 
-export type NavTab = "home" | "services" | "chat" | "notifications" | "profile" | "admin" | "deposit" | "transfer" | "transferStatus" | "emergency" | "referral";
+export type NavTab = "home" | "services" | "chat" | "notifications" | "profile" | "admin" | "deposit" | "transfer" | "transferStatus" | "emergency" | "referral" | "recharge";
 
 export interface Transaction {
   id: string;

@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp, deleteDoc } from "firebase/firestore";
 
 export async function seedDatabaseIfNeeded() {
   try {
@@ -222,3 +222,53 @@ export async function seedPaymentMethodsIfNeeded() {
     }
   }
 }
+
+export async function seedRechargePackagesIfNeeded() {
+  try {
+    const snap = await getDocs(collection(db, "rechargePackages"));
+    
+    // Check for and delete old ৳10 packages or any other package under 20 taka
+    const deletedIds: string[] = ['gp1', 'rb1', 'bl1', 'tt1', 'at1'];
+    for (const d of snap.docs) {
+      const data = d.data();
+      const amt = parseFloat(data.amount || "0");
+      if (deletedIds.includes(d.id) || (data.type === "recharge" && (amt < 20 || isNaN(amt)))) {
+        await deleteDoc(doc(db, "rechargePackages", d.id));
+        console.log(`Deleted old recharge package: ${d.id}`);
+      }
+    }
+
+    const packages = [
+      // Grameenphone
+      { id: 'gp2', operator: 'Grameenphone', operatorCode: 'GP', color: '#EE3439', logo: '🟥', type: 'recharge', amount: '20', price: 0.17, isActive: true, isOffer: false, offerText: '', order: 2 },
+      { id: 'gp3', operator: 'Grameenphone', operatorCode: 'GP', color: '#EE3439', logo: '🟥', type: 'mb', amount: '1GB', price: 0.45, validity: '7 দিন', isActive: true, isOffer: true, offerText: 'সাশ্রয়ী!', order: 3 },
+      { id: 'gp4', operator: 'Grameenphone', operatorCode: 'GP', color: '#EE3439', logo: '🟥', type: 'mb', amount: '5GB', price: 1.80, validity: '30 দিন', isActive: true, isOffer: false, offerText: '', order: 4 },
+
+      // Robi
+      { id: 'rb_recharge_20', operator: 'Robi', operatorCode: 'RB', color: '#E2001A', logo: '🔴', type: 'recharge', amount: '20', price: 0.17, isActive: true, isOffer: false, offerText: '', order: 5 },
+      { id: 'rb2', operator: 'Robi', operatorCode: 'RB', color: '#E2001A', logo: '🔴', type: 'mb', amount: '2GB', price: 0.72, validity: '7 দিন', isActive: true, isOffer: true, offerText: 'জনপ্রিয়!', order: 6 },
+
+      // Banglalink
+      { id: 'bl_recharge_20', operator: 'Banglalink', operatorCode: 'BL', color: '#F7941D', logo: '🟠', type: 'recharge', amount: '20', price: 0.17, isActive: true, isOffer: false, offerText: '', order: 7 },
+      { id: 'bl2', operator: 'Banglalink', operatorCode: 'BL', color: '#F7941D', logo: '🟠', type: 'mb', amount: '3GB', price: 0.90, validity: '30 দিন', isActive: true, isOffer: true, offerText: 'সেরা ডিল!', order: 8 },
+
+      // Teletalk
+      { id: 'tt_recharge_20', operator: 'Teletalk', operatorCode: 'TT', color: '#006838', logo: '🟢', type: 'recharge', amount: '20', price: 0.17, isActive: true, isOffer: false, offerText: '', order: 9 },
+
+      // Airtel
+      { id: 'at_recharge_20', operator: 'Airtel', operatorCode: 'AT', color: '#ED1C24', logo: '❤️', type: 'recharge', amount: '20', price: 0.17, isActive: true, isOffer: false, offerText: '', order: 10 }
+    ];
+
+    for (const p of packages) {
+      await setDoc(doc(db, "rechargePackages", p.id), p);
+    }
+    console.log("Seeding recharge packages finished successfully!");
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("offline")) {
+      console.warn("Recharge packages seeding skipped: Firebase client is offline.");
+    } else {
+      console.error("Error seeding recharge packages:", err);
+    }
+  }
+}
+
